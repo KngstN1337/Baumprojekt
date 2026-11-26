@@ -43,6 +43,7 @@ Systemschrift (auf dem iPhone SF Pro). Größen: Großer Titel 34 px fett · Tex
 | `.group` + `.cell` | Gruppierte Liste (iOS-Tabelle). Trennlinien entstehen automatisch. `.cell-tx` für Titel/Unterzeile, `.cell-st` für Status rechts, `.chev` als Pfeil, `.link-cell` für Aktionen. `.cell-tx.wrap` erlaubt Zeilenumbruch. |
 | `.picker` | Zelle mit Auswahlmenü: `<label class="cell picker"><div class="cell-tx"><b>Gewählter Wert</b></div><span class="val">Wechseln<svg><use href="#i-updown"/></svg></span><select>…</select></label>`. Für alle Auswahllisten, die lang werden können (statt Radio-Listen). |
 | `.danger-cell` | Zerstörende Aktion als Zeile (rot, eigene Gruppe ganz unten). Immer mit Sicherheitsabfrage, die sagt, was passiert und ob es wiederherstellbar ist. |
+| `.swipe` | Wischzeile wie in iOS-Listen: Antippen öffnet, nach links wischen zeigt Aktionen. Aufbau `<div class="swipe" data-ni="…"><div class="swipe-acts"><button class="swipe-act" data-act="edit">…</button><button class="swipe-act del" data-act="del">…</button></div><div class="swipe-row">Inhalt</div></div>`, verdrahtet mit `initSwipe(liste, beiAntippen, beiAktion)` in app.js. Löschen (`.del`, rot) immer ganz rechts und mit Sicherheitsabfrage. |
 | `.avatar` | Runder Kreis mit Initialen; `.big` für Kopfbereich. |
 | `.btn-filled` | Hauptaktion (eine pro Ansicht). `.btn-gray` für die zweite Aktion daneben. In `.actions` nebeneinander. |
 | `.text-btn` | Kleiner Text-Knopf in Akzentfarbe. |
@@ -51,7 +52,7 @@ Systemschrift (auf dem iPhone SF Pro). Größen: Großer Titel 34 px fett · Tex
 | `.switch` | Ein/Aus-Schalter (`<input type="checkbox" class="switch">`). |
 | `.form .field` | Formularzeile in einer `.group`: Beschriftung links, Eingabe rechts. |
 | `.card` | Freier Text (Hilfe, Erklärungen). `details.card` zum Aufklappen. |
-| `.tag` | Kleines Schlagwort (z. B. Kategorie). |
+| `.tag` | Kleines Schlagwort (z. B. „am PC“). |
 | `.empty` | Hinweis, wenn eine Liste leer ist. |
 | `.sheet` + `.dim` | Fenster von unten (wie Aufnahme). Öffnen über `body.sheet-open`. |
 | `.banner`, `toast()`, `busy()` | Hinweise oben, kurze Meldung unten, Warte-Anzeige. |

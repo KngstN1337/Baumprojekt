@@ -51,7 +51,7 @@ svg{fill:currentColor}
 .dim{position:fixed;inset:0;background:rgba(0,0,0,.32);opacity:0;pointer-events:none;transition:opacity .3s;z-index:10}
 .sheet{position:fixed;left:0;right:0;bottom:0;max-width:640px;margin:0 auto;max-height:92vh;overflow:auto;background:var(--sheet);border-radius:14px 14px 0 0;padding:8px 20px calc(24px + env(safe-area-inset-bottom));transform:translateY(105%);transition:transform .38s cubic-bezier(.3,.7,.2,1);z-index:11}
 body.sheet-open .dim{opacity:1;pointer-events:auto}body.sheet-open .sheet{transform:none}
-.grab{width:36px;height:5px;border-radius:3px;background:var(--sep);margin:0 auto 14px}
+.grab-zone{margin:-8px -20px 6px;padding:8px 0;cursor:grab;touch-action:none}.grab{width:36px;height:5px;border-radius:3px;background:var(--sep);margin:0 auto}
 .sheet h3{font-size:17px;font-weight:600;text-align:center;margin:0}
 .sheet-sub{text-align:center;color:var(--sec);font-size:14px;margin:2px 0 0}
 .segmented{display:flex;background:var(--fill);border-radius:9px;padding:2px;margin:0 0 20px}
@@ -106,6 +106,14 @@ code{font-size:.9em}
 .subtitle.picker{display:flex;align-items:center;gap:4px;cursor:pointer}.subtitle.picker b{color:var(--tint);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}.subtitle.picker svg{width:11px;height:11px;color:var(--tint);flex:0 0 auto}.subtitle.picker .rest{white-space:nowrap}
 .danger-cell{color:var(--red)}
 .danger-text{color:var(--red);display:block;margin:10px auto 0}
+/* Wischzeile: nach links wischen zeigt Aktionen (iOS-Listenaktionen). Aufbau: .swipe > .swipe-acts (Knöpfe) + .swipe-row (Inhalt) */
+.swipe{position:relative;overflow:hidden}
+.swipe+.swipe::after{content:"";position:absolute;top:0;left:16px;right:0;height:.5px;background:var(--sep);z-index:2}
+.swipe-acts{position:absolute;top:0;right:0;bottom:0;display:flex}.swipe:not(.offen) .swipe-acts{visibility:hidden}
+.swipe-act{border:0;width:84px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:13px;font-weight:500;color:#fff;background:var(--tint);padding:0}
+.swipe-act svg{width:20px;height:20px}
+.swipe-act.del{background:var(--red)}
+.swipe-row{position:relative;z-index:1;background:var(--card);touch-action:pan-y;transition:transform .25s cubic-bezier(.2,.8,.2,1);user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
 .tappable{cursor:pointer}.tappable:active{background:var(--fill)}
 .note-m .chev{margin-left:auto}
 /* Datumsfelder: iOS richtet den Wert sonst links aus */
