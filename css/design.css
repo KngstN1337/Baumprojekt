@@ -105,3 +105,9 @@ code{font-size:.9em}
 /* Untertitel als Auswahl (z. B. Lehrgang wechseln) */
 .subtitle.picker{display:flex;align-items:center;gap:4px;cursor:pointer}.subtitle.picker b{color:var(--tint);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}.subtitle.picker svg{width:11px;height:11px;color:var(--tint);flex:0 0 auto}.subtitle.picker .rest{white-space:nowrap}
 .danger-cell{color:var(--red)}
+.danger-text{color:var(--red);display:block;margin:10px auto 0}
+.tappable{cursor:pointer}.tappable:active{background:var(--fill)}
+.note-m .chev{margin-left:auto}
+/* Datumsfelder: iOS richtet den Wert sonst links aus */
+.form input[type=date]{display:flex;justify-content:flex-end;-webkit-appearance:none;appearance:none;min-height:1.4em}
+.form input[type=date]::-webkit-date-and-time-value{text-align:right}
