@@ -118,7 +118,7 @@
       <details class="card" open><summary>Erste Schritte</summary>
         <ol>
           <li><b>Auf den Startbildschirm legen:</b> Im Browser-Menü „Zum Startbildschirm hinzufügen“ (iPhone: Teilen-Symbol ↑). Dann startet die App wie jede andere.</li>
-          <li><b>OpenAI-Schlüssel eintragen</b> unter ⚙️ Einstellungen. Der Schlüssel sorgt für Spracherkennung und Zuordnung. Du bekommst ihn auf platform.openai.com unter „API keys“.</li>
+          <li><b>OpenAI-Schlüssel eintragen</b> unter ⚙️ Einstellungen. Der Schlüssel sorgt für Spracherkennung und Zuordnung. Dort steht unter „So bekommst du den Schlüssel“ eine Schritt-für-Schritt-Anleitung.</li>
           <li><b>Lehrgang anlegen</b> unter 📁 Lehrgang → „+ Neuer Lehrgang“: Name, erster Tag, 4 oder 10 Wochen und die Teams (Teilnehmer/in und Hund).</li>
         </ol>
       </details>
@@ -162,8 +162,19 @@
         <p class="small muted">Die Lehrgänge liegen im Ordner „Baumprojekt Lehrgänge“ in deinem Google Drive. Die App sieht nur diesen Ordner.</p>
         <div class="actions"><button type="button" id="logoutBtn" class="secondary">Abmelden</button><button type="button" id="switchBtn" class="secondary">Konto wechseln</button></div>
         <h3>OpenAI</h3>
-        <label>API-Schlüssel <input name="openaiKey" type="password" autocomplete="off" placeholder="sk-…"></label>
-        <p class="small muted">Der Schlüssel bleibt nur auf diesem Gerät gespeichert und wird direkt an OpenAI geschickt.</p>
+        <p class="small">Die App braucht einen eigenen OpenAI-Schlüssel für Spracherkennung und Zuordnung. Den bekommst du einmalig bei OpenAI.</p>
+        <details id="keyGuide" class="guide"><summary>So bekommst du den Schlüssel (ca. 5 Minuten)</summary>
+          <ol>
+            <li>Öffne <a href="https://platform.openai.com/signup" target="_blank" rel="noopener">platform.openai.com</a> und melde dich an oder lege ein Konto an. Das geht auch mit deinem Google-Konto. (Ein ChatGPT-Abo ist dafür nicht nötig und reicht auch nicht.)</li>
+            <li><b>Guthaben aufladen:</b> Öffne <a href="https://platform.openai.com/settings/organization/billing/overview" target="_blank" rel="noopener">Billing</a>, tippe auf „Add payment details“, hinterlege eine Karte und lade den Mindestbetrag von 5 $ auf. Das reicht für viele Wochen. Ohne Guthaben funktioniert der Schlüssel nicht.</li>
+            <li><b>Schlüssel erstellen:</b> Öffne <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener">API keys</a> und tippe auf „Create new secret key“. Name z. B. „Baumprojekt“, dann „Create secret key“.</li>
+            <li>Tippe bei dem angezeigten Schlüssel (beginnt mit <code>sk-</code>) auf „Copy“. Er wird nur dieses eine Mal angezeigt.</li>
+            <li>Zurück in dieser App: Schlüssel unten ins Feld einfügen (lange tippen → Einfügen) und auf „Speichern“ tippen.</li>
+          </ol>
+        </details>
+        <label>API-Schlüssel <input name="openaiKey" type="password" autocomplete="off" placeholder="sk-… hier einfügen"></label>
+        <div id="keyStatus" class="small"></div>
+        <p class="small muted">🔒 Der Schlüssel wird nur auf diesem Gerät gespeichert und direkt an OpenAI geschickt. Niemand sonst sieht ihn. Nach dem Löschen der Browserdaten oder auf einem neuen Handy musst du ihn erneut einfügen (oder bei OpenAI einen neuen erstellen).</p>
         <details><summary class="small">Modelle</summary>
           <label>Spracherkennung <input name="sttModel"></label>
           <label>Zuordnung <input name="llmModel"></label>

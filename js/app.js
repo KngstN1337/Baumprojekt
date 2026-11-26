@@ -96,7 +96,7 @@
   let rec = null, chunks = [], recStart = 0, recTimer = null, wakeLock = null;
   async function startRec() {
     if (!course) { toast('Bitte zuerst einen Lehrgang anlegen oder wählen.'); go('lehrgang'); return; }
-    if (!settings.openaiKey) { toast('Bitte zuerst den OpenAI-Schlüssel eintragen.'); go('einst'); return; }
+    if (!settings.openaiKey) { toast('Bitte zuerst den OpenAI-Schlüssel eintragen – Anleitung siehe unten.', 5000); go('einst'); return; }
     let stream;
     try { stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } }); }
     catch (e) { toast('Kein Zugriff aufs Mikrofon: ' + e.message, 5000); return; }
@@ -141,7 +141,7 @@
   async function doAssign() {
     const text = $('#transcript').value.trim();
     if (!text) { toast('Kein Text vorhanden.'); return; }
-    if (!settings.openaiKey) { toast('Bitte zuerst den OpenAI-Schlüssel eintragen.'); go('einst'); return; }
+    if (!settings.openaiKey) { toast('Bitte zuerst den OpenAI-Schlüssel eintragen – Anleitung siehe unten.', 5000); go('einst'); return; }
     try {
       busy('Ordne den Teams zu …');
       segments = await S.assign(text, course.teams, { key: settings.openaiKey, model: settings.llmModel });
@@ -265,6 +265,8 @@
   function fillSettings() {
     const f = $('#settingsForm');
     f.openaiKey.value = settings.openaiKey; f.sttModel.value = settings.sttModel; f.llmModel.value = settings.llmModel;
+    $('#keyGuide').open = !settings.openaiKey;
+    $('#keyStatus').textContent = settings.openaiKey ? '' : '⚠ Noch kein Schlüssel eingetragen.';
     updateDriveStatus();
   }
   function updateDriveStatus() {
@@ -279,6 +281,18 @@
     localStorage.setItem('baumprojekt.settings', JSON.stringify(settings));
     if (settings.openaiKey) banner('');
     toast('✓ Einstellungen gespeichert');
+    checkKey();
+  }
+
+  async function checkKey() {
+    const st = $('#keyStatus');
+    if (!settings.openaiKey) { st.textContent = '⚠ Noch kein Schlüssel eingetragen.'; return; }
+    if (!/^sk-/.test(settings.openaiKey)) { st.textContent = '⚠ Der Schlüssel sollte mit „sk-“ beginnen. Bitte prüfen, ob er vollständig kopiert wurde.'; return; }
+    st.textContent = 'Prüfe Schlüssel …';
+    try {
+      const r = await fetch('https://api.openai.com/v1/models', { headers: { Authorization: 'Bearer ' + settings.openaiKey } });
+      st.textContent = r.ok ? '✓ Schlüssel funktioniert.' : r.status === 401 ? '✗ Schlüssel ungültig. Bitte neu kopieren und einfügen.' : '⚠ OpenAI meldet Fehler ' + r.status + '.';
+    } catch (e) { st.textContent = '⚠ Schlüssel konnte nicht geprüft werden (keine Verbindung?).'; }
   }
 
   // ---------------- Anmeldung ----------------
@@ -288,7 +302,7 @@
     lock(false); banner('');
     await loadActive();
     await restoreDraft();
-    if (!settings.openaiKey) banner('<span>Bitte einmal den OpenAI-Schlüssel eintragen.</span><button>Einstellungen</button>', () => { banner(''); go('einst'); });
+    if (!settings.openaiKey) banner('<span>Fast fertig: Für die Spracherkennung brauchst du einmalig einen OpenAI-Schlüssel. Die Anleitung führt dich durch.</span><button>Zur Anleitung</button>', () => { banner(''); go('einst'); });
     else if (!course) { go('lehrgang'); }
   }
   async function login(chooseAccount) {
