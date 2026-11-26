@@ -47,9 +47,10 @@
       $('#zgSeg').innerHTML = [['g', 'Gerüche'], ['v', 'Vorlagen']].map(([k, t]) => '<button type="button" data-tab="' + k + '"' + (k === zgTab ? ' class="on"' : '') + '>' + t + '</button>').join('');
       ctx.show('#zgPanelG', zgTab === 'g'); ctx.show('#zgPanelV', zgTab === 'v');
       const zellen = l => l.map(n => '<div class="cell"><div class="cell-tx"><b>' + esc(n) + '</b></div></div>').join('');
-      $('#zgVordef').innerHTML = vordefGruppen().map(g => '<div class="section-h">' + esc(g.gruppe) + '</div><div class="group">' + zellen(g.namen) + '</div>').join('');
-      // Früher selbst angelegte Gerüche/Vorlagen bleiben sichtbar und in der Suche, damit nichts verloren geht
-      $('#zgEigene').innerHTML = st.gerueche.length ? '<div class="section-h">Früher selbst angelegt</div><div class="group">' + zellen(st.gerueche) + '</div>' : '';
+      $('#zgVordef').innerHTML = vordefGruppen().map(g => '<div class="section-h">' + esc(g.gruppe) + ' · vordefiniert</div><div class="group">' + zellen(g.namen) + '</div>').join('');
+      // Eigene Gerüche: antippen = umbenennen/löschen
+      $('#zgEigene').innerHTML = st.gerueche.map((n, i) => '<button type="button" class="cell" data-eg="' + i + '"><div class="cell-tx"><b>' + esc(n) + '</b></div>' + CHEV + '</button>').join('');
+      ctx.show('#zgEigene', st.gerueche.length > 0);
       const zeile = v => '<div class="cell"><div class="cell-tx wrap"><b>' + esc(v.name) + '</b><span>' + esc(v.stoffe.join(', ') || 'keine Stoffe') + '</span></div></div>';
       $('#gvVordef').innerHTML = geruchVorlagen().filter(v => v.vordef).map(zeile).join('') || '<div class="empty">Keine.</div>';
       $('#gvEigene').innerHTML = st.geruchVorlagen.length ? '<div class="section-h">Früher selbst angelegt</div><div class="group">' + st.geruchVorlagen.map(zeile).join('') + '</div>' : '';
@@ -203,7 +204,7 @@
     }
     // „+ Geruch“: in der Liste suchen und antippen, oder neu eintippen (gilt nur für diesen Lehrgang)
     function stoffWaehlen() {
-      const gruppeVon = n => { const g = vordefGruppen().find(g => g.namen.includes(n)); return g ? g.gruppe : 'Früher selbst angelegt'; };
+      const gruppeVon = n => { const g = vordefGruppen().find(g => g.namen.includes(n)); return g ? g.gruppe : 'Eigene'; };
       ctx.openModal('<h3>Geruch hinzufügen</h3><div class="zg-such"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="7" cy="7" r="5"/><path d="M11 11l4 4" stroke-linecap="round"/></svg><input id="asNeu" placeholder="Suchen oder neu eintippen" autocomplete="off" enterkeyhint="done" autocapitalize="sentences"></div>' +
         '<div class="group m-group" id="asList"></div><div class="actions"><button class="btn-filled" data-m="close">Fertig</button></div>');
       const liste = () => {
@@ -216,6 +217,8 @@
       };
       const nimm = name => {
         name = name.trim(); if (!name) return;
+        // Neuer Geruch kommt automatisch zu „Eigene Gerüche“ (Einstellungen), damit er beim nächsten Lehrgang gefunden wird
+        if (geruchMerken(name)) ctx.saveSettings();
         const echt = alleGerueche().find(x => lc(x) === lc(name)) || name;
         if (!form.stoffe.some(x => lc(x) === lc(echt))) form.stoffe.push(echt);
         renderForm(); $('#asNeu').value = ''; liste(); ctx.toast('✓ ' + echt, 1200);
@@ -487,6 +490,9 @@
         $('#zgSeg').addEventListener('click', e => { const b = e.target.closest('[data-tab]'); if (b) { zgTab = b.dataset.tab; renderGerueche(); } });
         if (MIT_SCHRITTEN) $('#v-schritte').addEventListener('click', e => { const b = e.target.closest('[data-sv]'); if (b) schrittVorlage(b.dataset.sv); });
         if (MIT_SCHRITTEN) $('#svPlusBtn').addEventListener('click', () => schrittVorlage('neu'));
+        $('#zgAdd').addEventListener('submit', geruchHinzufuegen);
+        $('#zgAddOk').addEventListener('mousedown', e => e.preventDefault());
+        $('#zgEigene').addEventListener('click', e => { const b = e.target.closest('[data-eg]'); if (b) eigenerGeruch(Number(b.dataset.eg)); });
         $('#zgBox').addEventListener('click', teamClick);
         initPlus($('#zgBox')); initPlus($('#v-training'));
         $('#v-training').addEventListener('click', trainingClick);

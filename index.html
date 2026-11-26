@@ -14,8 +14,8 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/icon-192.png">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-  <link rel="stylesheet" href="css/design.css?v=40">
-  <link rel="stylesheet" href="css/style.css?v=40">
+  <link rel="stylesheet" href="css/design.css?v=41">
+  <link rel="stylesheet" href="css/style.css?v=41">
 </head>
 <body class="locked">
   <section id="login" class="login">
@@ -121,7 +121,7 @@
           <div class="zg-tiles" id="gvTiles"></div>
           <div class="section-h" id="gvInfo">Gerüche in diesem Lehrgang</div>
           <div class="group"><div class="zg-chips" id="formStoffe"></div></div>
-          <p class="group-foot">× = Geruch entfernen. Über „+ Geruch“ suchst du in der vordefinierten Liste. Ein neuer Geruch gilt nur für diesen Lehrgang.</p>
+          <p class="group-foot">× = Geruch entfernen. Über „+ Geruch“ suchst du in der Liste oder tippst einen neuen ein. Neue Gerüche merkt sich die App unter Einstellungen → Zielgerüche.</p>
         </div>
         <div class="section-h">Teams</div>
         <div class="group form" id="teamRows"></div>
@@ -180,7 +180,7 @@
         <p>Speichert ihr gleichzeitig, geht nichts verloren: Die App liest die Datei vor dem Speichern neu ein, prüft danach, ob die Notiz wirklich drinsteht, und wiederholt es sonst. Die Notizen des Kollegen erscheinen nach spätestens einer Minute.</p>
       </details>
       <details class="card"><summary>Spürhund: Zielgerüche zählen</summary>
-        <p>Beim Anlegen oder Bearbeiten eines Lehrgangs (Lehrgänge → „Aktuellen Lehrgang bearbeiten“) bei <b>Art</b> „Spürhund“ wählen. Dann eine <b>Vorlage</b> als Kachel antippen. Mit × entfernst du einzelne Gerüche, mit „+ Geruch“ suchst du weitere oder tippst einen neuen ein. Das gilt immer nur für diesen Lehrgang.</p>
+        <p>Beim Anlegen oder Bearbeiten eines Lehrgangs (Lehrgänge → „Aktuellen Lehrgang bearbeiten“) bei <b>Art</b> „Spürhund“ wählen. Dann eine <b>Vorlage</b> als Kachel antippen. Mit × entfernst du einzelne Gerüche, mit „+ Geruch“ suchst du weitere oder tippst einen neuen ein. Eigene Gerüche pflegst du unter Einstellungen → Spürhund → Zielgerüche.</p>
         <ul>
           <li><b>Zählen:</b> Team antippen. Bei jedem Stoff steht ein <b>+1</b>-Knopf. Antippen = eine Belohnung. „Rückgängig“ über der Liste nimmt das letzte +1 zurück (gedrückt halten geht auch).</li>
           <li><b>Zahl eintippen:</b> Auf die Zahl mit dem Stift tippen, Anzahl eingeben, „Dazuzählen“ oder „Abziehen“ wählen. Die Gesamtzahl änderst du, indem du den Stoff und dann „Gesamt“ antippst. Abziehen geht nie unter 0; für ältere Tage oben den Tag wählen.</li>
@@ -317,7 +317,7 @@
       <div class="group"><button type="button" class="cell" id="glossOpen"><div class="cell-tx"><b>Glossar</b></div><span class="cell-st muted" id="glossCount"></span><svg class="chev"><use href="#i-chev"/></svg></button></div>
       <div class="section-h">Spürhund</div>
       <div class="group"><button type="button" class="cell" id="zgOpen"><div class="cell-tx"><b>Zielgerüche</b></div><span class="cell-st muted" id="zgCount"></span><svg class="chev"><use href="#i-chev"/></svg></button></div>
-      <p class="group-foot">Die vordefinierte Liste zum Nachschauen. Angepasst wird direkt im Lehrgang.</p>
+      <p class="group-foot">Eigene Gerüche anlegen und die vordefinierte Liste ansehen.</p>
       <div class="card">
         <button id="wipeBtn" class="danger">Alle LTR-Daten auf diesem Gerät löschen</button>
         <p class="small muted">Löscht den OpenAI-Schlüssel, Einstellungen und nicht gespeicherte Entwürfe auf diesem Gerät. Die Dateien in Google Drive bleiben erhalten.</p>
@@ -353,11 +353,11 @@
     <!-- Zielgerüche (Unterseite der Einstellungen) -->
     <section id="v-gerueche" class="view hidden">
       <div class="navbar"><button class="nav-btn back" data-back="einst"><svg class="chev-l"><use href="#i-back"/></svg>Einstellungen</button><span></span></div>
-      <h1 class="large-title">Zielgerüche</h1><span class="subtitle">Vordefiniert</span>
-      <div class="m-pad"><div class="segmented" id="zgSeg"></div></div>
-      <div id="zgPanelG"><div id="zgVordef"></div><div id="zgEigene"></div></div>
+      <h1 class="large-title">Zielgerüche</h1>
+      <div class="m-pad" style="padding-top:12px"><div class="segmented" id="zgSeg"></div></div>
+      <div id="zgPanelG"><div class="section-h">Eigene Gerüche</div><form id="zgAdd" class="group form" autocomplete="off"><label class="field"><span>Neu</span><input id="zgNeu" placeholder="z. B. Semtex" enterkeyhint="done" autocapitalize="sentences"></label><button type="submit" class="cell link-cell" id="zgAddOk">Hinzufügen</button></form><div class="group" id="zgEigene"></div><div id="zgVordef"></div></div>
       <div id="zgPanelV" class="hidden"><div class="group" id="gvVordef"></div><div id="gvEigene"></div></div>
-      <p class="group-foot">Diese Liste ist fest in der App und wird mit Updates ergänzt. Eigene Gerüche fügst du direkt im Lehrgang mit „+ Geruch“ hinzu.</p>
+      <p class="group-foot">Eigene Gerüche werden in deinem Google Drive gespeichert und erscheinen im Lehrgang bei „+ Geruch“. Die vordefinierte Liste wird mit App-Updates ergänzt.</p>
     </section>
 
   </main>
@@ -421,13 +421,13 @@
   <div id="busy" class="busy hidden"><div class="spinner"></div><div id="busyText">Bitte warten …</div></div>
   <div id="toast" class="toast hidden"></div>
 
-  <script src="config.js?v=40"></script>
+  <script src="config.js?v=41"></script>
   <script src="vendor/exceljs.min.js"></script>
-  <script src="js/workbook.js?v=40"></script>
-  <script src="js/services.js?v=40"></script>
-  <script src="js/vordefiniert.js?v=40"></script>
-  <script src="js/spuerhund.js?v=40"></script>
-  <script src="js/app.js?v=40"></script>
+  <script src="js/workbook.js?v=41"></script>
+  <script src="js/services.js?v=41"></script>
+  <script src="js/vordefiniert.js?v=41"></script>
+  <script src="js/spuerhund.js?v=41"></script>
+  <script src="js/app.js?v=41"></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 </body>
 </html>
