@@ -54,6 +54,38 @@
     if (view === 'schritte') SP.renderSchritte();
     window.scrollTo(0, 0);
   }
+  // Vom linken Rand nach rechts wischen = eine Ebene zurück (wie in iOS), auf Hauptseiten passiert nichts
+  function zurueckKnopf() {
+    const v = document.querySelector('.view:not(.hidden)'); if (!v) return null;
+    return v.querySelector('.navbar .back') || (v.id === 'v-training' ? $('#trDone') : null);
+  }
+  function initEdgeBack() {
+    let d = null;
+    const setX = (v, x, anim) => { v.style.transition = anim ? 'transform .28s cubic-bezier(.2,.8,.2,1)' : 'none'; v.style.transform = x > 0 ? 'translateX(' + x + 'px)' : ''; v.classList.toggle('edge-drag', x > 0); };
+    document.addEventListener('touchstart', e => {
+      d = null;
+      if (e.touches.length !== 1 || e.touches[0].clientX > 28) return;
+      if (document.body.classList.contains('sheet-open') || document.body.classList.contains('modal-open')) return;
+      const btn = zurueckKnopf(); if (!btn) return;
+      d = { x0: e.touches[0].clientX, y0: e.touches[0].clientY, x: 0, t0: Date.now(), on: false, btn, v: btn.closest('.view') };
+    }, { passive: true });
+    document.addEventListener('touchmove', e => {
+      if (!d) return;
+      const dx = e.touches[0].clientX - d.x0, dy = e.touches[0].clientY - d.y0;
+      if (!d.on) { if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return; if (dx <= Math.abs(dy)) { d = null; return; } d.on = true; }
+      e.preventDefault(); d.x = Math.max(0, dx); setX(d.v, d.x, false);
+    }, { passive: false });
+    const ende = () => {
+      if (!d || !d.on) { d = null; return; }
+      const { v, x, t0, btn } = d; d = null;
+      const w = window.innerWidth, schnell = x / Math.max(1, Date.now() - t0) > 0.5;
+      if (x > w * 0.35 || (schnell && x > 50)) {
+        setX(v, w, true);
+        setTimeout(() => { v.style.transition = 'none'; v.style.transform = ''; v.classList.remove('edge-drag'); btn.click(); }, 280);
+      } else setX(v, 0, true);
+    };
+    document.addEventListener('touchend', ende); document.addEventListener('touchcancel', ende);
+  }
   function banner(html, onClick) {
     const b = $('#banner'); b.innerHTML = html; show(b, !!html);
     const btn = b.querySelector('button'); if (btn && onClick) btn.onclick = onClick;
@@ -1100,6 +1132,7 @@
     $('#glossList').addEventListener('click', e => { const b = e.target.closest('[data-gl]'); if (b) openBegriff(Number(b.dataset.gl)); });
     $('#glossOpen').addEventListener('click', () => go('glossar'));
     $('#glossBack').addEventListener('click', () => go('einst'));
+    initEdgeBack();
     document.querySelectorAll('[data-back]').forEach(b => b.addEventListener('click', () => go(b.dataset.back)));
     $('#zgOpen').addEventListener('click', () => go('gerueche'));
     $('#svOpen').addEventListener('click', () => go('schritte'));
