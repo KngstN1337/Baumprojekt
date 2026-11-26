@@ -11,6 +11,20 @@ Weitere Ansichten: **Tag** zeigt pro Tag alle Teams mit ihren Notizen. **Lehrgan
 
 Wenn etwas schiefgeht (kein Netz, Google abgemeldet), bleiben Aufnahme und Vorschau auf dem Handy gespeichert und können später erneut verarbeitet bzw. gespeichert werden.
 
+## Ablage in Google Drive
+```
+Baumprojekt Lehrgänge/
+  <Lehrgangsname>/
+    Lehrgang <Name>.xlsx
+    Aufnahmen/     <Datum> <Uhrzeit> (xxxx) Aufnahme.webm|m4a  +  … Rohtext.txt
+    Sicherungen/   Lehrgang <Name> – Sicherung <Zeitstempel>.xlsx
+```
+- Jede Aufnahme wird direkt nach dem Beenden in einer Warteschlange auf dem Gerät (IndexedDB) abgelegt und von dort nach Drive hochgeladen, noch vor der KI-Verarbeitung. Ohne Netz bleibt sie auf dem Gerät und wird beim nächsten Online-Sein, beim Öffnen der App oder alle 2 Minuten nachgeladen. Der Rohtext der Spracherkennung folgt genauso.
+- Vor jedem Überschreiben der Excel wird der bisherige Stand nach `Sicherungen` kopiert. Schlägt das fehl, wird nicht gespeichert. Die letzten 14 Tage bleiben alle Sicherungen, ältere eine pro Tag (Rest in den Drive-Papierkorb).
+- Aufnahmen sind in der App unter **Tag** (pro Tag) und **Lehrgang** (alle) abspielbar, mit Rohtext.
+- Lehrgänge aus dem alten Aufbau (Excel direkt in „Baumprojekt Lehrgänge“) werden nach der Anmeldung automatisch in einen eigenen Ordner verschoben.
+- Zuordnung über `appProperties` (`baumprojekt=1` für die Lehrgangsdatei, `bpTyp`/`kurs`/`aid` für Aufnahmen und Sicherungen), daher unabhängig von Ordner- und Dateinamen.
+
 ## Excel-Datei (eine pro Lehrgang)
 Aufbau wie die erste Vorlage:
 - **Übersicht**: Zeilen = Teams, Spalten = jeder Kalendertag des Lehrgangs (4 Wochen = 28, 10 Wochen = 70 Spalten), danach „Gesamteindruck“. Erste Spalte und Kopfzeile sind fixiert.

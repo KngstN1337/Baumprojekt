@@ -5,6 +5,9 @@
   const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
   const KATEGORIEN = ['Leinenführigkeit', 'Gehorsam', 'Rückruf', 'Verhalten', 'Sozialverhalten', 'Hausaufgabe', 'Halter/in', 'Sonstiges'];
 
+  const safeName = s => String(s || '').replace(/[\\/:*?"<>|]/g, '-').trim();
+  const stamp = () => { const d = new Date(), p = n => String(n).padStart(2, '0'); return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + '-' + p(d.getMinutes()) + '-' + p(d.getSeconds()); };
+
   // ---------------- OpenAI ----------------
   async function oaiError(res) {
     let msg = res.status + ' ' + res.statusText;
@@ -122,7 +125,7 @@
       });
     },
     // Abmelden: nur auf diesem Gerät. Die Freigabe bei Google bleibt, damit nach dem nächsten Login alle Dateien wieder da sind.
-    logout() { this.token = null; this.expires = 0; this.user = null; localStorage.removeItem('baumprojekt.token'); localStorage.removeItem('baumprojekt.folderId'); },
+    logout() { this.token = null; this.expires = 0; this.user = null; localStorage.removeItem('baumprojekt.token'); localStorage.removeItem('baumprojekt.folderId'); Object.keys(localStorage).filter(k => k.startsWith('baumprojekt.folders.')).forEach(k => localStorage.removeItem(k)); },
     async me() {
       const r = await this.req('https://www.googleapis.com/drive/v3/about?fields=user(displayName,emailAddress)');
       this.user = (await r.json()).user || null;
@@ -152,9 +155,12 @@
       localStorage.setItem('baumprojekt.folderId', id);
       return id;
     },
+    // Aufbau in Drive:  Baumprojekt Lehrgänge / <Lehrgang> / Lehrgang <Name>.xlsx
+    //                                                      / Aufnahmen  (Audio + Rohtext je Diktat)
+    //                                                      / Sicherungen (Stand der Excel vor jedem Speichern)
     async list() {
       const q = encodeURIComponent("appProperties has { key='baumprojekt' and value='1' } and trashed=false");
-      const r = await this.req('https://www.googleapis.com/drive/v3/files?q=' + q + '&orderBy=modifiedTime desc&fields=files(id,name,modifiedTime,webViewLink)');
+      const r = await this.req('https://www.googleapis.com/drive/v3/files?q=' + q + '&orderBy=modifiedTime desc&fields=files(id,name,modifiedTime,webViewLink,parents)');
       return (await r.json()).files || [];
     },
     // Einstellungen (OpenAI-Schlüssel, Modelle) als kleine Datei im eigenen Drive – damit sie auf allen Geräten da sind
@@ -180,23 +186,122 @@
       const mp = '--' + boundary + '\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n' + JSON.stringify(meta) + '\r\n--' + boundary + '\r\nContent-Type: application/json\r\n\r\n' + body + '\r\n--' + boundary + '--';
       await this.req('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', { method: 'POST', headers: { 'Content-Type': 'multipart/related; boundary=' + boundary }, body: mp });
     },
-    async load(id) { const r = await this.req('https://www.googleapis.com/drive/v3/files/' + id + '?alt=media'); return r.arrayBuffer(); },
-    async create(name, buf) {
-      const parent = await this.folderId();
-      const meta = { name, mimeType: XLSX_MIME, parents: [parent], appProperties: { baumprojekt: '1' } };
+    async query(q, fields) {
+      let out = [], token = '';
+      do {
+        const r = await this.req('https://www.googleapis.com/drive/v3/files?pageSize=1000&q=' + encodeURIComponent(q) + '&fields=nextPageToken,files(' + fields + ')' + (token ? '&pageToken=' + token : ''));
+        const j = await r.json(); out = out.concat(j.files || []); token = j.nextPageToken || '';
+      } while (token);
+      return out;
+    },
+    async folder(name, parent, neu) {
+      if (neu) return this.newFolder(name, parent);
+      const q = "mimeType='application/vnd.google-apps.folder' and name='" + name.replace(/\\/g, '\\\\').replace(/'/g, "\\'") + "' and '" + parent + "' in parents and trashed=false";
+      const found = await this.query(q, 'id');
+      if (found.length) return found[0].id;
+      return this.newFolder(name, parent);
+    },
+    async newFolder(name, parent) {
+      const c = await this.req('https://www.googleapis.com/drive/v3/files?fields=id', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, mimeType: 'application/vnd.google-apps.folder', parents: [parent] }) });
+      return (await c.json()).id;
+    },
+    // Ordner eines Lehrgangs finden. Liegt die Datei noch im alten Aufbau direkt in „Baumprojekt Lehrgänge“,
+    // bekommt sie hier ihren eigenen Ordner (verschoben, nicht kopiert – es geht nichts verloren).
+    async withFolders(id, fn) {
+      try { return await fn(await this.courseFolders(id)); }
+      catch (e) { if (!/ 404/.test(e.message)) throw e; localStorage.removeItem('baumprojekt.folders.' + id); return fn(await this.courseFolders(id)); }
+    },
+    async courseFolders(id) {
+      const key = 'baumprojekt.folders.' + id;
+      try { const c = JSON.parse(localStorage.getItem(key) || 'null'); if (c) return c; } catch (e) { /* ignore */ }
+      const root = await this.folderId();
+      const f = await (await this.req('https://www.googleapis.com/drive/v3/files/' + id + '?fields=name,parents')).json();
+      let folder = (f.parents || [])[0];
+      if (!folder || folder === root) {
+        folder = await this.folder(safeName(f.name.replace(/\.xlsx$/i, '').replace(/^Lehrgang /, '')) || 'Lehrgang', root, true);
+        await this.req('https://www.googleapis.com/drive/v3/files/' + id + '?addParents=' + folder + (f.parents && f.parents.length ? '&removeParents=' + f.parents.join(',') : '') + '&fields=id', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+      }
+      const out = { folder, aufnahmen: await this.folder('Aufnahmen', folder), sicherungen: await this.folder('Sicherungen', folder) };
+      localStorage.setItem(key, JSON.stringify(out));
+      return out;
+    },
+    async upload(meta, body, mime) {
       const boundary = 'baumprojekt' + Math.random().toString(36).slice(2);
-      const body = new Blob(['--' + boundary + '\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n' + JSON.stringify(meta) + '\r\n--' + boundary + '\r\nContent-Type: ' + XLSX_MIME + '\r\n\r\n', buf, '\r\n--' + boundary + '--']);
-      const r = await this.req('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name', { method: 'POST', headers: { 'Content-Type': 'multipart/related; boundary=' + boundary }, body });
+      const b = new Blob(['--' + boundary + '\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n' + JSON.stringify(meta) + '\r\n--' + boundary + '\r\nContent-Type: ' + mime + '\r\n\r\n', body, '\r\n--' + boundary + '--']);
+      const r = await this.req('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', { method: 'POST', headers: { 'Content-Type': 'multipart/related; boundary=' + boundary }, body: b });
       return (await r.json()).id;
     },
-    async save(id, buf) { await this.req('https://www.googleapis.com/upload/drive/v3/files/' + id + '?uploadType=media', { method: 'PATCH', headers: { 'Content-Type': XLSX_MIME }, body: new Blob([buf], { type: XLSX_MIME }) }); }
+    async load(id) { const r = await this.req('https://www.googleapis.com/drive/v3/files/' + id + '?alt=media'); return r.arrayBuffer(); },
+    async loadBlob(id) { const r = await this.req('https://www.googleapis.com/drive/v3/files/' + id + '?alt=media'); return r.blob(); },
+    async create(titel, buf) {
+      const folder = await this.folder(safeName(titel) || 'Lehrgang', await this.folderId(), true);
+      const id = await this.upload({ name: 'Lehrgang ' + safeName(titel) + '.xlsx', mimeType: XLSX_MIME, parents: [folder], appProperties: { baumprojekt: '1' } }, buf, XLSX_MIME);
+      await this.courseFolders(id);
+      return id;
+    },
+    // Vor jedem Überschreiben: aktuellen Stand nach „Sicherungen“ kopieren. Klappt das nicht, wird nicht überschrieben.
+    async save(id, buf) {
+      await this.withFolders(id, f => this.backup(id, f));
+      await this.req('https://www.googleapis.com/upload/drive/v3/files/' + id + '?uploadType=media', { method: 'PATCH', headers: { 'Content-Type': XLSX_MIME }, body: new Blob([buf], { type: XLSX_MIME }) });
+      this.pruneBackups(id).catch(() => {});
+    },
+    async backup(id, f) {
+      const cur = await (await this.req('https://www.googleapis.com/drive/v3/files/' + id + '?fields=name')).json();
+      await this.req('https://www.googleapis.com/drive/v3/files/' + id + '/copy?fields=id', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: cur.name.replace(/\.xlsx$/i, '') + ' – Sicherung ' + stamp() + '.xlsx', parents: [f.sicherungen], appProperties: { baumprojekt: '0', bpTyp: 'sicherung', kurs: id } }) });
+    },
+    // Sicherungen der letzten 14 Tage bleiben alle, davor die letzte jedes Tages. Aussortiertes geht in den Drive-Papierkorb.
+    async pruneBackups(id) {
+      const list = await this.query("appProperties has { key='kurs' and value='" + id + "' } and appProperties has { key='bpTyp' and value='sicherung' } and trashed=false", 'id,createdTime');
+      const grenze = Date.now() - 14 * 86400000, perDay = {};
+      list.sort((a, b) => b.createdTime.localeCompare(a.createdTime));
+      for (const f of list) {
+        if (new Date(f.createdTime).getTime() > grenze) continue;
+        const d = f.createdTime.slice(0, 10);
+        if (!perDay[d]) { perDay[d] = 1; continue; }
+        await this.req('https://www.googleapis.com/drive/v3/files/' + f.id + '?fields=id', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ trashed: true }) });
+      }
+    },
+    async rename(id, titel) {
+      const f = await this.courseFolders(id);
+      const patch = (fid, name) => this.req('https://www.googleapis.com/drive/v3/files/' + fid + '?fields=id', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) });
+      await patch(f.folder, safeName(titel)); await patch(id, 'Lehrgang ' + safeName(titel) + '.xlsx');
+    },
+    // Aufnahme (Audio) bzw. Rohtext eines Diktats im Ordner „Aufnahmen“ ablegen
+    saveRecording(r, kind) { return this.withFolders(r.courseId, f => this.putRecording(r, kind, f)); },
+    async putRecording(r, kind, f) {
+      const base = r.datum + ' ' + r.uhrzeit.replace(':', '-') + ' (' + r.aid.slice(-4) + ')';
+      const props = { bpTyp: kind, kurs: r.courseId, aid: r.aid, datum: r.datum, uhrzeit: r.uhrzeit };
+      if (kind === 'aufnahme') {
+        const ext = /mp4|m4a|aac/.test(r.mime) ? 'm4a' : /ogg/.test(r.mime) ? 'ogg' : 'webm';
+        return this.upload({ name: base + ' Aufnahme.' + ext, mimeType: r.mime.split(';')[0], parents: [f.aufnahmen], appProperties: props }, r.blob, r.mime);
+      }
+      const txt = 'Rohtext der Aufnahme vom ' + r.datum.split('-').reverse().join('.') + ', ' + r.uhrzeit + ' Uhr\r\n(unverändertes Ergebnis der Spracherkennung)\r\n\r\n' + r.transcript + '\r\n';
+      return this.upload({ name: base + ' Rohtext.txt', mimeType: 'text/plain', parents: [f.aufnahmen], appProperties: props }, new Blob(['﻿' + txt]), 'text/plain; charset=UTF-8');
+    },
+    async listRecordings(courseId) {
+      const files = await this.query("appProperties has { key='kurs' and value='" + courseId + "' } and trashed=false", 'id,name,mimeType,appProperties,createdTime');
+      const by = {};
+      files.forEach(f => {
+        const p = f.appProperties || {};
+        if (p.bpTyp !== 'aufnahme' && p.bpTyp !== 'rohtext') return;
+        const r = by[p.aid] || (by[p.aid] = { aid: p.aid, datum: p.datum, uhrzeit: p.uhrzeit });
+        if (p.bpTyp === 'aufnahme') r.audioId = f.id; else r.textId = f.id;
+      });
+      return Object.values(by).sort((a, b) => (b.datum + b.uhrzeit).localeCompare(a.datum + a.uhrzeit));
+    }
   };
 
   // ---------------- Lokaler Speicher (IndexedDB) – Testmodus ohne Google und Ablage für Aufnahmen ----------------
   function idb() {
     return new Promise((resolve, reject) => {
-      const r = indexedDB.open('baumprojekt', 1);
-      r.onupgradeneeded = () => { r.result.createObjectStore('files', { keyPath: 'id' }); r.result.createObjectStore('kv'); };
+      const r = indexedDB.open('baumprojekt', 2);
+      r.onupgradeneeded = () => {
+        const db = r.result;
+        if (!db.objectStoreNames.contains('files')) db.createObjectStore('files', { keyPath: 'id' });
+        if (!db.objectStoreNames.contains('kv')) db.createObjectStore('kv');
+        if (!db.objectStoreNames.contains('outbox')) db.createObjectStore('outbox', { keyPath: 'aid' });
+      };
       r.onsuccess = () => resolve(r.result); r.onerror = () => reject(r.error);
     });
   }
@@ -213,6 +318,13 @@
     set: (k, v) => tx('kv', 'readwrite', s => s.put(v, k)),
     del: k => tx('kv', 'readwrite', s => s.delete(k))
   };
+  // Warteschlange: Aufnahmen und Rohtexte bleiben auf dem Gerät, bis sie sicher in Google Drive liegen.
+  const Outbox = {
+    all: () => tx('outbox', 'readonly', s => s.getAll()),
+    get: k => tx('outbox', 'readonly', s => s.get(k)),
+    put: v => tx('outbox', 'readwrite', s => s.put(v)),
+    del: k => tx('outbox', 'readwrite', s => s.delete(k))
+  };
 
-  global.BaumprojektServices = { transcribe, assign, STILE, Drive, KV, KATEGORIEN, XLSX_MIME };
+  global.BaumprojektServices = { transcribe, assign, STILE, Drive, KV, Outbox, KATEGORIEN, XLSX_MIME };
 })(window);

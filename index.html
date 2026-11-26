@@ -47,6 +47,7 @@
         <p class="muted small">Einfach frei sprechen und Namen nennen, z. B. „Bei Anna und Balu …, Kira hat heute …“</p>
         <button id="typeBtn" class="link">oder Text eintippen</button>
         <button id="lastAudioBtn" class="link hidden">Letzte Aufnahme erneut verarbeiten</button>
+        <p id="syncInfo" class="small sync-info hidden"></p>
       </div>
 
       <div id="step-text" class="card hidden">
@@ -90,8 +91,9 @@
       </div>
       <div class="actions">
         <button id="downloadBtn" class="secondary">Excel herunterladen</button>
-        <a id="driveLink" class="button secondary hidden" target="_blank" rel="noopener">In Google Drive öffnen</a>
+        <a id="driveLink" class="button secondary hidden" target="_blank" rel="noopener">Ordner in Google Drive öffnen</a>
       </div>
+      <details id="allRecs" class="card"><summary>🎙️ Alle Aufnahmen dieses Lehrgangs</summary><div id="allRecList"></div></details>
 
       <form id="courseForm" class="card hidden">
         <h3 id="courseFormTitle">Neuer Lehrgang</h3>
@@ -139,16 +141,26 @@
         <p><b>Tipps:</b> Nenne Person oder Hund, bevor du etwas zu ihnen sagst („Bei Anna und Balu …“, „Kira hat heute …“). Hausaufgaben am besten ausdrücklich sagen („Hausaufgabe für Rocky: …“). Was für alle gilt („Alle Hunde haben heute …“), wird bei jedem Team eingetragen. Statt zu sprechen kannst du auch „oder Text eintippen“ nutzen.</p>
       </details>
       <details class="card"><summary>Wo ist meine Excel-Datei?</summary>
-        <p>In deinem Google Drive im Ordner <b>„Baumprojekt Lehrgänge“</b>, eine Datei pro Lehrgang. Unter 📁 Lehrgang kannst du sie herunterladen oder in Google Drive öffnen.</p>
+        <p>In deinem Google Drive im Ordner <b>„Baumprojekt Lehrgänge“</b>. Darin hat jeder Lehrgang einen eigenen Ordner mit seinem Namen:</p>
+        <ul>
+          <li><b>Lehrgang &lt;Name&gt;.xlsx</b> – die Excel-Datei des Lehrgangs.</li>
+          <li><b>Aufnahmen</b> – jede Sprachaufnahme als Audiodatei und dazu der Rohtext (was die Spracherkennung verstanden hat, unverändert).</li>
+          <li><b>Sicherungen</b> – vor jedem Speichern legt die App eine Kopie des bisherigen Stands der Excel-Datei ab. Die letzten 14 Tage bleiben alle Kopien, ältere eine pro Tag.</li>
+        </ul>
+        <p>Unter 📁 Lehrgang kannst du die Excel herunterladen oder den Ordner in Google Drive öffnen.</p>
         <p>Die Datei hat drei Blätter: <b>Übersicht</b> (Teams untereinander, jeder Tag eine Spalte), <b>Notizen (Rohdaten)</b> (jede Notiz eine Zeile) und <b>Teams</b>.</p>
         <p><b>Am Windows-PC:</b> Mit dem Programm „Google Drive für Desktop“ erscheint dein Drive als Laufwerk (z. B. G:). Dort die Datei direkt mit Excel öffnen.</p>
+      </details>
+      <details class="card"><summary>Aufnahmen nachhören</summary>
+        <p>Jede Aufnahme wird sofort nach dem Beenden gesichert: zuerst auf dem Handy, dann in Google Drive – noch bevor die KI sie verarbeitet. Ohne Netz bleibt sie auf dem Handy und wird automatisch nachgeladen, sobald wieder Netz da ist. Solange steht unter dem Aufnahmeknopf ein Hinweis „⏳ … wartet auf die Sicherung“.</p>
+        <p>Unter 📅 Tag siehst du unten die Aufnahmen dieses Tages, unter 📁 Lehrgang alle Aufnahmen. „▶ Anhören“ spielt sie ab, „Rohtext anzeigen“ zeigt, was die Spracherkennung verstanden hat.</p>
       </details>
       <details class="card"><summary>Etwas nachträglich ändern</summary>
         <p>Den Tag kannst du unter 📅 Tag ansehen. Ändern oder löschen geht in Excel, und zwar im Blatt <b>Notizen (Rohdaten)</b>. Die Übersicht baut die App beim nächsten Speichern daraus neu. Die Spalte „Gesamteindruck“ in der Übersicht kannst du direkt beschreiben, sie bleibt erhalten.</p>
         <p>Wichtig: Die Datei nicht am PC geöffnet lassen, während du am Handy speicherst.</p>
       </details>
       <details class="card"><summary>Abmelden, neues Handy, Browserdaten gelöscht</summary>
-        <p>Alle Lehrgänge liegen in deinem Google Drive, nicht auf dem Handy. Nach dem Abmelden, auf einem neuen Handy oder nach dem Löschen der Browserdaten meldest du dich einfach wieder mit Google an – alle Lehrgänge sind wieder da.</p>
+        <p>Alle Lehrgänge, Aufnahmen und Sicherungen liegen in deinem Google Drive, nicht auf dem Handy. Nach dem Abmelden, auf einem neuen Handy oder nach dem Löschen der Browserdaten meldest du dich einfach wieder mit Google an – alle Lehrgänge sind wieder da.</p>
         <p>Auch der <b>OpenAI-Schlüssel</b> liegt in deinem Google Drive und ist nach der Anmeldung automatisch wieder da, auf jedem Gerät. Du musst ihn nur einmal eintragen.</p>
         <p>Die Google-Anmeldung gilt jeweils etwa eine Stunde. Danach fragt die App einmal kurz nach.</p>
       </details>
