@@ -157,6 +157,29 @@
       const r = await this.req('https://www.googleapis.com/drive/v3/files?q=' + q + '&orderBy=modifiedTime desc&fields=files(id,name,modifiedTime,webViewLink)');
       return (await r.json()).files || [];
     },
+    // Einstellungen (OpenAI-Schlüssel, Modelle) als kleine Datei im eigenen Drive – damit sie auf allen Geräten da sind
+    async findSettingsFile() {
+      const q = encodeURIComponent("appProperties has { key='baumprojektSettings' and value='1' } and trashed=false");
+      const r = await this.req('https://www.googleapis.com/drive/v3/files?q=' + q + '&fields=files(id)');
+      const f = ((await r.json()).files || [])[0];
+      return f ? f.id : null;
+    },
+    async loadSettings() {
+      const id = await this.findSettingsFile();
+      if (!id) return null;
+      const r = await this.req('https://www.googleapis.com/drive/v3/files/' + id + '?alt=media');
+      try { return JSON.parse(await r.text()); } catch (e) { return null; }
+    },
+    async saveSettings(obj) {
+      const body = JSON.stringify(obj, null, 2);
+      const id = await this.findSettingsFile();
+      if (id) { await this.req('https://www.googleapis.com/upload/drive/v3/files/' + id + '?uploadType=media', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body }); return; }
+      const parent = await this.folderId();
+      const meta = { name: 'Baumprojekt-Einstellungen (nicht löschen).json', mimeType: 'application/json', parents: [parent], appProperties: { baumprojektSettings: '1' } };
+      const boundary = 'bp' + Math.random().toString(36).slice(2);
+      const mp = '--' + boundary + '\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n' + JSON.stringify(meta) + '\r\n--' + boundary + '\r\nContent-Type: application/json\r\n\r\n' + body + '\r\n--' + boundary + '--';
+      await this.req('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', { method: 'POST', headers: { 'Content-Type': 'multipart/related; boundary=' + boundary }, body: mp });
+    },
     async load(id) { const r = await this.req('https://www.googleapis.com/drive/v3/files/' + id + '?alt=media'); return r.arrayBuffer(); },
     async create(name, buf) {
       const parent = await this.folderId();
