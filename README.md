@@ -35,7 +35,7 @@ Aufbau wie die erste Vorlage:
 - **Teams**: Teilnehmer/in, Hund, Behörde, Bemerkung (Rasse/Alter nur noch bei alten Dateien).
 - Ein verstecktes Blatt `_baumprojekt` mit Startdatum und Dauer.
 
-Wichtig: Die Übersicht wird bei jedem Speichern aus den Rohdaten neu aufgebaut. Änderungen am PC daher im Blatt **Notizen (Rohdaten)** machen (Text ändern, Zeile löschen, Zeile ergänzen). Die Spalte **Gesamteindruck** in der Übersicht darf direkt beschrieben werden, sie bleibt erhalten. Die Datei nicht gleichzeitig am PC offen haben und am Handy speichern.
+Änderungen am PC: direkt in der **Übersicht** (Text ändern, Punkt löschen, Text ergänzen) oder im Blatt **Notizen (Rohdaten)**. Beim Schreiben legt die App im versteckten Blatt `_uebersicht` ab, was in jeder Zelle stand. Beim Lesen vergleicht sie die Übersicht damit: Unveränderte Abschnitte bleiben, geänderter Text ändert die passende Notiz (Quelle „… (am PC geändert)“), ein fehlender Abschnitt löscht die Notiz, neuer Text wird eine Notiz mit Quelle „Am PC ergänzt“. Danach schreibt die App die Datei neu (vorher Sicherung). Umbenannte Team-Zeilen werden nicht ausgewertet. Die Spalte **Gesamteindruck** bleibt wie bisher erhalten. Die Datei nicht gleichzeitig am PC offen haben und am Handy speichern.
 
 Am Windows-PC: Mit „Google Drive für Desktop“ erscheint Drive als Laufwerk (z. B. `G:\Meine Ablage\Baumprojekt Lehrgänge`), dort die Datei direkt mit Excel öffnen.
 
@@ -80,5 +80,4 @@ Spracherkennung `gpt-4o-transcribe` ca. 0,6 Cent pro Minute, Zuordnung `gpt-4.1-
 
 ## Grenzen des Prototyps
 - Einzelne Aufnahmen bis ca. 20 Minuten (Grenze der Spracherkennung).
-- Notizen löschen/ändern nach dem Speichern nur in Excel (Blatt Rohdaten).
 - Noch nicht auf einem echten iPhone/Android mit echtem Google-Konto getestet.
