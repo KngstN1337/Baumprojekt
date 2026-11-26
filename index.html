@@ -12,8 +12,8 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/icon-192.png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/design.css?v=14">
-  <link rel="stylesheet" href="css/style.css?v=14">
+  <link rel="stylesheet" href="css/design.css?v=15">
+  <link rel="stylesheet" href="css/style.css?v=15">
 </head>
 <body class="locked">
   <section id="login" class="login">
@@ -74,9 +74,10 @@
         <div class="group form">
           <label class="field"><span>Name</span><input name="titel" required placeholder="z. B. Begleithunde Frühjahr 2027"></label>
           <label class="field"><span>Trainer/in</span><input name="trainer"></label>
-          <label class="field"><span>Ort</span><input name="ort"></label>
           <label class="field"><span>Erster Tag</span><input type="date" name="start" required></label>
-          <div class="field"><span>Dauer</span><div class="segmented small-seg"><label><input type="radio" name="wochen" value="4" checked><i>4 Wochen</i></label><label><input type="radio" name="wochen" value="10"><i>10 Wochen</i></label></div></div>
+          <div class="field"><span>Dauer</span><div class="segmented small-seg"><label><input type="radio" name="wochen" value="4" checked><i>4 Wochen</i></label><label><input type="radio" name="wochen" value="10"><i>10 Wochen</i></label><label><input type="radio" name="wochen" value="x"><i>Individuell</i></label></div></div>
+          <input type="hidden" name="ort">
+          <label class="field hidden" id="wochenX"><span>Wochen</span><input type="number" name="wochenX" min="1" max="52" inputmode="numeric" placeholder="z. B. 6"></label>
         </div>
         <div class="section-h">Teams</div>
         <div class="group form" id="teamRows"></div>
@@ -250,11 +251,11 @@
   <div id="busy" class="busy hidden"><div class="spinner"></div><div id="busyText">Bitte warten …</div></div>
   <div id="toast" class="toast hidden"></div>
 
-  <script src="config.js?v=14"></script>
+  <script src="config.js?v=15"></script>
   <script src="vendor/exceljs.min.js"></script>
-  <script src="js/workbook.js?v=14"></script>
-  <script src="js/services.js?v=14"></script>
-  <script src="js/app.js?v=14"></script>
+  <script src="js/workbook.js?v=15"></script>
+  <script src="js/services.js?v=15"></script>
+  <script src="js/app.js?v=15"></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 </body>
 </html>

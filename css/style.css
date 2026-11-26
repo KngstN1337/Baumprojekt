@@ -36,7 +36,10 @@
 .stop:active i{transform:scale(.9)}
 #sheetEditBtns,#sheetErrBtns{margin:0}
 .small-seg{flex:1;margin:0}
-.team-row{display:flex;gap:8px;align-items:center;padding:6px 8px 6px 16px;position:relative}
+
+.team-row{display:grid;grid-template-columns:1fr 1fr auto;column-gap:10px;align-items:center;padding:6px 8px 6px 16px;position:relative}
+.team-row [data-k=behoerde]{grid-column:1 / 3;grid-row:2;font-size:15px;padding-top:0}
+.team-row .rm{grid-column:3;grid-row:1 / 3}
 .team-row input{flex:1;min-width:0;text-align:left;font-size:16px}
 .team-row .rm{background:none;border:0;color:var(--red);font-size:20px;padding:6px 8px}
 .help p,.help li{font-size:16px;line-height:1.45}.help ol,.help ul{padding-left:20px}.help li{margin:6px 0}
