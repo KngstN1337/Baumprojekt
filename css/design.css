@@ -1,0 +1,101 @@
+/* Baumprojekt – Design-System (iOS-Stil, hell und dunkel)
+   Farben, Schrift und alle wiederverwendbaren Bausteine. Regeln und Beispiele: STYLE.md
+   Neue Funktionen nutzen NUR diese Variablen und Klassen. Seitenspezifisches gehört in style.css. */
+:root{--bg:#f2f2f7;--card:#fff;--label:#000;--sec:rgba(60,60,67,.6);--ter:rgba(60,60,67,.3);--sep:rgba(60,60,67,.18);--fill:rgba(120,120,128,.12);--tint:#2c5d8a;--red:#ff3b30;--green:#34c759;--orange:#ff9500;--bar:rgba(249,249,249,.88);--sheet:#fff;--seg-on:#fff;--fill-tint:#2c5d8a;--field:#fff;color-scheme:light dark}
+@media (prefers-color-scheme:dark){:root{--bg:#000;--card:#1c1c1e;--label:#fff;--sec:rgba(235,235,245,.6);--ter:rgba(235,235,245,.3);--sep:rgba(84,84,88,.6);--fill:rgba(120,120,128,.24);--tint:#6aa5dc;--red:#ff453a;--green:#30d158;--orange:#ff9f0a;--bar:rgba(22,22,24,.88);--sheet:#1c1c1e;--seg-on:#636366;--fill-tint:#2f6ea8;--field:#2c2c2e}}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{background:var(--bg)}
+body{margin:0;font:17px/1.35 -apple-system,BlinkMacSystemFont,"SF Pro Text","Inter","Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--label);-webkit-font-smoothing:antialiased;letter-spacing:-.01em}
+main{max-width:640px;margin:0 auto;padding:env(safe-area-inset-top) 0 calc(96px + env(safe-area-inset-bottom))}
+.hidden{display:none!important}.center{text-align:center}.muted{color:var(--sec)}.small{font-size:13px}
+button{font:inherit;color:inherit;cursor:pointer;letter-spacing:inherit}
+svg{fill:currentColor}
+/* Navigationsleiste und große Titel */
+.navbar{display:flex;justify-content:space-between;align-items:center;min-height:44px;padding:0 8px}
+.nav-btn{background:none;border:0;color:var(--tint);font-size:17px;padding:10px 8px;display:flex;align-items:center;gap:4px}
+.nav-btn .chev-l{width:12px;height:20px}
+.large-title{font-size:34px;font-weight:700;letter-spacing:-.025em;margin:0;padding:0 16px;line-height:1.2}
+.subtitle{display:block;background:none;border:0;color:var(--sec);font-size:15px;padding:2px 16px 14px;text-align:left;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* Gruppierte Listen */
+.section-h{font-size:13px;color:var(--sec);text-transform:uppercase;padding:0 32px 7px;letter-spacing:0}
+.group{background:var(--card);border-radius:12px;margin:0 16px 28px;overflow:hidden}
+.cell{display:flex;align-items:center;gap:12px;padding:10px 14px 10px 16px;min-height:52px;position:relative;width:100%;background:none;border:0;text-align:left;color:var(--label);text-decoration:none;font-size:17px}
+.cell+.cell::before,.group>*+.cell::before{content:"";position:absolute;top:0;left:16px;right:0;height:.5px;background:var(--sep)}
+.cell:active{background:var(--fill)}
+.avatar{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:15px;color:#fff;flex:0 0 auto;letter-spacing:0}
+.cell-tx{flex:1;min-width:0}.cell-tx b{display:block;font-weight:400;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.cell-tx span{display:block;font-size:14px;color:var(--sec);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cell-st{font-size:14px;color:var(--green);display:flex;align-items:center;gap:3px;white-space:nowrap}
+.cell-st svg{width:14px;height:14px}
+.cell-st.wait{color:var(--orange)}
+.chev{width:8px;height:14px;color:var(--ter);flex:0 0 auto}
+.link-cell{color:var(--tint)}
+.cell input[type=radio]{accent-color:var(--tint);width:20px;height:20px;margin:0}
+.empty{padding:14px 16px;color:var(--sec);font-size:15px}
+.tag{display:inline-block;font-size:12px;color:var(--tint);background:var(--fill);padding:2px 7px;border-radius:6px}
+.play{width:32px;height:32px;border-radius:50%;background:var(--fill);border:0;color:var(--tint);display:flex;align-items:center;justify-content:center;flex:0 0 auto;padding:0}
+.play svg{width:13px;height:13px;margin-left:2px}
+.text-btn{background:none;border:0;color:var(--tint);font-size:15px;padding:8px 16px}
+.btn-filled{border:0;border-radius:14px;background:var(--fill-tint);color:#fff;font-weight:600;font-size:17px;padding:14px 18px;display:flex;align-items:center;justify-content:center;gap:8px;width:100%}
+.btn-filled svg{width:18px;height:18px}
+.btn-filled:disabled{opacity:.45}
+.btn-gray{border:0;border-radius:14px;background:var(--fill);color:var(--tint);font-weight:600;font-size:17px;padding:14px 18px;width:100%}
+.cta{box-shadow:0 6px 18px rgba(0,0,0,.12)}
+.actions{display:flex;gap:10px;margin:12px 16px}.actions>*{flex:1}
+/* Tab-Leiste */
+.tabs{position:fixed;bottom:0;left:0;right:0;display:flex;justify-content:center;background:var(--bar);backdrop-filter:saturate(180%) blur(20px);-webkit-backdrop-filter:saturate(180%) blur(20px);border-top:.5px solid var(--sep);padding:6px 0 calc(6px + env(safe-area-inset-bottom));z-index:5}
+.tabs button{flex:1;max-width:160px;background:none;border:0;color:#8e8e93;font-size:10px;font-weight:500;display:flex;flex-direction:column;align-items:center;gap:2px;padding:2px 0;letter-spacing:0}
+.tabs svg{width:26px;height:26px}
+.tabs button.active{color:var(--tint)}
+/* Aufnahme-Fenster */
+.dim{position:fixed;inset:0;background:rgba(0,0,0,.32);opacity:0;pointer-events:none;transition:opacity .3s;z-index:10}
+.sheet{position:fixed;left:0;right:0;bottom:0;max-width:640px;margin:0 auto;max-height:92vh;overflow:auto;background:var(--sheet);border-radius:14px 14px 0 0;padding:8px 20px calc(24px + env(safe-area-inset-bottom));transform:translateY(105%);transition:transform .38s cubic-bezier(.3,.7,.2,1);z-index:11}
+body.sheet-open .dim{opacity:1;pointer-events:auto}body.sheet-open .sheet{transform:none}
+.grab{width:36px;height:5px;border-radius:3px;background:var(--sep);margin:0 auto 14px}
+.sheet h3{font-size:17px;font-weight:600;text-align:center;margin:0}
+.sheet-sub{text-align:center;color:var(--sec);font-size:14px;margin:2px 0 0}
+.segmented{display:flex;background:var(--fill);border-radius:9px;padding:2px;margin:0 0 20px}
+.segmented button,.segmented label{flex:1;text-align:center;font-size:13px;font-weight:500;padding:6px 2px;border-radius:7px;border:0;background:none;color:var(--label);cursor:pointer}
+.segmented button.on,.segmented label:has(input:checked){background:var(--seg-on);box-shadow:0 2px 6px rgba(0,0,0,.12)}
+.segmented input{position:absolute;opacity:0;pointer-events:none}
+.segmented i{font-style:normal}
+/* Formulare */
+.form .field{display:flex;align-items:center;gap:12px;padding:6px 16px;min-height:48px;position:relative;margin:0;color:var(--label);font-size:17px}
+.form .field+.field::before,.team-row+.team-row::before{content:"";position:absolute;top:0;left:16px;right:0;height:.5px;background:var(--sep)}
+.form .field>span{flex:0 0 96px;color:var(--label)}
+.form input{flex:1;min-width:0;font:inherit;border:0;background:none;color:var(--label);padding:8px 0;outline:none;text-align:right}
+.form input[type=date]{text-align:right}
+/* Karten (Hilfe, Einstellungen) */
+.card{background:var(--card);border-radius:12px;padding:14px 16px;margin:0 16px 14px}
+.card h3{font-size:20px;margin:.2em 0 .5em}
+details{margin:0 16px 14px}details.card{margin:0 16px 14px}
+summary{cursor:pointer;font-weight:600}
+.disclosure{margin:0 16px 28px;padding:0}.disclosure summary{list-style:none;color:var(--tint);font-weight:400}.disclosure summary::-webkit-details-marker{display:none}
+a{color:var(--tint)}
+code{font-size:.9em}
+.danger{border:0;border-radius:12px;background:none;color:var(--red);font-size:17px;padding:12px;width:100%}
+/* Hinweise */
+.banner{display:flex;gap:10px;align-items:center;justify-content:space-between;background:var(--card);margin:calc(8px + env(safe-area-inset-top)) 16px 0;border-radius:12px;padding:12px 14px;font-size:15px;box-shadow:0 2px 10px rgba(0,0,0,.08);position:relative;z-index:4}
+.banner button{flex:0 0 auto;border:0;border-radius:10px;background:var(--fill-tint);color:#fff;font-size:15px;font-weight:600;padding:8px 12px}
+.busy{position:fixed;inset:0;background:rgba(0,0,0,.25);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;z-index:20;color:#fff;font-weight:600}
+.busy>*{position:relative}
+.busy::before{content:"";position:absolute;width:200px;height:130px;border-radius:16px;background:rgba(30,30,32,.85);backdrop-filter:blur(20px)}
+.spinner{width:30px;height:30px;border:3px solid var(--sep);border-top-color:var(--tint);border-radius:50%;animation:spin .9s linear infinite}
+.busy .spinner{border-color:rgba(255,255,255,.25);border-top-color:#fff}
+@keyframes spin{to{transform:rotate(360deg)}}
+.toast{position:fixed;left:50%;bottom:calc(100px + env(safe-area-inset-bottom));transform:translateX(-50%);background:rgba(30,30,32,.92);color:#fff;padding:11px 18px;border-radius:14px;max-width:90%;z-index:30;font-size:15px;backdrop-filter:blur(20px);text-align:center}
+.round{width:52px;height:52px;margin:11px 0;border-radius:50%;border:0;background:var(--fill);color:var(--label);display:flex;align-items:center;justify-content:center;padding:0}
+.round svg{width:22px;height:22px}
+.round.on{background:var(--red);color:#fff}
+.switch{appearance:none;-webkit-appearance:none;flex:none;width:51px;height:31px;border-radius:16px;background:var(--fill);position:relative;transition:background .2s;margin:0}
+.switch::after{content:"";position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:50%;background:#fff;box-shadow:0 2px 4px rgba(0,0,0,.2);transition:transform .2s}
+.switch:checked{background:var(--green)}.switch:checked::after{transform:translateX(20px)}
+/* Rund-Knopf in der Navigationsleiste (z. B. Plus) */
+.nav-icon{width:36px;height:36px;border-radius:50%;border:0;background:var(--fill);color:var(--tint);display:flex;align-items:center;justify-content:center;padding:0;margin:4px 8px}
+.nav-icon svg{width:18px;height:18px}
+.nav-icon:active{opacity:.6}
+/* Auswahl-Zelle mit nativem Auswahlmenü (Picker) */
+.picker{position:relative}
+.picker select{position:absolute;inset:0;width:100%;height:100%;opacity:0;font-size:16px;-webkit-appearance:none;appearance:none;cursor:pointer}
+.picker .val{color:var(--tint);font-size:15px;display:flex;align-items:center;gap:4px;flex:0 0 auto}
+.picker .val svg{width:12px;height:12px;flex:0 0 auto}
+.large-title+.section-h{margin-top:16px}

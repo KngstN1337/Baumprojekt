@@ -452,9 +452,13 @@
   async function refreshCourses() {
     $('#driveLink').classList.add('hidden');
     try { courses = await withStore('Lade Lehrgänge …', () => store().list()); } catch (e) { courses = []; }
-    $('#courseList').innerHTML = courses.length
-      ? courses.map(f => '<label class="cell"><input type="radio" name="course" value="' + esc(f.id) + '"' + (f.id === activeId ? ' checked' : '') + '><div class="cell-tx"><b>' + esc(f.name.replace(/\.xlsx$/, '').replace(/^Lehrgang /, '')) + '</b><span>' + (f.ownedByMe === false ? 'geteilt von ' + esc(((f.owners || [])[0] || {}).displayName || 'Kollege') + ' · ' : '') + 'geändert ' + new Date(f.modifiedTime).toLocaleString('de-DE', { dateStyle: 'medium', timeStyle: 'short' }) + '</span></div></label>').join('')
-      : '<div class="empty">Noch keine Lehrgänge. Tippe oben rechts auf „Neu“.</div>';
+    const nm = f => f.name.replace(/\.xlsx$/, '').replace(/^Lehrgang /, '');
+    const cur0 = courses.find(f => f.id === activeId);
+    $('#courseSelect').innerHTML = courses.length
+      ? (cur0 ? '' : '<option value="" selected disabled>Bitte wählen</option>') + courses.map(f => '<option value="' + esc(f.id) + '"' + (f.id === activeId ? ' selected' : '') + '>' + esc(nm(f)) + (f.ownedByMe === false ? ' (geteilt)' : '') + '</option>').join('')
+      : '<option value="" disabled selected>Noch keine Lehrgänge</option>';
+    $('#courseName').textContent = cur0 ? nm(cur0) : (courses.length ? 'Bitte wählen' : 'Noch keiner');
+    $('#courseInfo').textContent = cur0 ? (cur0.ownedByMe === false ? 'geteilt von ' + (((cur0.owners || [])[0] || {}).displayName || 'Kollege') + ' · ' : '') + 'geändert ' + new Date(cur0.modifiedTime).toLocaleString('de-DE', { dateStyle: 'medium', timeStyle: 'short' }) : (courses.length ? courses.length + ' Lehrgänge' : 'Tippe oben rechts auf Plus');
     const cur = courses.find(f => f.id === activeId);
     if (cur) S.Drive.withFolders(cur.id, f => f).then(f => { $('#driveLink').href = 'https://drive.google.com/drive/folders/' + f.folder; show('#driveLink', true); }).catch(() => {});
     $('#allRecs').open = false;
@@ -735,7 +739,7 @@
     $('#errClose').addEventListener('click', () => { closeSheet(); restoreDraft(); });
     renderStil();
     $('#stilSeg').addEventListener('click', e => { const b = e.target.closest('[data-stil]'); if (b) chooseStil(b.dataset.stil); });
-    $('#courseList').addEventListener('change', async e => { if (e.target.name === 'course') { setActive(e.target.value); selDate = today(); await withStore('Lade Lehrgang …', loadActive).catch(() => {}); refreshCourses(); } });
+    $('#courseSelect').addEventListener('change', async e => { if (e.target.value) { setActive(e.target.value); selDate = today(); await withStore('Lade Lehrgang …', loadActive).catch(() => {}); refreshCourses(); } });
     $('#newCourseBtn').addEventListener('click', () => openCourseForm(false));
     $('#addSharedBtn').addEventListener('click', () => addShared(localStorage.getItem('baumprojekt.invite') || ''));
     $('#shareBox').addEventListener('click', e => { if (e.target.id === 'inviteBtn') invite(); const u = e.target.closest('[data-unshare]'); if (u) unshare(u.dataset.unshare); });
