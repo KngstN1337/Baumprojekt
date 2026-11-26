@@ -42,6 +42,7 @@ Systemschrift (auf dem iPhone SF Pro). Größen: Großer Titel 34 px fett · Tex
 |---|---|
 | `.group` + `.cell` | Gruppierte Liste (iOS-Tabelle). Trennlinien entstehen automatisch. `.cell-tx` für Titel/Unterzeile, `.cell-st` für Status rechts, `.chev` als Pfeil, `.link-cell` für Aktionen. `.cell-tx.wrap` erlaubt Zeilenumbruch. |
 | `.picker` | Zelle mit Auswahlmenü: `<label class="cell picker"><div class="cell-tx"><b>Gewählter Wert</b></div><span class="val">Wechseln<svg><use href="#i-updown"/></svg></span><select>…</select></label>`. Für alle Auswahllisten, die lang werden können (statt Radio-Listen). |
+| `.danger-cell` | Zerstörende Aktion als Zeile (rot, eigene Gruppe ganz unten). Immer mit Sicherheitsabfrage, die sagt, was passiert und ob es wiederherstellbar ist. |
 | `.avatar` | Runder Kreis mit Initialen; `.big` für Kopfbereich. |
 | `.btn-filled` | Hauptaktion (eine pro Ansicht). `.btn-gray` für die zweite Aktion daneben. In `.actions` nebeneinander. |
 | `.text-btn` | Kleiner Text-Knopf in Akzentfarbe. |

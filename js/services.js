@@ -343,6 +343,15 @@
       const f = await this.query("'" + folderId + "' in parents and appProperties has { key='baumprojekt' and value='1' } and trashed=false", 'id');
       return f[0] ? f[0].id : null;
     },
+    // Ganzen Lehrgangsordner in den Papierkorb (Drive hält ihn 30 Tage, danach endgültig gelöscht)
+    async trashCourse(id) {
+      const f = await this.courseFolders(id);
+      const patch = fid => this.req('https://www.googleapis.com/drive/v3/files/' + fid + '?fields=id', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ trashed: true }) });
+      if (f.shared) throw new Error('Geteilte Lehrgänge kann nur der Besitzer löschen.');
+      if (f.folder && f.folder !== await this.folderId()) await patch(f.folder); // nie den Hauptordner „Baumprojekt Lehrgänge“
+      await patch(id).catch(() => {}); // falls die Datei (noch) nicht im Ordner liegt
+      localStorage.removeItem('baumprojekt.folders.' + id);
+    },
     async rename(id, titel) {
       const f = await this.courseFolders(id);
       const patch = (fid, name) => this.req('https://www.googleapis.com/drive/v3/files/' + fid + '?fields=id', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) });
