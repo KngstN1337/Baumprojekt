@@ -26,7 +26,35 @@
     return (j.text || '').trim();
   }
 
+  // Schreibstile wie im Diktiersystem des Fidus-K9-Lexikons, ergänzt um Beamtendeutsch.
+  const STILE = [
+    { id: 'fliesstext', name: 'Fließtext', text: 'Dein Wortlaut, nur Namen, Rechtschreibung und Satzzeichen korrigiert.', regeln: [
+      '- Wörtlich übernehmen. Nicht umformulieren, nicht kürzen, nicht zusammenfassen, nichts ergänzen, nicht umstellen.',
+      '- Nur korrigieren: falsch erkannte Namen und Fachbegriffe, Rechtschreibung, Satzzeichen. Reine Laute wie „äh“ weglassen.',
+      '- Längere Abschnitte in Absätze teilen (Leerzeile), wo ein Gedanke abgeschlossen ist. Am Wortlaut ändert das nichts.'] },
+    { id: 'buchtext', name: 'Buchtext', text: 'Sauberer, gut lesbarer Fließtext in Ich-Form, Wiederholungen raus, Gedanken geordnet.', regeln: [
+      '- Mach aus dem Eingesprochenen einen sauberen Fließtext wie in einem Fachbuch, in der Ich-Form des Trainers (ich, nicht wir).',
+      '- Ordnen: Zusammengehöriges zusammenführen, logische Reihenfolge (Beobachtung, Erklärung, Folgerung, Beispiel).',
+      '- Wiederholungen zusammenfassen, Füllwörter und abgebrochene Ansätze weglassen. Ganze Sätze, sachlicher, seriöser Fachstil.',
+      '- Sinnabschnitte mit Leerzeile. Keine Überschriften, keine Aufzählungszeichen.'] },
+    { id: 'stichpunkte', name: 'Stichpunkte', text: 'Nur die Kernaussagen als kurze Liste.', regeln: [
+      '- Jede Zeile ein Stichpunkt, beginnend mit „• “. Kurz und knapp, gern ohne ganze Sätze. Keine Überschriften, keine Leerzeilen.',
+      '- Jede inhaltliche Aussage kommt vor, Wiederholungen nur einmal. Reihenfolge wie gesprochen.'] },
+    { id: 'beamtendeutsch', name: 'Beamtendeutsch', text: 'Seriös, sachlich und behördentauglich, z. B. für Amt, Gericht oder Versicherung.', regeln: [
+      '- Formuliere wie in einem amtlichen Bericht oder Gutachten, das einer Behörde (z. B. Veterinär- oder Ordnungsamt) vorgelegt wird.',
+      '- Dritte Person und neutrale Form, keine Ich-Form: „Der Ausbilder stellte fest …“, „Die Teilnehmerin [Name] führte den Hund [Name] …“.',
+      '- Präteritum für Beobachtungen, Präsens für bleibende Zustände. Vollständige, eindeutige und nachvollziehbare Sätze.',
+      '- Keine Umgangssprache, keine Gefühlswörter, keine Übertreibungen, keine Abkürzungen außer gängigen (z. B., ca.).',
+      '- Beobachtungen und Bewertungen klar trennen; Bewertungen nur, wenn der Trainer sie ausgesprochen hat, und dann als seine Einschätzung kennzeichnen.',
+      '- Fachbegriffe korrekt verwenden. Konkrete Angaben (Übung, Dauer, Verhalten, Ergebnis) vollständig übernehmen.',
+      '- Sinnabschnitte mit Leerzeile. Keine Überschriften, keine Aufzählungszeichen.'] }
+  ];
+  const GEMEINSAM = '- Für alle Stile: Nichts erfinden, nichts weglassen, keine eigenen Schlüsse ergänzen. Namen von Teilnehmern und Hunden so schreiben wie in der Teamliste. ' +
+    'Diktierbefehle wie „Absatz“, „neue Zeile“, „Punkt“, „Komma“ als Formatierung bzw. Satzzeichen umsetzen, nur wenn sie eindeutig als Befehl gemeint sind.';
+  const stilVon = id => STILE.find(s => s.id === id) || STILE[0];
+
   async function assign(transcript, teams, opts) {
+    const stil = stilVon(opts.stil);
     const names = teams.map(t => t.name);
     const teamInfo = teams.map(t => '- "' + t.name + '": Teilnehmer/in ' + (t.teilnehmer || '?') + ', Hund ' + (t.hund || '?') + (t.rasse ? ' (' + t.rasse + ')' : '')).join('\n');
     const system =
@@ -35,8 +63,8 @@
       'auch wenn die Spracherkennung sie leicht falsch geschrieben hat. Folgen mehrere Sätze ohne neuen Namen, gehören sie zum zuletzt genannten Team. ' +
       'Betrifft eine Aussage alle Teams (z. B. "alle haben heute ..."), erzeuge für jedes Team einen eigenen Abschnitt. ' +
       'Ist ein Abschnitt keinem Team zuzuordnen, nimm "Unklar". ' +
-      'Formuliere jeden Abschnitt als kurze, sachliche Notiz in ganzen Sätzen auf Deutsch, ohne Inhalt wegzulassen oder zu erfinden. Entferne Füllwörter und Versprecher. ' +
-      'Hausaufgaben oder Übungsaufträge für zu Hause bekommen die Kategorie "Hausaufgabe" und einen eigenen Abschnitt.\n\nTeams:\n' + teamInfo;
+'Hausaufgaben oder Übungsaufträge für zu Hause bekommen die Kategorie "Hausaufgabe" und einen eigenen Abschnitt.\n\n' +
+      'Regeln für text (Schreibstil „' + stil.name + '“):\n' + stil.regeln.join('\n') + '\n' + GEMEINSAM + '\n\nTeams:\n' + teamInfo;
     const schema = {
       type: 'object', additionalProperties: false, required: ['abschnitte'],
       properties: {
@@ -186,5 +214,5 @@
     del: k => tx('kv', 'readwrite', s => s.delete(k))
   };
 
-  global.BaumprojektServices = { transcribe, assign, Drive, KV, KATEGORIEN, XLSX_MIME };
+  global.BaumprojektServices = { transcribe, assign, STILE, Drive, KV, KATEGORIEN, XLSX_MIME };
 })(window);

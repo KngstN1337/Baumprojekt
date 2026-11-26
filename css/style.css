@@ -70,3 +70,8 @@ body:not(.locked) #login{display:none}
 .key-status.err{background:#fde8e8;color:#a32020;border:1px solid #f0a8a8}
 .key-status.warn{background:var(--warn);color:#7a5a00;border:1px solid #f0c64a}
 .key-status.busy{background:#eef4fa;color:var(--blue)}
+
+.stil-wahl{margin:8px 0 12px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0}
+.chips button{width:auto;margin:0;padding:6px 12px;border-radius:999px;border:1px solid #cfd5dc;background:#fff;color:var(--text);font-size:.95em}
+.chips button.on{background:var(--blue);border-color:var(--blue);color:#fff}
