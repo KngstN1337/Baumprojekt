@@ -91,6 +91,12 @@
       const buf = await store().load(activeId);
       course = await WBK.parse(buf); lastRev = rev;
       await S.KV.set('course:' + activeId, course);
+      // Am PC in der Übersicht geändert: übernehmen und gleich sauber zurückschreiben (vorher wird gesichert)
+      if (course.amPcGeaendert) {
+        const n = course.amPcGeaendert;
+        toast('✓ ' + n + (n > 1 ? ' Änderungen' : ' Änderung') + ' aus der Excel-Übersicht übernommen', 5000);
+        modifyCourse(() => {}).then(() => { renderToday(); if (currentTeam) renderTeamNotes(); }).catch(e => console.warn('Übernahme später erneut', e));
+      }
       await loadInfo();
     } catch (e) {
       if (/40[34]/.test(e.message)) { setActive(''); course = null; return loadActive(); }
@@ -194,7 +200,7 @@
       const mine = notes.filter(n => n.datum === d);
       if (!mine.length && d !== selDate) return '';
       return '<div class="section-h">' + esc(longDate(d)) + (d === today() ? ' · Heute' : '') + '</div><div class="group">' + (mine.length
-        ? mine.map(n => '<div class="note tappable" data-ni="' + course.notes.indexOf(n) + '" role="button" aria-label="Notiz bearbeiten"><div class="note-m"><span>' + esc(n.uhrzeit) + ' Uhr' + (mehrere && n.von ? ' · ' + esc(n.von) : '') + '</span>' + (n.kategorie ? '<span class="tag">' + esc(n.kategorie) + '</span>' : '') + '<svg class="chev"><use href="#i-chev"/></svg></div><div class="note-t">' + esc(n.text) + '</div></div>').join('')
+        ? mine.map(n => '<div class="note tappable" data-ni="' + course.notes.indexOf(n) + '" role="button" aria-label="Notiz bearbeiten"><div class="note-m"><span>' + esc(n.uhrzeit) + ' Uhr' + (mehrere && n.von ? ' · ' + esc(n.von) : '') + '</span>' + (n.kategorie ? '<span class="tag">' + esc(n.kategorie) + '</span>' : '') + (/am PC/.test(n.quelle || '') ? '<span class="tag">am PC</span>' : '') + '<svg class="chev"><use href="#i-chev"/></svg></div><div class="note-t">' + esc(n.text) + '</div></div>').join('')
         : '<div class="empty">Noch keine Notiz an diesem Tag.</div>') + '</div>';
     }).join('');
   }
