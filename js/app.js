@@ -16,7 +16,7 @@
   const mmss = s => Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
 
   // ---------------- Zustand ----------------
-  const settings = Object.assign({ openaiKey: '', sttModel: CFG.sttModel || 'gpt-4o-transcribe', llmModel: CFG.llmModel || 'gpt-4.1-mini', stil: 'fliesstext', glossar: [] },
+  const settings = Object.assign({ openaiKey: '', sttModel: CFG.sttModel || 'gpt-4o-transcribe', llmModel: CFG.llmModel || 'gpt-4.1-mini', stil: 'fliesstext', glossar: [], ausgeblendet: [] },
     JSON.parse(localStorage.getItem('baumprojekt.settings') || '{}'));
   const clientId = () => CFG.googleClientId || '';
   const store = () => S.Drive;
@@ -72,11 +72,16 @@
   }
 
   // ---------------- Lehrgang laden ----------------
-  function setActive(id) { activeId = id; localStorage.setItem('baumprojekt.active', id || ''); }
+  // Gewählter Lehrgang wird auf dem Gerät und in den Einstellungen in Google Drive gemerkt (auch für andere Geräte / nach dem Abmelden)
+  function setActive(id, merken) {
+    const neu = id !== activeId;
+    activeId = id; localStorage.setItem('baumprojekt.active', id || '');
+    if (merken && id && neu) syncSettingsToDrive(true);
+  }
   async function loadActive() {
     if (!activeId) {
       // z. B. nach gelöschten Browserdaten oder auf neuem Handy: Lehrgänge kommen aus Google Drive
-      try { const list = await store().list(); if (list.length) setActive(list[0].id); } catch (e) { /* Anmeldung fehlt */ }
+      try { const list = await listCourses(); if (list.length) setActive(list[0].id); } catch (e) { /* Anmeldung fehlt */ }
     }
     if (!activeId) { course = null; renderToday(); return; }
     const cached = await S.KV.get('course:' + activeId);
@@ -88,7 +93,7 @@
       await S.KV.set('course:' + activeId, course);
       await loadInfo();
     } catch (e) {
-      if (/404/.test(e.message)) { setActive(''); course = null; return loadActive(); }
+      if (/40[34]/.test(e.message)) { setActive(''); course = null; return loadActive(); }
       if (!e.needsLogin && !cached) toast(e.message, 5000);
     }
     clampDate(); renderToday();
@@ -552,6 +557,34 @@
   }
 
   // ---------------- Lehrgänge verwalten ----------------
+  // Lehrgänge aus Drive, ohne die vom Nutzer ausgeblendeten (geteilte, die er aus seiner Liste entfernt hat)
+  async function listCourses() { const hid = settings.ausgeblendet || []; return (await store().list()).filter(f => !hid.includes(f.id)); }
+  // Lehrgang löschen: eigener → Ordner in den Papierkorb (30 Tage wiederherstellbar); geteilter → nur aus der eigenen Liste entfernen
+  async function deleteCourse() {
+    if (!activeId || !course) return toast('Kein Lehrgang gewählt.');
+    const f = courses.find(x => x.id === activeId);
+    const name = course.meta.titel || 'Lehrgang';
+    const geteilt = f && f.ownedByMe === false;
+    const frage = geteilt
+      ? '„' + name + '“ aus deiner Liste entfernen?\n\nDer Lehrgang gehört einem anderen Trainer und bleibt bei ihm vollständig erhalten. Du kannst ihn später über „Geteilten Lehrgang hinzufügen“ wieder holen.'
+      : '„' + name + '“ wirklich löschen?\n\nDer ganze Lehrgangsordner (Excel-Datei, alle Aufnahmen und Sicherungen) kommt in den Papierkorb deines Google Drive. Dort kannst du ihn 30 Tage lang wiederherstellen, danach ist er endgültig weg.' + (info && info.shared ? '\n\nAchtung: Der Lehrgang ist mit einem anderen Trainer geteilt. Auch er verliert ihn.' : '');
+    if (!confirm(frage)) return;
+    const id = activeId;
+    try {
+      if (geteilt) {
+        settings.ausgeblendet = [...new Set([...(settings.ausgeblendet || []), id])];
+        localStorage.setItem('baumprojekt.settings', JSON.stringify(settings));
+      } else {
+        await withStore('Verschiebe in den Papierkorb …', () => S.Drive.trashCourse(id));
+      }
+      await S.KV.del('course:' + id); localStorage.removeItem('baumprojekt.folders.' + id);
+      course = null; info = null; setActive('');
+      await loadActive();
+      syncSettingsToDrive(true);
+      refreshCourses(); fillCourseSelects();
+      toast(geteilt ? '✓ Aus deiner Liste entfernt' : '✓ In den Papierkorb verschoben', 4000);
+    } catch (e) { /* gemeldet */ }
+  }
   function fillCourseSelects() {
     const nm = f => f.name.replace(/\.xlsx$/, '').replace(/^Lehrgang /, '');
     const cur0 = courses.find(f => f.id === activeId);
@@ -560,22 +593,24 @@
       : '<option value="" disabled selected>Noch keine Lehrgänge</option>') + '<option value="__neu">+ Neuer Lehrgang …</option>';
     ['#courseSelect', '#courseSelectTop'].forEach(id => { const el = $(id); if (el) el.innerHTML = html; });
   }
-  async function loadCourseList() { try { courses = await store().list(); } catch (e) { /* offline */ } fillCourseSelects(); }
+  async function loadCourseList() { try { courses = await listCourses(); } catch (e) { /* offline */ } fillCourseSelects(); }
   async function switchCourse(e) {
     const v = e.target.value;
     if (v === '__neu') { fillCourseSelects(); go('lehrgang'); openCourseForm(false); return; }
     if (!v || v === activeId) return;
-    setActive(v); selDate = today();
+    setActive(v, true); selDate = today();
     await withStore('Lade Lehrgang …', loadActive).catch(() => {});
     fillCourseSelects();
     if (!$('#v-lehrgang').classList.contains('hidden')) refreshCourses();
   }
   async function refreshCourses() {
     $('#driveLink').classList.add('hidden');
-    try { courses = await withStore('Lade Lehrgänge …', () => store().list()); } catch (e) { courses = []; }
+    try { courses = await withStore('Lade Lehrgänge …', listCourses); } catch (e) { courses = []; }
     const nm = f => f.name.replace(/\.xlsx$/, '').replace(/^Lehrgang /, '');
     const cur0 = courses.find(f => f.id === activeId);
     fillCourseSelects();
+    $('#deleteCourseBtn').textContent = cur0 && cur0.ownedByMe === false ? 'Aus meiner Liste entfernen' : 'Lehrgang löschen';
+    show('#deleteCourseBtn', !!cur0);
     $('#courseName').textContent = cur0 ? nm(cur0) : (courses.length ? 'Bitte wählen' : 'Noch keiner');
     $('#courseInfo').textContent = cur0 ? (cur0.ownedByMe === false ? 'geteilt von ' + (((cur0.owners || [])[0] || {}).displayName || 'Kollege') + ' · ' : '') + 'geändert ' + new Date(cur0.modifiedTime).toLocaleString('de-DE', { dateStyle: 'medium', timeStyle: 'short' }) : (courses.length ? courses.length + ' Lehrgänge' : 'Tippe oben rechts auf Plus');
     const cur = courses.find(f => f.id === activeId);
@@ -652,7 +687,8 @@
           await S.Drive.courseFolders(id); // prüft Zugriff auf Aufnahmen und Sicherungen
           busy();
           localStorage.removeItem('baumprojekt.invite');
-          setActive(id); selDate = today(); await loadActive(); refreshCourses();
+          settings.ausgeblendet = (settings.ausgeblendet || []).filter(x => x !== id); localStorage.setItem('baumprojekt.settings', JSON.stringify(settings));
+          setActive(id, true); selDate = today(); await loadActive(); refreshCourses();
           toast('✓ Geteilter Lehrgang hinzugefügt. Ihr könnt jetzt beide einsprechen.', 5000);
           return;
         }
@@ -696,7 +732,7 @@
       } else {
         const c = { meta, teams, notes: [], gesamt: {} };
         const id = await withStore('Lege Lehrgang an …', async () => store().create(meta.titel, await WBK.toBuffer(c)));
-        setActive(id); course = c; await S.KV.set('course:' + id, c);
+        setActive(id, true); course = c; await S.KV.set('course:' + id, c);
       }
       selDate = today(); clampDate();
       show('#courseForm', false); refreshCourses(); toast('✓ Gespeichert');
@@ -749,9 +785,9 @@
     st.className = 'key-status ' + kind; st.textContent = text;
     if (kind !== 'busy') toast(text, 5000);
   }
-  async function syncSettingsToDrive() {
-    try { await S.Drive.saveSettings({ openaiKey: settings.openaiKey, sttModel: settings.sttModel, llmModel: settings.llmModel, glossar: settings.glossar }); }
-    catch (e) { toast('Einstellungen nur auf diesem Gerät gespeichert (Google Drive nicht erreichbar).', 5000); }
+  async function syncSettingsToDrive(leise) {
+    try { await S.Drive.saveSettings({ openaiKey: settings.openaiKey, sttModel: settings.sttModel, llmModel: settings.llmModel, glossar: settings.glossar, aktiverLehrgang: activeId || '', ausgeblendet: settings.ausgeblendet || [] }); }
+    catch (e) { if (!leise) toast('Einstellungen nur auf diesem Gerät gespeichert (Google Drive nicht erreichbar).', 5000); }
   }
   // Nach dem Login: Einstellungen aus Google Drive holen (oder dorthin übertragen, falls nur hier vorhanden)
   async function loadSettingsFromDrive() {
@@ -759,6 +795,8 @@
     try { remote = await S.Drive.loadSettings(); } catch (e) { return; }
     let hochladen = !remote && (settings.openaiKey || settings.glossar.length);
     if (remote) {
+      if (Array.isArray(remote.ausgeblendet)) settings.ausgeblendet = remote.ausgeblendet;
+      if (remote.aktiverLehrgang) setActive(remote.aktiverLehrgang); // zuletzt gewählter Lehrgang, auch von einem anderen Gerät
       if (remote.openaiKey) Object.assign(settings, { openaiKey: remote.openaiKey, sttModel: remote.sttModel || settings.sttModel, llmModel: remote.llmModel || settings.llmModel });
       else if (settings.openaiKey) hochladen = true;
       if (Array.isArray(remote.glossar)) settings.glossar = remote.glossar.filter(g => g && g.begriff);
@@ -820,7 +858,7 @@
     catch (e) { $('#loginMsg').textContent = e.message; }
   }
   function logout() {
-    S.Drive.logout(); course = null; info = null; setActive('');
+    S.Drive.logout(); course = null; info = null; // gewählter Lehrgang bleibt gemerkt
     lock(true); go('heute');
   }
 
@@ -873,6 +911,7 @@
     $('#addSharedBtn').addEventListener('click', () => addShared(localStorage.getItem('baumprojekt.invite') || ''));
     $('#shareBox').addEventListener('click', e => { if (e.target.id === 'inviteBtn') invite(); const u = e.target.closest('[data-unshare]'); if (u) unshare(u.dataset.unshare); });
     $('#shareBox').addEventListener('change', e => { if (e.target.id === 'shareKey') toggleShareKey(e.target.checked); });
+    $('#deleteCourseBtn').addEventListener('click', deleteCourse);
     $('#editCourseBtn').addEventListener('click', () => (course ? openCourseForm(true) : toast('Kein Lehrgang gewählt.')));
     $('#addTeam').addEventListener('click', () => $('#teamRows').insertAdjacentHTML('beforeend', teamRow()));
     $('#teamRows').addEventListener('click', e => { if (e.target.hasAttribute('data-rm')) e.target.closest('.team-row').remove(); });

@@ -104,3 +104,4 @@ code{font-size:.9em}
 .title-row{display:flex;align-items:center;gap:8px;padding-right:8px}.title-row .large-title{flex:1;min-width:0}
 /* Untertitel als Auswahl (z. B. Lehrgang wechseln) */
 .subtitle.picker{display:flex;align-items:center;gap:4px;cursor:pointer}.subtitle.picker b{color:var(--tint);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}.subtitle.picker svg{width:11px;height:11px;color:var(--tint);flex:0 0 auto}.subtitle.picker .rest{white-space:nowrap}
+.danger-cell{color:var(--red)}
