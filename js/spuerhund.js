@@ -388,19 +388,21 @@
     }
 
     // Zahl direkt eintippen: dazuzählen oder Tageswert genau setzen
-    function zahl(stoff) {
+    function zahl(stoff, startModus) {
       const team = ctx.currentTeam(), h = heute(team, stoff), g = gesamt(team, stoff);
-      let modus = 'plus';
-      ctx.openModal('<h3>' + esc(stoff) + ' · ' + (ctx.selDate() === ctx.today() ? 'heute' : esc(WBK.isoToDe(ctx.selDate()))) + '</h3><p class="modal-sub">' + esc(teamTitel(team)) + '</p>' +
-        '<div class="m-pad"><div class="segmented" id="zMod"><button type="button" data-m2="plus" class="on">Dazuzählen</button><button type="button" data-m2="minus">Abziehen</button><button type="button" data-m2="genau">Heute genau</button></div></div>' +
+      let modus = startModus || 'plus';
+      const tagTxt = ctx.selDate() === ctx.today() ? 'heute' : esc(WBK.isoToDe(ctx.selDate()));
+      // Gesamt korrigieren: neue Gesamtzahl eingeben, die Differenz wird am gewählten Tag als Korrektur gebucht (nichts wird gelöscht)
+      ctx.openModal('<h3>' + esc(stoff) + ' · ' + (modus === 'gesamt' ? 'Gesamt korrigieren' : tagTxt) + '</h3><p class="modal-sub">' + esc(teamTitel(team)) + '</p>' +
+        '<div class="m-pad"' + (modus === 'gesamt' ? ' hidden' : '') + '><div class="segmented" id="zMod"><button type="button" data-m2="plus" class="on">Dazuzählen</button><button type="button" data-m2="minus">Abziehen</button><button type="button" data-m2="genau">Heute genau</button></div></div>' +
         '<input id="zIn" class="zg-input" type="number" inputmode="numeric" pattern="[0-9]*" min="0" placeholder="0" aria-label="Anzahl">' +
         '<p class="modal-sub" id="zVor"></p><div class="actions"><button class="btn-gray" data-m="close">Abbrechen</button><button class="btn-filled" id="zOk" disabled>Übernehmen</button></div>');
       // Minus-Zeichen gibt es auf der iPhone-Zahlentastatur nicht, darum eigener Modus „Abziehen“ (nie unter 0)
-      const delta = () => { const roh = Math.round(Number($('#zIn').value) || 0), n = Math.abs(roh); if (modus === 'minus' || roh < 0) return -Math.min(n, h); return modus === 'plus' ? n : n - h; };
+      const delta = () => { const roh = Math.round(Number($('#zIn').value) || 0), n = Math.abs(roh); if (modus === 'gesamt') return n - g; if (modus === 'minus' || roh < 0) return -Math.min(n, h); return modus === 'plus' ? n : n - h; };
       const upd = () => {
         const leer = $('#zIn').value === '', d = delta();
-        const n = Math.abs(Math.round(Number($('#zIn').value) || 0)), zuViel = (modus === 'minus' || Number($('#zIn').value) < 0) && n > h;
-        $('#zVor').textContent = leer ? (modus === 'plus' ? 'Wie viele Belohnungen kommen dazu?' : modus === 'minus' ? 'Wie viele Belohnungen sollen weg? (heute gezählt: ' + h + ')' : 'Wie viele Belohnungen waren es an diesem Tag insgesamt?') : 'heute ' + h + ' → ' + (h + d) + '  ·  gesamt ' + g + ' → ' + (g + d) + (zuViel ? '  ·  mehr als ' + h + ' geht an diesem Tag nicht' : '');
+        const n = Math.abs(Math.round(Number($('#zIn').value) || 0)), zuViel = modus !== 'gesamt' && (modus === 'minus' || Number($('#zIn').value) < 0) && n > h;
+        $('#zVor').textContent = leer ? (modus === 'gesamt' ? 'Wie viele Belohnungen sind es insgesamt? (bisher ' + g + ')' : modus === 'plus' ? 'Wie viele Belohnungen kommen dazu?' : modus === 'minus' ? 'Wie viele Belohnungen sollen weg? (heute gezählt: ' + h + ')' : 'Wie viele Belohnungen waren es an diesem Tag insgesamt?') : 'heute ' + h + ' → ' + (h + d) + '  ·  gesamt ' + g + ' → ' + (g + d) + (zuViel ? '  ·  mehr als ' + h + ' geht an diesem Tag nicht' : '') + (modus === 'gesamt' && d ? '  ·  Differenz wird ' + tagTxt + ' gebucht' : '');
         $('#zOk').disabled = leer || !d;
       };
       $('#zMod').onclick = e => { const b = e.target.closest('[data-m2]'); if (!b) return; modus = b.dataset.m2; $('#zMod').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); upd(); $('#zIn').focus(); };
@@ -422,7 +424,7 @@
         $('#modalCard').innerHTML = '<h3>' + esc(stoff) + '</h3><p class="modal-sub">' + esc(teamTitel(team)) + '</p>' +
           (sch.length ? '<div class="section-h">Schritt</div><div class="m-pad"><div class="segmented" id="dSeg">' + sch.map((_, i) => '<button type="button" data-sn="' + (i + 1) + '"' + (i + 1 === n ? ' class="on"' : '') + '>' + (i + 1) + '</button>').join('') + '</div></div>' +
             '<p class="modal-foot zg-foot">' + (n ? esc(schrittText(n) + (sch[n - 1].beschr ? ' – ' + sch[n - 1].beschr : '') + (erreicht[n] ? ' · seit ' + WBK.isoToDe(erreicht[n]).slice(0, 6) : '')) : 'Noch kein Schritt erreicht. Antippen, um ihn zu setzen.') + '</p>' : '') +
-          '<div class="section-h">Belohnungen</div><div class="group m-group"><div class="cell"><div class="cell-tx"><b>Gesamt</b></div><span class="zg-cnt">' + gesamt(team, stoff) + '</span></div>' +
+          '<div class="section-h">Belohnungen</div><div class="group m-group"><button type="button" class="cell" id="dGesamt"><div class="cell-tx"><b>Gesamt</b><span>Antippen, um die Gesamtzahl zu ändern</span></div><span class="zg-cnt">' + gesamt(team, stoff) + '</span></button>' +
           '<button type="button" class="cell" id="dZahl"><div class="cell-tx"><b>' + (ctx.selDate() === ctx.today() ? 'Heute' : esc(kurzDatum(ctx.selDate()))) + '</b><span>Antippen, um eine Zahl einzugeben</span></div><span class="zg-cnt">' + heute(team, stoff) + '</span></button></div>' +
           (tage.length ? '<div class="section-h">Verlauf</div><div class="group m-group">' + tage.map(d => {
             const s = alle.filter(e => e.datum === d && e.schritt !== '').map(e => e.schritt);
@@ -431,6 +433,7 @@
           '<div class="actions"><button class="btn-filled" data-m="close">Fertig</button></div>';
         if ($('#dSeg')) $('#dSeg').onclick = e => { const b = e.target.closest('[data-sn]'); if (!b) return; const k = Number(b.dataset.sn); if (k === n) return; eintragen(team, stoff, null, k); male(); };
         $('#dZahl').onclick = () => zahl(stoff);
+        $('#dGesamt').onclick = () => zahl(stoff, 'gesamt');
       };
       ctx.openModal(''); male();
     }
