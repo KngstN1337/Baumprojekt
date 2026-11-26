@@ -16,7 +16,7 @@
   const mmss = s => Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
 
   // ---------------- Zustand ----------------
-  const settings = Object.assign({ openaiKey: '', sttModel: CFG.sttModel || 'gpt-4o-transcribe', llmModel: CFG.llmModel || 'gpt-4.1-mini', stil: 'fliesstext', glossar: [], ausgeblendet: [] },
+  const settings = Object.assign({ openaiKey: '', sttModel: CFG.sttModel || 'gpt-transcribe', llmModel: CFG.llmModel || 'gpt-4.1-mini', stil: 'fliesstext', glossar: [], ausgeblendet: [] },
     JSON.parse(localStorage.getItem('baumprojekt.settings') || '{}'));
   // Den Stil „Stichpunkte“ gibt es nicht mehr (dafür das Ansagewort „nächster Punkt“) → Fließtext
   if (!S.STILE.some(s => s.id === settings.stil)) { settings.stil = 'fliesstext'; localStorage.setItem('baumprojekt.settings', JSON.stringify(settings)); }
@@ -38,6 +38,11 @@
   // Vordefinierte Begriffe (js/vordefiniert.js) gelten für alle; ein eigener Eintrag mit gleichem Begriff geht vor
   const vordefGlossar = () => ((window.BaumprojektVordefiniert || {}).glossar || []).filter(g => !settings.glossar.some(x => lc(x.begriff) === lc(g.begriff)) && !fremdGlossar().some(x => lc(x.begriff) === lc(g.begriff)));
   const glossarAktiv = () => settings.glossar.concat(fremdGlossar(), vordefGlossar());
+  const stoffeAktiv = () => ((course && course.spuer && course.spuer.stoffe) || []).filter(x => typeof x === 'string' && x.trim());
+  // Ältere Spracherkennungs-Modelle (Standard früherer Versionen) auf das neue Standardmodell heben
+  const ALTE_STT = ['gpt-4o-transcribe', 'gpt-4o-mini-transcribe', 'whisper-1'];
+  const sttAktuell = m => (!m || ALTE_STT.includes(m)) ? (CFG.sttModel || 'gpt-transcribe') : m;
+  settings.sttModel = sttAktuell(settings.sttModel);
   const openaiKey = () => (info && info.id === activeId && !info.ownedByMe && info.sharedKey) || settings.openaiKey;
 
   // ---------------- UI-Helfer ----------------
@@ -476,8 +481,7 @@
   async function processAudio(blob) {
     try {
       sheetState('busy', 'Spracherkennung läuft …');
-      const fach = S.glossarHinweis(glossarAktiv());
-      const hint = ('Hundetraining. Teams: ' + course.teams.map(t => t.teilnehmer + ' mit ' + t.hund).join(', ') + '.' + (fach ? ' Fachbegriffe: ' + fach + '.' : '')).slice(0, 2000);
+      const hint = S.sttHinweis(course.teams, glossarAktiv(), stoffeAktiv());
       const text = await S.transcribe(blob, { key: openaiKey(), model: settings.sttModel, hint });
       if (job.aid && text) await keepTranscript(job.aid, text);
       const vorher = job.append ? quelleVon(job).trim() : '';
@@ -500,7 +504,7 @@
     try {
       sheetState('busy', (teile.length > 1 ? 'Formuliere ' + teile.length + ' Stichpunkte' : 'Formuliere') + ' im Stil „' + (STIL_KURZ[settings.stil] || (S.STILE.find(s => s.id === settings.stil) || S.STILE[0]).name) + '“ …');
       const tm = job.team === ALLE ? null : teamByName(job.team);
-      const rs = await Promise.all(teile.map(t => S.formulate(t, tm, { key: openaiKey(), model: settings.llmModel, stil: settings.stil, glossar: glossarAktiv() })));
+      const rs = await Promise.all(teile.map(t => S.formulate(t, tm, { key: openaiKey(), model: settings.llmModel, stil: settings.stil, glossar: glossarAktiv(), teams: course.teams, stoffe: stoffeAktiv() })));
       job.text = S.alsStichpunkte(rs.map(r => r.text)); job.unklar = [].concat(...rs.map(r => r.unklar || []));
       fillEdit(); sheetState('edit'); saveDraft();
     } catch (e) {
@@ -1089,7 +1093,7 @@
     if (remote) {
       if (Array.isArray(remote.ausgeblendet)) settings.ausgeblendet = remote.ausgeblendet;
       if (remote.aktiverLehrgang) setActive(remote.aktiverLehrgang); // zuletzt gewählter Lehrgang, auch von einem anderen Gerät
-      if (remote.openaiKey) Object.assign(settings, { openaiKey: remote.openaiKey, sttModel: remote.sttModel || settings.sttModel, llmModel: remote.llmModel || settings.llmModel });
+      if (remote.openaiKey) Object.assign(settings, { openaiKey: remote.openaiKey, sttModel: sttAktuell(remote.sttModel || settings.sttModel), llmModel: remote.llmModel || settings.llmModel });
       else if (settings.openaiKey) hochladen = true;
       if (Array.isArray(remote.glossar)) settings.glossar = remote.glossar.filter(g => g && g.begriff);
       else if (settings.glossar.length) hochladen = true;

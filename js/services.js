@@ -16,17 +16,44 @@
     return new Error(msg);
   }
 
+  // Spracherkennung: Standard ist „gpt-transcribe“ (genauer bei Namen und Fachbegriffen, günstiger als gpt-4o-transcribe).
+  // Ist es für das Konto (noch) nicht freigeschaltet, wird automatisch gpt-4o-transcribe genommen.
+  const STT_RUECKFALL = 'gpt-4o-transcribe';
   async function transcribe(blob, opts) {
     const ext = /mp4|m4a|aac/.test(blob.type) ? 'm4a' : /ogg/.test(blob.type) ? 'ogg' : /wav/.test(blob.type) ? 'wav' : 'webm';
-    const fd = new FormData();
-    fd.append('file', blob, 'notiz.' + ext);
-    fd.append('model', opts.model || 'gpt-4o-transcribe');
-    fd.append('language', 'de');
-    if (opts.hint) fd.append('prompt', opts.hint);
-    const res = await fetch('https://api.openai.com/v1/audio/transcriptions', { method: 'POST', headers: { Authorization: 'Bearer ' + opts.key }, body: fd });
+    const senden = async model => {
+      const fd = new FormData();
+      fd.append('file', blob, 'notiz.' + ext);
+      fd.append('model', model);
+      fd.append('language', 'de');
+      if (opts.hint) fd.append('prompt', opts.hint);
+      return fetch('https://api.openai.com/v1/audio/transcriptions', { method: 'POST', headers: { Authorization: 'Bearer ' + opts.key }, body: fd });
+    };
+    const model = opts.model || 'gpt-transcribe';
+    let res = await senden(model);
+    if (!res.ok && model !== STT_RUECKFALL && (res.status === 404 || res.status === 400 || res.status === 403)) {
+      const e = await oaiError(res.clone());
+      if (/model|modell/i.test(e.message)) res = await senden(STT_RUECKFALL);
+    }
     if (!res.ok) throw await oaiError(res);
     const j = await res.json();
     return (j.text || '').trim();
+  }
+  // Kontext für die Spracherkennung: ein kurzer, korrekt geschriebener Vortext mit allen Namen und Fachwörtern des Lehrgangs.
+  // So schreibt die Erkennung „Detlef“, „Semtex“ oder „Malinois“ richtig, statt ähnlich klingende Wörter zu raten.
+  function sttHinweis(teams, glossar, stoffe) {
+    const uniq = a => Array.from(new Set(a.map(x => String(x || '').trim()).filter(Boolean)));
+    const tn = uniq((teams || []).map(t => t.teilnehmer)), hu = uniq((teams || []).map(t => t.hund));
+    const be = uniq((teams || []).map(t => t.behoerde)), ra = uniq((teams || []).map(t => t.rasse));
+    const fach = uniq((glossar || []).map(g => g.begriff)), st = uniq(stoffe || []);
+    const teile = ['Notiz eines Diensthundetrainers zum Lehrgang, auf Deutsch.'];
+    if (tn.length) teile.push('Teilnehmer: ' + tn.join(', ') + '.');
+    if (hu.length) teile.push('Hunde: ' + hu.join(', ') + '.');
+    if (ra.length) teile.push('Rassen: ' + ra.join(', ') + '.');
+    if (be.length) teile.push('Behörden: ' + be.join(', ') + '.');
+    if (st.length) teile.push('Zielgerüche: ' + st.join(', ') + '.');
+    if (fach.length) teile.push('Fachbegriffe: ' + fach.join(', ') + '.');
+    return teile.join(' ').slice(0, 2000);
   }
 
   // Schreibstile wie im Diktiersystem des Fidus-K9-Lexikons, ergänzt um Beamtendeutsch.
@@ -52,13 +79,22 @@
       '- Sinnabschnitte mit Leerzeile. Keine Überschriften, keine Aufzählungszeichen.'] }
   ];
   const GEMEINSAM = '- Für alle Stile: Nichts erfinden, nichts weglassen, keine eigenen Schlüsse ergänzen. Namen von Teilnehmern und Hunden so schreiben wie in der Teamliste. ' +
-    'Diktierbefehle wie „Absatz“, „neue Zeile“, „Punkt“, „Komma“ als Formatierung bzw. Satzzeichen umsetzen, nur wenn sie eindeutig als Befehl gemeint sind.';
+    'Diktierbefehle wie „Absatz“, „neue Zeile“, „Punkt“, „Komma“ als Formatierung bzw. Satzzeichen umsetzen, nur wenn sie eindeutig als Befehl gemeint sind.\n' +
+    '- Namen: Klingt ein Wort wie ein Name aus der Namensliste (Teilnehmer, Hunde, Behörden) oder wie ein Zielgeruch bzw. Glossarbegriff, schreibe es genau so wie dort. ' +
+    'Namen und Fachbegriffe nie umschreiben, übersetzen, beugen oder durch andere Wörter ersetzen.\n' +
+    '- Kein Artikel direkt vor Vor- oder Hundenamen: „Detlef führte …“, nicht „die Detlef“ oder „der Detlef“; „Rex zeigte …“, nicht „der Rex“. ' +
+    'Steht in der Aufnahme ein Artikel vor einem Namen (umgangssprachlich oder falsch erkannt), lass ihn weg. Erlaubt bleibt eine Rolle davor, z. B. „die Teilnehmerin Anna“, „der Rüde Rex“.';
   // Glossar (wie im Fidus-K9-Lexikon): Fachbegriffe gehen an die Spracherkennung und an die Formulierung
   const GLOSSAR_REGELN = '- Fachbegriffe so schreiben wie im Glossar. Steht dort eine typische Fehlerkennung, korrigiere sie.\n' +
     '- unklar: Wörter im Text, die vermutlich falsch erkannt wurden und die du nicht sicher korrigieren kannst (z. B. unbekannte Fachbegriffe, Namen, sinnlose Wörter). ' +
     'wort genau so, wie es in text steht; vorschlag ist deine beste Vermutung oder "". Höchstens 5, sonst leer lassen.';
   const glossarListe = g => (g || []).map(x => x.begriff + (x.falsch ? ' (oft erkannt als: ' + x.falsch + ')' : '')).join('\n') || '(leer)';
   const glossarHinweis = g => (g || []).map(x => x.begriff).join(', ');
+  const namensListe = (teams, stoffe) => {
+    const z = (teams || []).filter(t => t && (t.teilnehmer || t.hund)).map(t => '- ' + (t.teilnehmer || '?') + ' mit Hund ' + (t.hund || '?') + (t.rasse ? ' (' + t.rasse + ')' : '') + (t.behoerde ? ', ' + t.behoerde : ''));
+    return (z.length ? 'Namensliste aller Teams im Lehrgang (genaue Schreibweise):\n' + z.join('\n') + '\n\n' : '') +
+      ((stoffe || []).length ? 'Zielgerüche im Lehrgang: ' + stoffe.join(', ') + '\n\n' : '');
+  };
   const stilVon = id => STILE.find(s => s.id === id) || STILE[0];
   // Ansagewort „nächster Punkt“: teilt ein Transkript in mehrere Stichpunkte (untereinander in einer Notiz).
   // Robust gegen „Nächster Punkt.“, „nächster Punkt,“, „Nächster-Punkt“ und „naechster Punkt“; das Ansagewort selbst fällt weg.
@@ -448,6 +484,7 @@
       'Du bist Assistent eines Hundetrainers. Er hat eine Notiz ' + (alle ? 'für ALLE Teams seines Lehrgangs' : 'zu genau einem Team (Teilnehmer/in mit Hund)') + ' eingesprochen. ' +
       'Schreibe daraus den Notiztext.\n\n' +
       (alle ? '' : 'Team: Teilnehmer/in ' + (team.teilnehmer || '?') + ', Hund ' + (team.hund || '?') + (team.rasse ? ' (' + team.rasse + ')' : '') + '\n\n') +
+      namensListe(opts.teams, opts.stoffe) +
       'Regeln für text (Schreibstil „' + stil.name + '“):\n' + stil.regeln.join('\n') + '\n' + GEMEINSAM + '\n' + GLOSSAR_REGELN +
       '\n\nGlossar (Begriff, dahinter typische Fehlerkennungen der Spracherkennung):\n' + glossarListe(opts.glossar);
     const schema = { type: 'object', additionalProperties: false, required: ['text', 'unklar'],
@@ -491,5 +528,5 @@
     });
   }
 
-  global.BaumprojektServices = { glossarHinweis, splitPunkte, alsStichpunkte, pick, transcribe, assign, formulate, STILE, Drive, KV, Outbox, KATEGORIEN, XLSX_MIME };
+  global.BaumprojektServices = { glossarHinweis, sttHinweis, splitPunkte, alsStichpunkte, pick, transcribe, assign, formulate, STILE, Drive, KV, Outbox, KATEGORIEN, XLSX_MIME };
 })(window);
