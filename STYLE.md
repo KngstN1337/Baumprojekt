@@ -1,0 +1,62 @@
+# Baumprojekt – Stilregeln
+
+Die App sieht aus wie eine iOS-App: ruhig, hell/dunkel automatisch, wenige Farben. **Jede neue Funktion verwendet nur die Bausteine aus `css/design.css`.** Seitenspezifisches (z. B. Tageleiste, Aufnahme-Fenster) steht in `css/style.css`. Keine Emojis als Icons, keine eigenen Farben, keine Schatten- oder Rahmen-Experimente.
+
+## Farben (CSS-Variablen, hell und dunkel)
+| Variable | Wofür |
+|---|---|
+| `--bg` | Seitenhintergrund (grau, im Dunkeln schwarz) |
+| `--card` | Hintergrund von Listen und Karten |
+| `--label` | normaler Text |
+| `--sec` | Nebentext, Untertitel, Abschnittsüberschriften |
+| `--ter` | sehr leise Elemente (Pfeile) |
+| `--sep` | Trennlinien |
+| `--fill` | graue Flächen (runde Knöpfe, Eingabefelder, Segmente) |
+| `--tint` | Akzentfarbe für Links, Text-Knöpfe, aktive Tabs |
+| `--fill-tint` | Akzentfarbe als Fläche mit weißer Schrift (Hauptknopf, gewählter Tag) |
+| `--red` / `--green` / `--orange` | Aufnahme / erledigt / Warnung |
+
+Nie feste Farbwerte (#…) im Code verwenden, nur diese Variablen. Dann stimmt der Dunkelmodus von selbst.
+
+## Schrift
+Systemschrift (auf dem iPhone SF Pro). Größen: Großer Titel 34 px fett · Text 17 px · Untertitel 15 px · Abschnittsüberschrift 13 px in Großbuchstaben · Kleintext 13 px. Keine weiteren Größen erfinden.
+
+## Seitenaufbau
+```html
+<section id="v-xyz" class="view hidden">
+  <div class="navbar"><span></span><button class="nav-icon" aria-label="Neu"><svg><use href="#i-plus"/></svg></button></div>
+  <h1 class="large-title">Titel</h1>
+  <div class="section-h">Abschnitt</div>
+  <div class="group">
+    <div class="cell"><div class="cell-tx"><b>Zeile</b><span>Unterzeile</span></div></div>
+    <button class="cell link-cell">Aktion als Link</button>
+  </div>
+</section>
+```
+- Navigationsleiste: links `nav-btn back` (Zurück mit `#i-back`), rechts Text-`nav-btn` oder Rund-Knopf `nav-icon` (Plus usw.). Text rechts höchstens ein kurzes Wort.
+- Abstände kommen aus den Klassen (16 px Seitenrand, 28 px zwischen Gruppen). Keine eigenen `margin`/`padding` an Bausteinen.
+
+## Bausteine
+| Klasse | Verwendung |
+|---|---|
+| `.group` + `.cell` | Gruppierte Liste (iOS-Tabelle). Trennlinien entstehen automatisch. `.cell-tx` für Titel/Unterzeile, `.cell-st` für Status rechts, `.chev` als Pfeil, `.link-cell` für Aktionen. `.cell-tx.wrap` erlaubt Zeilenumbruch. |
+| `.picker` | Zelle mit Auswahlmenü: `<label class="cell picker"><div class="cell-tx"><b>Gewählter Wert</b></div><span class="val">Wechseln<svg><use href="#i-updown"/></svg></span><select>…</select></label>`. Für alle Auswahllisten, die lang werden können (statt Radio-Listen). |
+| `.avatar` | Runder Kreis mit Initialen; `.big` für Kopfbereich. |
+| `.btn-filled` | Hauptaktion (eine pro Ansicht). `.btn-gray` für die zweite Aktion daneben. In `.actions` nebeneinander. |
+| `.text-btn` | Kleiner Text-Knopf in Akzentfarbe. |
+| `.nav-icon` / `.round` / `.play` | Runde Icon-Knöpfe (Navigationsleiste / groß / klein). |
+| `.segmented` | Umschalter mit 2–4 Optionen (Buttons mit `.on` oder Radio-Labels). |
+| `.switch` | Ein/Aus-Schalter (`<input type="checkbox" class="switch">`). |
+| `.form .field` | Formularzeile in einer `.group`: Beschriftung links, Eingabe rechts. |
+| `.card` | Freier Text (Hilfe, Erklärungen). `details.card` zum Aufklappen. |
+| `.tag` | Kleines Schlagwort (z. B. Kategorie). |
+| `.empty` | Hinweis, wenn eine Liste leer ist. |
+| `.sheet` + `.dim` | Fenster von unten (wie Aufnahme). Öffnen über `body.sheet-open`. |
+| `.banner`, `toast()`, `busy()` | Hinweise oben, kurze Meldung unten, Warte-Anzeige. |
+| `.tabs` | Tab-Leiste unten. Höchstens 5 Einträge. |
+
+## Icons
+Alle Icons sind SVG-Symbole am Ende von `index.html` (`<symbol id="i-…">`) und werden mit `<svg><use href="#i-name"/></svg>` eingebunden. Sie übernehmen die Textfarbe. Neue Icons im gleichen Stil (gefüllt, 24×24) dort ergänzen.
+
+## Texte
+Deutsch, kurz, in der Du-Form. Knöpfe mit Verb („Speichern“, „Weiter aufnehmen“). App-Name immer „Baumprojekt“.
