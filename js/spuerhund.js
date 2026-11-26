@@ -19,7 +19,14 @@
     ['gerueche', 'geruchVorlagen', 'schrittVorlagen'].forEach(k => { if (!Array.isArray(st[k])) st[k] = []; });
 
     // ---------------- Bibliothek ----------------
-    const vordefGerueche = () => V.gerueche.flatMap(g => g.namen);
+    // Jeder Geruch aus einer vordefinierten Vorlage gehört automatisch auch in die Geruchsliste (Gruppe „Weitere“, falls in keiner Gruppe)
+    const vordefGruppen = () => {
+      const gs = V.gerueche.map(g => ({ gruppe: g.gruppe, namen: g.namen.slice() })), drin = n => gs.some(g => g.namen.some(x => lc(x) === lc(n)));
+      const rest = []; V.geruchVorlagen.forEach(v => v.stoffe.forEach(n => { if (!drin(n) && !rest.some(x => lc(x) === lc(n))) rest.push(n); }));
+      if (rest.length) gs.push({ gruppe: 'Weitere', namen: rest });
+      return gs;
+    };
+    const vordefGerueche = () => vordefGruppen().flatMap(g => g.namen);
     const alleGerueche = () => { const a = vordefGerueche(); st.gerueche.forEach(n => { if (!a.some(x => lc(x) === lc(n))) a.push(n); }); return a; };
     const geruchVorlagen = () => V.geruchVorlagen.map(v => ({ id: 'v:' + v.name, name: v.name, stoffe: v.stoffe, vordef: true })).concat(st.geruchVorlagen);
     const schrittVorlagen = () => V.schrittVorlagen.map(v => ({ id: 'v:' + v.name, name: v.name, schritte: v.schritte, vordef: true })).concat(st.schrittVorlagen);
@@ -37,7 +44,7 @@
     function renderGerueche() {
       $('#zgSeg').innerHTML = [['g', 'Alle Gerüche'], ['v', 'Vorlagen']].map(([k, t]) => '<button type="button" data-tab="' + k + '"' + (k === zgTab ? ' class="on"' : '') + '>' + t + '</button>').join('');
       ctx.show('#zgPanelG', zgTab === 'g'); ctx.show('#zgPanelV', zgTab === 'v');
-      $('#zgVordef').innerHTML = V.gerueche.map(g => '<div class="section-h">' + esc(g.gruppe) + ' · vordefiniert</div><div class="group">' +
+      $('#zgVordef').innerHTML = vordefGruppen().map(g => '<div class="section-h">' + esc(g.gruppe) + ' · vordefiniert</div><div class="group">' +
         g.namen.map(n => '<div class="cell"><div class="cell-tx"><b>' + esc(n) + '</b></div></div>').join('') + '</div>').join('');
       $('#zgEigene').innerHTML = st.gerueche.map((n, i) => '<button type="button" class="cell" data-eg="' + i + '"><div class="cell-tx"><b>' + esc(n) + '</b></div>' + CHEV + '</button>').join('') || '<div class="empty">Noch keine eigenen Gerüche.</div>';
       const zeile = v => '<button type="button" class="cell" data-gv="' + esc(v.id) + '"><div class="cell-tx"><b>' + esc(v.name) + '</b><span>' + esc(v.stoffe.join(', ') || 'keine Stoffe') + '</span></div>' + CHEV + '</button>';
