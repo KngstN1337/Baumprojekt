@@ -115,6 +115,7 @@ code{font-size:.9em}
 .swipe-act svg{width:20px;height:20px}
 .swipe-act.del{background:var(--red)}
 .swipe-row{position:relative;z-index:1;background:var(--card);touch-action:pan-y;transition:transform .25s cubic-bezier(.2,.8,.2,1);user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+.view.edge-drag{box-shadow:-8px 0 24px rgba(0,0,0,.12);background:var(--bg);min-height:100vh} /* Zurückwischen vom linken Rand */
 .tappable{cursor:pointer}.tappable:active{background:var(--fill)}
 .note-m .chev{margin-left:auto}
 /* Datumsfelder: iOS richtet den Wert sonst links aus */
