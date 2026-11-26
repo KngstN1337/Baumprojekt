@@ -89,6 +89,19 @@
   const render = s => (s.bullet ? '• ' : '') + s.text + (s.suf ? ' (' + s.suf + ')' : '');
   const norm = v => String(v == null ? '' : v).replace(/\r\n?/g, '\n').split('\n').map(l => l.trimEnd()).join('\n').trim();
 
+  // Spaltenbreite passend zum Inhalt: längste Zeile (+2 Zeichen Luft), begrenzt auf min/max.
+  // Längere Texte werden innerhalb der Höchstbreite umgebrochen.
+  function fitWidth(values, min, max) {
+    let w = 0;
+    values.forEach(v => String(v == null ? '' : v).split('\n').forEach(l => { w = Math.max(w, l.length); }));
+    return Math.max(min, Math.min(max, w + 2));
+  }
+  // Wie viele Zeilen ein Text bei gegebener Spaltenbreite braucht
+  function lineCount(txt, width) {
+    const per = Math.max(1, width - 2);
+    return String(txt || '').split('\n').reduce((n, l) => n + Math.max(1, Math.ceil(l.length / per)), 0);
+  }
+
   // ---------- Schreiben ----------
   function build(course) {
     const wb = new ExcelJS.Workbook();
@@ -113,10 +126,6 @@
       c.alignment = { wrapText: true, vertical: 'middle', horizontal: 'center' };
       c.border = BORDER;
     });
-    ws.getColumn(1).width = 22;
-    days.forEach((_, i) => { ws.getColumn(i + 2).width = 40; });
-    ws.getColumn(days.length + 2).width = 26;
-
     // Sprechen mehrere Trainer in den Lehrgang, steht in der Übersicht hinter jeder Notiz, von wem sie ist
     const mehrere = new Set(notes.map(n => n.von).filter(Boolean)).size > 1;
     const stand = [];
@@ -124,7 +133,6 @@
     notes.forEach(n => { if (n.team && !allTeamNames.includes(n.team)) allTeamNames.push(n.team); });
     allTeamNames.forEach((name, r) => {
       const row = ws.getRow(4 + r);
-      let maxLines = 1;
       row.getCell(1).value = name;
       row.getCell(1).font = { bold: true };
       days.forEach((d, i) => {
@@ -132,7 +140,6 @@
         stand.push(...segs);
         const txt = segs.map(render).join('\n');
         if (txt) row.getCell(i + 2).value = txt;
-        maxLines = Math.max(maxLines, Math.ceil(txt.length / 42) + (txt.match(/\n/g) || []).length);
       });
       const g = (course.gesamt || {})[name];
       if (g) row.getCell(days.length + 2).value = g;
@@ -141,8 +148,24 @@
         cell.alignment = { wrapText: true, vertical: 'top' };
         cell.border = BORDER;
       }
-      row.height = Math.max(45, Math.min(400, maxLines * 15 + 6));
     });
+    // Spaltenbreiten nach Inhalt, danach Zeilenhöhen passend zu den Breiten
+    const nCols = days.length + 2, nRows = allTeamNames.length;
+    const widths = [];
+    for (let c = 1; c <= nCols; c++) {
+      const vals = [];
+      for (let r = 0; r < nRows; r++) vals.push(ws.getRow(4 + r).getCell(c).value);
+      // Tagesspalten: mind. so breit wie „Mo 01.01.2026“, höchstens 50; Team- und Gesamteindruck-Spalte eigene Grenzen
+      const w = c === 1 ? fitWidth([...vals, 'Team (Teilnehmer'], 16, 30) : c === nCols ? fitWidth([...vals, 'Gesamteindruck'], 16, 40) : fitWidth(vals, 15, 50);
+      ws.getColumn(c).width = w;
+      widths.push(w);
+    }
+    for (let r = 0; r < nRows; r++) {
+      const row = ws.getRow(4 + r);
+      let maxLines = 1;
+      for (let c = 1; c <= nCols; c++) maxLines = Math.max(maxLines, lineCount(row.getCell(c).value, widths[c - 1]));
+      row.height = Math.max(30, Math.min(400, maxLines * 15 + 6));
+    }
 
     // Notizen (Rohdaten)
     const wn = wb.addWorksheet(SHEET_NOT, { views: [{ state: 'frozen', ySplit: 1 }] });
@@ -161,6 +184,8 @@
       row.values = COLS.map(col => col[2](n));
       row.eachCell(c => { c.alignment = { wrapText: true, vertical: 'top' }; });
     });
+    // Breite nach Inhalt (Überschrift zählt mit); die Notiz-Spalte bricht ab 80 Zeichen um
+    COLS.forEach(([h, , f], i) => { wn.getColumn(i + 1).width = fitWidth([h, ...notes.map(f)], 8, h === 'Notiz' ? 80 : 30); });
     wn.autoFilter = { from: 'A1', to: String.fromCharCode(64 + COLS.length) + Math.max(1, notes.length + 1) };
 
     // Teams
@@ -175,7 +200,12 @@
       c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: BLUE } };
       wt.getColumn(i + 1).width = w;
     });
-    teams.forEach((t, i) => { wt.getRow(i + 2).values = TC.map(col => col[2](t)); });
+    teams.forEach((t, i) => {
+      const row = wt.getRow(i + 2);
+      row.values = TC.map(col => col[2](t));
+      row.eachCell(c => { c.alignment = { wrapText: true, vertical: 'top' }; });
+    });
+    TC.forEach(([h, , f], i) => { wt.getColumn(i + 1).width = fitWidth([h, ...teams.map(f)], 8, 45); });
 
     // Versteckte Einstellungen
     const wm = wb.addWorksheet(SHEET_META, { state: 'hidden' });
