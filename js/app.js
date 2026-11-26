@@ -197,7 +197,6 @@
     show('#sheetBusy', st === 'busy'); if (st === 'busy') $('#sheetBusyText').textContent = msg || 'Bitte warten …';
     show('#sheetEdit', st === 'edit'); show('#sheetEditBtns', st === 'edit');
     show('#sheetErrBtns', st === 'err');
-    show('#stilSeg', st !== 'err' && st !== 'busy');
     if (st === 'err') $('#sheetSub').textContent = msg;
     else $('#sheetSub').textContent = longDate(job.datum);
   }
@@ -233,17 +232,21 @@
     fillEdit(); openSheet(teamName, 'edit'); $('#noteText').focus();
   }
 
-  // Aufnahme mit Tonwelle
-  let rec = null, chunks = [], recStart = 0, recTimer = null, wakeLock = null, audioCtx = null, analyser = null, raf = 0, cancelled = false;
-  async function startRec(teamName) {
+  // Aufnahme mit Tonwelle, Pause und Weiter-Aufnehmen
+  let rec = null, chunks = [], recTimer = null, wakeLock = null, audioCtx = null, analyser = null, raf = 0, cancelled = false;
+  let elapsed = 0, runStart = 0, paused = false; // Aufnahmezeit ohne Pausen
+  const recSeconds = () => Math.floor((elapsed + (paused ? 0 : Date.now() - runStart)) / 1000);
+  // append = true: an die bestehende Notiz anhängen (nach „Fertig“ weiter aufnehmen)
+  async function startRec(teamName, append) {
     if (needSetup()) return;
-    if (rec && rec.state === 'recording') return;
-    job = { team: teamName, datum: selDate, uhrzeit: nowTime() };
-    openSheet(teamName, 'rec');
+    if (rec && rec.state !== 'inactive') return;
+    if (!append || !job) { job = { team: teamName, datum: selDate, uhrzeit: nowTime() }; openSheet(teamName, 'rec'); }
+    else { saveDraft(); job.append = true; sheetState('rec'); }
+    elapsed = 0; paused = false; setPauseUi();
     $('#recTime').textContent = '0:00';
     let stream;
     try { stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } }); }
-    catch (e) { closeSheet(); toast('Kein Zugriff aufs Mikrofon: ' + e.message, 5000); return; }
+    catch (e) { if (append) sheetState('edit'); else closeSheet(); toast('Kein Zugriff aufs Mikrofon: ' + e.message, 5000); return; }
     const type = ['audio/webm;codecs=opus', 'audio/mp4', 'audio/webm', 'audio/ogg'].find(t => window.MediaRecorder && MediaRecorder.isTypeSupported(t)) || '';
     rec = new MediaRecorder(stream, type ? { mimeType: type, audioBitsPerSecond: 32000 } : undefined);
     chunks = []; cancelled = false;
@@ -252,42 +255,67 @@
       stream.getTracks().forEach(t => t.stop());
       if (cancelled) return;
       const blob = new Blob(chunks, { type: rec.mimeType || type || 'audio/webm' });
-      job.uhrzeit = nowTime();
+      const uhrzeit = nowTime();
+      if (!job.append) job.uhrzeit = uhrzeit;
       // Sofort sichern: erst auf dem Gerät, dann (sobald Netz da ist) in Google Drive – noch vor der KI-Verarbeitung.
+      // Jeder Teil (auch angehängte) ist eine eigene Aufnahme.
       const teamName = job.team === ALLE ? 'Alle Teams' : job.team;
-      const item = { aid: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), courseId: activeId, datum: job.datum, uhrzeit: job.uhrzeit, team: teamName, von: myName(),
+      const item = { aid: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), courseId: activeId, datum: job.datum, uhrzeit, team: teamName, von: myName(),
         mime: blob.type || 'audio/webm', blob, transcript: null, created: Date.now() };
       job.aid = item.aid;
       await S.Outbox.put(item);
-      await S.KV.set('lastAudio', { blob, aid: item.aid, datum: item.datum, uhrzeit: item.uhrzeit, team: job.team });
+      await S.KV.set('lastAudio', { blob, aid: item.aid, datum: item.datum, uhrzeit: job.uhrzeit, team: job.team, append: !!job.append, prev: job.append ? (job.transcript || job.text || '') : '' });
       syncOutbox();
       processAudio(blob);
     };
     rec.start(1000);
-    recStart = Date.now();
-    recTimer = setInterval(() => { $('#recTime').textContent = mmss(Math.floor((Date.now() - recStart) / 1000)); }, 250);
+    runStart = Date.now();
+    recTimer = setInterval(() => { $('#recTime').textContent = mmss(recSeconds()); }, 250);
     drawWave(stream);
     try { wakeLock = await navigator.wakeLock.request('screen'); } catch (e) { /* nicht überall verfügbar */ }
   }
+  function setPauseUi() {
+    $('#pauseLbl').textContent = paused ? 'Weiter' : 'Pause';
+    $('#pauseBtn').innerHTML = svg(paused ? 'i-mic' : 'i-pause');
+    $('#pauseBtn').classList.toggle('on', paused);
+    $('#pauseBtn').setAttribute('aria-label', paused ? 'Aufnahme fortsetzen' : 'Pause');
+    $('#sheet').classList.toggle('paused', paused);
+  }
+  function togglePause() {
+    if (!rec || rec.state === 'inactive') return;
+    if (!paused) { rec.pause(); elapsed += Date.now() - runStart; paused = true; }
+    else { rec.resume(); runStart = Date.now(); paused = false; }
+    setPauseUi();
+  }
+  // Flüssige Tonwelle: jedes Bild neu gezeichnet, Balken gleiten weich nach links, Pegel geglättet
   function drawWave(stream) {
     const cv = $('#wave'), g = cv.getContext('2d'), red = getComputedStyle(document.documentElement).getPropertyValue('--red').trim() || '#ff3b30';
-    const bars = new Array(60).fill(0.04);
+    const dpr = window.devicePixelRatio || 1;
+    cv.width = Math.round(cv.clientWidth * dpr) || 600; cv.height = Math.round(cv.clientHeight * dpr) || 112;
     try {
       audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      analyser = audioCtx.createAnalyser(); analyser.fftSize = 512;
+      analyser = audioCtx.createAnalyser(); analyser.fftSize = 1024; analyser.smoothingTimeConstant = 0.6;
       audioCtx.createMediaStreamSource(stream).connect(analyser);
+      if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
     } catch (e) { analyser = null; }
-    const data = new Uint8Array(512);
-    let last = 0;
-    const loop = ts => {
+    const data = new Uint8Array(analyser ? analyser.fftSize : 1);
+    const STEP = 9 * dpr, BAR = 3 * dpr, SPEED = 0.06; // Balkenabstand, -breite, Pixel pro ms
+    const n = Math.ceil(cv.width / STEP) + 2, bars = new Array(n).fill(0);
+    let level = 0, offset = 0, last = performance.now();
+    const loop = now => {
       raf = requestAnimationFrame(loop);
-      if (ts - last < 70) return; last = ts;
-      let lvl = 0.05 + Math.random() * 0.05;
-      if (analyser) { analyser.getByteTimeDomainData(data); let sum = 0; for (const v of data) sum += (v - 128) * (v - 128); lvl = Math.min(1, Math.sqrt(sum / data.length) / 40 + 0.04); }
-      bars.push(lvl); bars.shift();
-      const w = cv.width, h = cv.height, bw = w / bars.length;
-      g.clearRect(0, 0, w, h); g.fillStyle = red;
-      bars.forEach((b, i) => { const bh = Math.max(6, b * h); g.beginPath(); g.roundRect ? g.roundRect(i * bw + bw * 0.25, (h - bh) / 2, bw * 0.5, bh, 3) : g.rect(i * bw + bw * 0.25, (h - bh) / 2, bw * 0.5, bh); g.fill(); });
+      const dt = Math.min(64, now - last); last = now;
+      let target = 0;
+      if (!paused && analyser) { analyser.getByteTimeDomainData(data); let sum = 0; for (let i = 0; i < data.length; i++) { const v = data[i] - 128; sum += v * v; } target = Math.min(1, Math.sqrt(sum / data.length) / 28); }
+      level += (target - level) * Math.min(1, dt / 60);
+      if (!paused) { offset += dt * SPEED * dpr; while (offset >= STEP) { offset -= STEP; bars.push(level); bars.shift(); } }
+      const w = cv.width, h = cv.height, mid = h / 2;
+      g.clearRect(0, 0, w, h); g.fillStyle = red; g.globalAlpha = paused ? 0.4 : 1;
+      for (let i = 0; i < n; i++) {
+        const x = w - (n - 1 - i) * STEP - offset;
+        const bh = Math.max(BAR, (i === n - 1 ? level : bars[i]) * (h - 4 * dpr));
+        g.beginPath(); if (g.roundRect) g.roundRect(x - BAR / 2, mid - bh / 2, BAR, bh, BAR / 2); else g.rect(x - BAR / 2, mid - bh / 2, BAR, bh); g.fill();
+      }
     };
     raf = requestAnimationFrame(loop);
   }
@@ -297,7 +325,9 @@
     if (audioCtx) { audioCtx.close().catch(() => {}); audioCtx = null; }
     if (wakeLock) { wakeLock.release().catch(() => {}); wakeLock = null; }
     if (rec && rec.state !== 'inactive') rec.stop();
-    if (cancel) closeSheet(); else sheetState('busy', 'Spracherkennung läuft …');
+    paused = false; setPauseUi();
+    if (cancel) { if (job && job.append) { job.append = false; sheetState('edit'); } else closeSheet(); }
+    else sheetState('busy', 'Spracherkennung läuft …');
   }
   async function processAudio(blob) {
     try {
@@ -305,9 +335,11 @@
       const hint = 'Hundetraining. Teams: ' + course.teams.map(t => t.teilnehmer + ' mit ' + t.hund).join(', ') + '.';
       const text = await S.transcribe(blob, { key: openaiKey(), model: settings.sttModel, hint });
       if (job.aid && text) await keepTranscript(job.aid, text);
-      job.transcript = text;
-      if (!text) { job.text = ''; fillEdit(); sheetState('edit'); toast('Es wurde nichts verstanden. Du kannst den Text eintippen.', 5000); return; }
-      await formulate(text);
+      const vorher = job.append ? (job.transcript || job.text || '').trim() : '';
+      job.append = false;
+      if (!text) { if (!vorher) job.text = ''; fillEdit(); sheetState('edit'); toast('Es wurde nichts verstanden.' + (vorher ? '' : ' Du kannst den Text eintippen.'), 5000); return; }
+      job.transcript = vorher ? vorher + '\n\n' + text : text;
+      await formulate(job.transcript);
     } catch (e) { sheetState('err', 'Spracherkennung fehlgeschlagen: ' + e.message + '. Die Aufnahme ist gesichert.'); }
   }
   async function formulate(quelle) {
@@ -668,13 +700,14 @@
     S.KV.del('draft'); // Entwurf aus der alten Version (KI-Verteilung) wird nicht mehr verwendet
     const d = await S.KV.get('draft2');
     if (d && d.courseId === activeId && course && (d.text || d.transcript) && (d.team === ALLE || teamByName(d.team))) {
-      job = d; selDate = d.datum; renderToday();
+      job = d; job.append = false; selDate = d.datum; renderToday();
       fillEdit(); openSheet(d.team, 'edit'); toast('Nicht gespeicherte Notiz wiederhergestellt.', 4000);
       return;
     }
     const a = await S.KV.get('lastAudio');
     if (a && course) banner('<span>Eine Aufnahme wurde noch nicht verarbeitet.</span><button>Jetzt verarbeiten</button>', () => {
       banner(''); job = { team: a.team && (a.team === ALLE || teamByName(a.team)) ? a.team : ALLE, datum: a.datum, uhrzeit: a.uhrzeit, aid: a.aid };
+      if (a.append) { job.append = true; job.transcript = a.prev; }
       openSheet(job.team, 'busy'); processAudio(a.blob);
     });
   }
@@ -691,12 +724,14 @@
     $('#typeBtn').addEventListener('click', () => typeNote(currentTeam));
     $('#stopBtn').addEventListener('click', () => stopRec(false));
     $('#cancelRec').addEventListener('click', () => stopRec(true));
-    $('#dim').addEventListener('click', () => { if (rec && rec.state === 'recording') return; if ($('#sheetEdit').classList.contains('hidden') && $('#sheetErrBtns').classList.contains('hidden')) return; saveDraft(); document.body.classList.remove('sheet-open'); });
+    $('#pauseBtn').addEventListener('click', togglePause);
+    $('#moreRec').addEventListener('click', () => startRec(job && job.team, true));
+    $('#dim').addEventListener('click', () => { if (rec && rec.state !== 'inactive') return; if ($('#sheetEdit').classList.contains('hidden') && $('#sheetErrBtns').classList.contains('hidden')) return; saveDraft(); document.body.classList.remove('sheet-open'); });
     $('#saveNote').addEventListener('click', saveNote);
     $('#discardNote').addEventListener('click', () => { if (!$('#noteText').value.trim() || confirm('Notiz verwerfen? Die Aufnahme selbst bleibt in Google Drive gesichert.')) { S.KV.del('lastAudio'); closeSheet(); } });
     $('#noteText').addEventListener('input', saveDraft);
     $('#noteKat').addEventListener('change', saveDraft);
-    $('#retryBtn').addEventListener('click', async () => { const a = await S.KV.get('lastAudio'); if (a) processAudio(a.blob); else closeSheet(); });
+    $('#retryBtn').addEventListener('click', async () => { const a = await S.KV.get('lastAudio'); if (a) { if (a.append) { job.append = true; job.transcript = a.prev; } processAudio(a.blob); } else closeSheet(); });
     $('#errClose').addEventListener('click', () => { closeSheet(); restoreDraft(); });
     renderStil();
     $('#stilSeg').addEventListener('click', e => { const b = e.target.closest('[data-stil]'); if (b) chooseStil(b.dataset.stil); });
@@ -739,7 +774,7 @@
       const hadController = !!navigator.serviceWorker.controller;
       navigator.serviceWorker.register('sw.js').then(reg => reg.update()).catch(() => {});
       // Neue Version installiert → einmal neu laden, damit sie sofort aktiv ist (nicht während einer Aufnahme)
-      navigator.serviceWorker.addEventListener('controllerchange', () => { if (hadController && !window.__reloaded && !(rec && rec.state === 'recording') && !job) { window.__reloaded = true; location.reload(); } });
+      navigator.serviceWorker.addEventListener('controllerchange', () => { if (hadController && !window.__reloaded && !(rec && rec.state !== 'inactive') && !job) { window.__reloaded = true; location.reload(); } });
     }
     $('#appVersion').textContent = 'Version ' + (CFG.version || '');
     // Login-Knopf freigeben, sobald die Google-Bibliothek geladen ist

@@ -146,6 +146,16 @@ body:not(.locked) #login{display:none}
 #loginMsg{color:var(--red);min-height:1.2em}
 #settingsForm .btn-gray,#settingsForm .btn-filled{font-size:16px;padding:12px}
 #settingsForm h3{font-size:20px;margin:.6em 0 .3em}#settingsForm h3:first-child{margin-top:.1em}
+.rec-ctrl{display:flex;justify-content:space-around;align-items:flex-start;margin:6px 0 4px}
+.ctrl{display:flex;flex-direction:column;align-items:center;gap:6px;width:90px;font-size:13px;color:var(--sec)}
+.round{width:52px;height:52px;margin:11px 0;border-radius:50%;border:0;background:var(--fill);color:var(--label);display:flex;align-items:center;justify-content:center;padding:0}
+.round svg{width:22px;height:22px}
+.round.on{background:var(--red);color:#fff}
+.more-rec{display:flex;align-items:center;gap:6px;padding:10px 0 4px;font-weight:600}
+.more-rec svg{width:16px;height:16px}
+.stil-label{font-size:13px;color:var(--sec);text-transform:uppercase;margin:14px 0 6px}
+#sheetEdit .segmented{margin:0}
+.paused .rec-time{color:var(--sec)}
 .cell-tx.wrap b,.cell-tx.wrap span{white-space:normal}
 .switch{appearance:none;-webkit-appearance:none;flex:none;width:51px;height:31px;border-radius:16px;background:var(--fill);position:relative;transition:background .2s;margin:0}
 .switch::after{content:"";position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:50%;background:#fff;box-shadow:0 2px 4px rgba(0,0,0,.2);transition:transform .2s}
