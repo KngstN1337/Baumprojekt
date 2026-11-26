@@ -43,6 +43,7 @@
   function busy(msg) { $('#busyText').textContent = msg || 'Bitte warten …'; $('#busy').classList.toggle('hidden', !msg); }
   function show(el, on) { (typeof el === 'string' ? $(el) : el).classList.toggle('hidden', !on); }
   function go(view) {
+    document.querySelectorAll('audio').forEach(a => { if (!a.paused) a.pause(); }); // Wiedergabe stoppt beim Seitenwechsel
     document.querySelectorAll('.view').forEach(v => show(v, v.id === 'v-' + view));
     const tab = ['team', 'training', 'zgteam', 'notizen', 'aufnahmen'].includes(view) ? 'heute' : ['glossar', 'gerueche'].includes(view) ? 'einst' : view;
     document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('active', b.dataset.go === tab));
@@ -1124,6 +1125,8 @@
     $('#teamBack').addEventListener('click', () => { SP.flush(); currentTeam = null; go('heute'); });
     $('#teamRec').addEventListener('click', () => startRec(currentTeam));
     $('#typeBtn').addEventListener('click', () => typeNote(currentTeam));
+    $('#notesRec').addEventListener('click', () => startRec(currentTeam));
+    $('#notesType').addEventListener('click', () => typeNote(currentTeam));
     $('#stopBtn').addEventListener('click', () => stopRec(false));
     $('#cancelRec').addEventListener('click', () => stopRec(true));
     $('#pauseBtn').addEventListener('click', togglePause);

@@ -100,7 +100,7 @@ body.modal-open .modal-card{transform:none}
 .zg-row{gap:10px}
 .zg-detail{background:none;border:0;padding:0;text-align:left;color:var(--label);font:inherit;cursor:pointer}
 .cell-tx .zg-dots,.zg-dots{display:inline-flex;gap:4px;vertical-align:middle;margin-right:6px}.zg-dots i{width:8px;height:8px;border-radius:50%;background:var(--ter)}.zg-dots i.on{background:var(--tint)}
-.zg-n{background:none;border:0;font-size:22px;font-weight:600;font-variant-numeric:tabular-nums;min-width:44px;text-align:right;padding:8px 2px;color:var(--label)}
+.zg-n{display:flex;align-items:center;gap:5px;background:var(--fill);border:0;border-radius:10px;font-size:20px;font-weight:600;font-variant-numeric:tabular-nums;min-width:54px;justify-content:flex-end;padding:7px 9px;color:var(--label)}.zg-n svg{width:13px;height:13px;fill:var(--sec);flex:0 0 auto}
 .zg-plus{flex:0 0 auto;width:58px;height:44px;border-radius:12px;border:0;background:var(--fill-tint);color:#fff;font-size:19px;font-weight:600;-webkit-user-select:none;user-select:none;touch-action:manipulation}
 .zg-plus:active,.tr-tap:active{transform:scale(.95)}
 .zg-pop{animation:zgpop .25s}
@@ -137,3 +137,4 @@ body:has(#v-training:not(.hidden)) .tabs{display:none}
 .zg-sw{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:7px;vertical-align:0}
 .zg-row .cell-tx{flex:1;min-width:0}
 .cell-tx .zg-bar,.zg-bar{display:block;height:8px;border-radius:4px;background:var(--fill);overflow:hidden;margin:7px 0 4px}.zg-bar i{display:block;height:100%;border-radius:4px;transition:width .3s}
+.zg-undo{display:inline-flex;align-items:center;gap:6px;margin-top:12px;border:0;border-radius:18px;background:var(--fill);color:var(--tint);font-size:15px;font-weight:600;padding:8px 14px}.zg-undo svg{width:9px;height:15px}.zg-undo[hidden]{display:inline-flex;visibility:hidden}

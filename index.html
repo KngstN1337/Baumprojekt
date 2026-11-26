@@ -12,8 +12,8 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/icon-192.png">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-  <link rel="stylesheet" href="css/design.css?v=27">
-  <link rel="stylesheet" href="css/style.css?v=27">
+  <link rel="stylesheet" href="css/design.css?v=28">
+  <link rel="stylesheet" href="css/style.css?v=28">
 </head>
 <body class="locked">
   <section id="login" class="login">
@@ -55,6 +55,7 @@
     <section id="v-notizen" class="view hidden">
       <div class="navbar"><button class="nav-btn back" data-akte><svg class="chev-l"><use href="#i-back"/></svg><span class="akte-back">Zurück</span></button><span></span></div>
       <h1 class="large-title">Notizen</h1><span class="subtitle akte-sub"></span>
+      <div class="cta-wrap"><button class="btn-filled cta" id="notesRec"><svg><use href="#i-mic"/></svg>Aufnehmen</button><button type="button" class="text-btn type-btn" id="notesType">oder Notiz eintippen</button></div>
       <div id="teamNotes"></div>
     </section>
 
@@ -176,8 +177,8 @@
       <details class="card"><summary>Spürhund: Zielgerüche zählen</summary>
         <p>Beim Anlegen oder Bearbeiten eines Lehrgangs (Lehrgänge → „Aktuellen Lehrgang bearbeiten“) bei <b>Art</b> „Spürhund“ wählen. Dann eine <b>Geruchs-Vorlage</b> aussuchen. Einzelne Gerüche kannst du entfernen oder dazunehmen.</p>
         <ul>
-          <li><b>Zählen:</b> Team antippen. Bei jedem Stoff steht ein <b>+1</b>-Knopf. Antippen = eine Belohnung. Gedrückt halten = eine zurücknehmen.</li>
-          <li><b>Zahl eintippen:</b> Auf die Gesamtzahl tippen, Anzahl eingeben, „Dazuzählen“ oder „Heute genau“ wählen.</li>
+          <li><b>Zählen:</b> Team antippen. Bei jedem Stoff steht ein <b>+1</b>-Knopf. Antippen = eine Belohnung. „Rückgängig“ über der Liste nimmt das letzte +1 zurück (gedrückt halten geht auch).</li>
+          <li><b>Zahl eintippen:</b> Auf die Zahl mit dem Stift tippen, Anzahl eingeben, „Dazuzählen“ oder „Heute genau“ wählen.</li>
           <li><b>Verlauf:</b> Auf den Namen des Stoffs tippen, dann siehst du die Belohnungen je Tag.</li>
           <li><b>Trainingsmodus:</b> Große +1-Fläche für eine Hand. Oben den Stoff wechseln.</li>
         </ul>
@@ -346,13 +347,13 @@
   <div id="busy" class="busy hidden"><div class="spinner"></div><div id="busyText">Bitte warten …</div></div>
   <div id="toast" class="toast hidden"></div>
 
-  <script src="config.js?v=27"></script>
+  <script src="config.js?v=28"></script>
   <script src="vendor/exceljs.min.js"></script>
-  <script src="js/workbook.js?v=27"></script>
-  <script src="js/services.js?v=27"></script>
-  <script src="js/vordefiniert.js?v=27"></script>
-  <script src="js/spuerhund.js?v=27"></script>
-  <script src="js/app.js?v=27"></script>
+  <script src="js/workbook.js?v=28"></script>
+  <script src="js/services.js?v=28"></script>
+  <script src="js/vordefiniert.js?v=28"></script>
+  <script src="js/spuerhund.js?v=28"></script>
+  <script src="js/app.js?v=28"></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 </body>
 </html>
