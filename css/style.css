@@ -58,3 +58,8 @@ body:not(.locked) #login{display:none}
 #loginMsg{color:var(--red);min-height:1.2em}
 .help summary{font-weight:600;color:var(--text);font-size:16px}
 .help ol{padding-left:20px}.help li{margin:6px 0}.help p{margin:.6em 0}
+.guide{background:#eef4fa;border-radius:10px;padding:10px 12px;margin:8px 0 12px}
+.guide summary{font-weight:600;color:var(--blue)}
+.guide ol{padding-left:20px;margin:8px 0 0}.guide li{margin:8px 0;font-size:15px}
+.guide a{color:var(--blue);font-weight:600}
+#keyStatus{margin:-4px 0 8px;min-height:1em}
