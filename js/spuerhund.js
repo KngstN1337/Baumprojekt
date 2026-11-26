@@ -309,14 +309,20 @@
     const punkte = n => schritte().length ? '<span class="zg-dots" aria-label="Schritt ' + n + ' von ' + schritte().length + '">' + schritte().map((_, i) => '<i' + (i < n ? ' class="on"' : '') + '></i>').join('') + '</span>' : '';
     const schrittText = n => schritte().length && n ? 'Schritt ' + n + (schritte()[n - 1] && schritte()[n - 1].name !== 'Schritt ' + n ? ' · ' + schritte()[n - 1].name : '') : '';
     function renderTeam() {
-      const box = $('#zgBox'); if (!box) return;
+      const box = $('#zgBox'), link = $('#zgLink'); if (!box) return;
       const team = ctx.currentTeam();
-      if (!istSpuer() || !team) { box.innerHTML = ''; return; }
+      if (!istSpuer() || !team) { box.innerHTML = ''; if (link) link.innerHTML = ''; return; }
+      // Akte: nur eine kompakte Zeile, die Liste steht auf eigener Seite
+      const sumH = stoffe().reduce((a, s) => a + heute(team, s), 0), sumG = stoffe().reduce((a, s) => a + gesamt(team, s), 0);
+      if (link) link.innerHTML = '<div class="group"><button type="button" class="cell" id="zgOpenTeam"><div class="cell-tx"><b>Zielgerüche</b><span>' + stoffe().length + (stoffe().length === 1 ? ' Geruch' : ' Gerüche') + ' · heute ' + sumH + ' · gesamt ' + sumG + ' Belohnungen</span></div>' + CHEV + '</button></div>';
+      $('#zgSub').textContent = teamTitel(team);
+      $('#zgBackTx').textContent = (ctx.teamByName(team) || {}).teilnehmer || team;
       const heuteTxt = ctx.selDate() === ctx.today() ? 'heute' : WBK.isoToDe(ctx.selDate()).slice(0, 6);
-      box.innerHTML = '<div class="section-h zg-sh">Zielgerüche · Belohnungen' + (stoffe().length ? '<button type="button" class="text-btn" id="zgTraining">Trainingsmodus</button>' : '') + '</div><div class="group" id="zgRows">' +
+      box.innerHTML = '<div class="section-h zg-sh">Belohnungen gesamt' + (stoffe().length ? '<button type="button" class="text-btn" id="zgTraining">Trainingsmodus</button>' : '') + '</div><div class="group" id="zgRows">' +
         (stoffe().map(s => { const n = schritt(team, s); return '<div class="cell zg-row" data-stoff="' + esc(s) + '"><button type="button" class="cell-tx zg-detail" data-detail><b>' + esc(s) + '</b><span>' + punkte(n) + esc([schrittText(n), heuteTxt + ' ' + heute(team, s)].filter(Boolean).join(' · ')) + '</span></button>' +
           '<button type="button" class="zg-n" data-num aria-label="Zahl eingeben">' + gesamt(team, s) + '</button><button type="button" class="zg-plus" data-plus aria-label="Eine Belohnung an ' + esc(s) + '">+1</button></div>'; }).join('') ||
-          '<div class="empty">Noch keine Zielgerüche. Unter Lehrgänge → „Aktuellen Lehrgang bearbeiten“ auswählen.</div>') + '</div>' +
+          '<div class="empty">Noch keine Zielgerüche. Unter Lehrgänge → „Aktuellen Lehrgang bearbeiten“ auswählen.</div>') +
+        (stoffe().length && schritte().length ? '<button type="button" class="cell link-cell" id="zgAlle">Schritt für alle Gerüche setzen</button>' : '') + '</div>' +
         '<p class="group-foot">+1 = eine Belohnung am Stoff. Gedrückt halten = eine zurücknehmen. Auf die Gesamtzahl tippen, um eine Anzahl einzutippen. Stoff antippen = Schritt und Verlauf.</p>' +
         '<p class="zg-status sync-info"></p>';
       renderStatus();
@@ -343,6 +349,7 @@
     function teamClick(e) {
       const row = e.target.closest('[data-stoff]');
       if (e.target.id === 'zgTraining') return training(stoffe()[0]);
+      if (e.target.id === 'zgAlle') return schrittWahl(null);
       if (!row) return;
       if (e.target.closest('[data-num]')) zahl(row.dataset.stoff);
       else if (e.target.closest('[data-detail]')) detail(row.dataset.stoff);
@@ -394,6 +401,25 @@
       ctx.openModal(''); male();
     }
 
+    // Schritt setzen: für einen Stoff (stoff) oder für alle Gerüche des Teams (stoff = null), wahlweise für alle Teams
+    function schrittWahl(stoff) {
+      const team = ctx.currentTeam(), sch = schritte(), c = ctx.course();
+      const jetzt = stoff ? schritt(team, stoff) : 0;
+      ctx.openModal('<h3>' + (stoff ? esc(stoff) + ': Schritt' : 'Schritt für alle Gerüche') + '</h3><p class="modal-sub">' + esc(teamTitel(team)) + '</p>' +
+        '<div class="group m-group" id="swList">' + sch.map((x, i) => '<label class="cell"><input type="radio" name="sw" value="' + (i + 1) + '"' + (i + 1 === jetzt ? ' checked' : '') + '><div class="avatar zg-nr">' + (i + 1) + '</div><div class="cell-tx wrap"><b>' + esc(x.name) + '</b>' + (x.beschr ? '<span>' + esc(x.beschr) + '</span>' : '') + '</div></label>').join('') + '</div>' +
+        (!stoff && c.teams.length > 1 ? '<div class="group m-group"><label class="cell"><div class="cell-tx"><b>Auch für alle anderen Teams</b></div><input type="checkbox" class="switch" id="swTeams"></label></div>' : '') +
+        '<div class="actions"><button class="btn-gray" data-m="close">Abbrechen</button><button class="btn-filled" id="swOk"' + (jetzt ? '' : ' disabled') + '>Setzen</button></div>');
+      $('#swList').onchange = () => { $('#swOk').disabled = false; };
+      $('#swOk').onclick = () => {
+        const k = Number(($('#modal input[name=sw]:checked') || {}).value); if (!k) return;
+        const teams = !stoff && $('#swTeams') && $('#swTeams').checked ? c.teams.map(t => t.name) : [team];
+        const sts = stoff ? [stoff] : stoffe();
+        let n = 0;
+        teams.forEach(t => sts.forEach(s => { if (schritt(t, s) !== k) { eintragen(t, s, null, k); n++; } }));
+        ctx.closeModal(); ctx.toast(n ? '✓ Schritt ' + k + (stoff ? '' : ' für ' + sts.length + ' Gerüche' + (teams.length > 1 ? ' bei ' + teams.length + ' Teams' : '')) + ' gesetzt' : 'War schon so gesetzt.');
+      };
+    }
+
     // ---------------- Trainingsmodus ----------------
     const tr = { stoff: '' };
     function training(stoff) {
@@ -409,7 +435,7 @@
       $('#trStoff').textContent = s;
       const sts = stoffe();
       $('#trSeg').innerHTML = sts.map(x => '<button type="button" data-trs="' + esc(x) + '"' + (x === s ? ' class="on"' : '') + '>' + esc(x) + '</button>').join('');
-      $('#trSeg').classList.toggle('zg-scroll', sts.length > 4);
+      $('#trSeg').classList.toggle('zg-grid2', sts.length === 2 || sts.length === 4);
       $('#trHeute').textContent = heute(team, s);
       $('#trGesamt').textContent = (ctx.selDate() === ctx.today() ? 'heute' : WBK.isoToDe(ctx.selDate()).slice(0, 6)) + ' · gesamt ' + gesamt(team, s);
       $('#trSchritt').innerHTML = schritte().length ? punkte(n) + esc(n ? 'Schritt ' + n : 'Schritt setzen') : '';
@@ -418,7 +444,7 @@
     function trainingClick(e) {
       const b = e.target.closest('[data-trs]'); if (b) { tr.stoff = b.dataset.trs; renderTraining(); return; }
       if (e.target.closest('#trUndo')) { const team = ctx.currentTeam(); if (heute(team, tr.stoff) > 0) { eintragen(team, tr.stoff, -1); ctx.toast('−1 bei ' + tr.stoff, 1500); } else ctx.toast('Heute ist noch nichts gezählt.'); return; }
-      if (e.target.closest('#trSchritt')) { detail(tr.stoff); return; }
+      if (e.target.closest('#trSchritt')) { schrittWahl(tr.stoff); return; }
       if (e.target.closest('#trZahl')) { zahl(tr.stoff); return; }
     }
 
