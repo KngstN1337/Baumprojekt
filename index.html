@@ -14,8 +14,8 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/icon-192.png">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-  <link rel="stylesheet" href="css/design.css?v=37">
-  <link rel="stylesheet" href="css/style.css?v=37">
+  <link rel="stylesheet" href="css/design.css?v=40">
+  <link rel="stylesheet" href="css/style.css?v=40">
 </head>
 <body class="locked">
   <section id="login" class="login">
@@ -117,10 +117,11 @@
           <div class="field"><span>Art</span><div class="segmented small-seg"><label><input type="radio" name="art" value="" checked><i>Allgemein</i></label><label><input type="radio" name="art" value="spuerhund"><i>Spürhund</i></label></div></div>
         </div>
         <div id="spuerBox" class="hidden">
-          <div class="section-h">Zielgerüche</div>
-          <div class="group"><label class="cell picker"><div class="cell-tx"><b id="gvName">Keine Vorlage</b><span id="gvInfo"></span></div><span class="val">Vorlage<svg><use href="#i-updown"/></svg></span><select id="gvSel" aria-label="Geruchs-Vorlage wählen"></select></label></div>
-          <div class="group" id="formStoffe"></div>
-          <p class="group-foot">Vorlagen pflegst du unter Einstellungen → Spürhund → Zielgerüche. Spätere Änderungen an einer Vorlage ändern diesen Lehrgang nicht.</p>
+          <div class="section-h">Vorlage</div>
+          <div class="zg-tiles" id="gvTiles"></div>
+          <div class="section-h" id="gvInfo">Gerüche in diesem Lehrgang</div>
+          <div class="group"><div class="zg-chips" id="formStoffe"></div></div>
+          <p class="group-foot">× = Geruch entfernen. Über „+ Geruch“ suchst du in der vordefinierten Liste. Ein neuer Geruch gilt nur für diesen Lehrgang.</p>
         </div>
         <div class="section-h">Teams</div>
         <div class="group form" id="teamRows"></div>
@@ -179,14 +180,14 @@
         <p>Speichert ihr gleichzeitig, geht nichts verloren: Die App liest die Datei vor dem Speichern neu ein, prüft danach, ob die Notiz wirklich drinsteht, und wiederholt es sonst. Die Notizen des Kollegen erscheinen nach spätestens einer Minute.</p>
       </details>
       <details class="card"><summary>Spürhund: Zielgerüche zählen</summary>
-        <p>Beim Anlegen oder Bearbeiten eines Lehrgangs (Lehrgänge → „Aktuellen Lehrgang bearbeiten“) bei <b>Art</b> „Spürhund“ wählen. Dann eine <b>Geruchs-Vorlage</b> aussuchen. Einzelne Gerüche kannst du entfernen oder dazunehmen.</p>
+        <p>Beim Anlegen oder Bearbeiten eines Lehrgangs (Lehrgänge → „Aktuellen Lehrgang bearbeiten“) bei <b>Art</b> „Spürhund“ wählen. Dann eine <b>Vorlage</b> als Kachel antippen. Mit × entfernst du einzelne Gerüche, mit „+ Geruch“ suchst du weitere oder tippst einen neuen ein. Das gilt immer nur für diesen Lehrgang.</p>
         <ul>
           <li><b>Zählen:</b> Team antippen. Bei jedem Stoff steht ein <b>+1</b>-Knopf. Antippen = eine Belohnung. „Rückgängig“ über der Liste nimmt das letzte +1 zurück (gedrückt halten geht auch).</li>
           <li><b>Zahl eintippen:</b> Auf die Zahl mit dem Stift tippen, Anzahl eingeben, „Dazuzählen“ oder „Abziehen“ wählen. Die Gesamtzahl änderst du, indem du den Stoff und dann „Gesamt“ antippst. Abziehen geht nie unter 0; für ältere Tage oben den Tag wählen.</li>
           <li><b>Verlauf:</b> Auf den Namen des Stoffs tippen, dann siehst du die Belohnungen je Tag.</li>
           <li><b>Trainingsmodus:</b> Große +1-Fläche für eine Hand. Oben den Stoff wechseln.</li>
         </ul>
-        <p>Jeder Tipp wird sofort auf dem Handy gesichert und nach ein paar Sekunden in die Excel-Datei geschrieben (Blätter „Zielgerüche“ und „Zielgerüche (Rohdaten)“). Eigene Gerüche und Vorlagen pflegst du unter Einstellungen → Spürhund.</p>
+        <p>Jeder Tipp wird sofort auf dem Handy gesichert und nach ein paar Sekunden in die Excel-Datei geschrieben (Blätter „Zielgerüche“ und „Zielgerüche (Rohdaten)“).</p>
       </details>
       <details class="card"><summary>Etwas nachträglich ändern</summary>
         <p>Tippe unter Heute auf ein Team und dann auf die Notiz. Du kannst den Text ändern, einen anderen Stil wählen, etwas dazu sprechen („Weiter aufnehmen“) oder die Notiz unten mit „Notiz löschen“ entfernen. Vor jeder Änderung legt die App eine Sicherung der Excel-Datei an, die Sprachaufnahme bleibt immer erhalten.</p>
@@ -316,7 +317,7 @@
       <div class="group"><button type="button" class="cell" id="glossOpen"><div class="cell-tx"><b>Glossar</b></div><span class="cell-st muted" id="glossCount"></span><svg class="chev"><use href="#i-chev"/></svg></button></div>
       <div class="section-h">Spürhund</div>
       <div class="group"><button type="button" class="cell" id="zgOpen"><div class="cell-tx"><b>Zielgerüche</b></div><span class="cell-st muted" id="zgCount"></span><svg class="chev"><use href="#i-chev"/></svg></button></div>
-      <p class="group-foot">Wie beim Glossar: Vordefiniertes ist schon drin, eigene Gerüche und Vorlagen kommen dazu. Im Lehrgang wählst du dann nur noch die Vorlage.</p>
+      <p class="group-foot">Die vordefinierte Liste zum Nachschauen. Angepasst wird direkt im Lehrgang.</p>
       <div class="card">
         <button id="wipeBtn" class="danger">Alle LTR-Daten auf diesem Gerät löschen</button>
         <p class="small muted">Löscht den OpenAI-Schlüssel, Einstellungen und nicht gespeicherte Entwürfe auf diesem Gerät. Die Dateien in Google Drive bleiben erhalten.</p>
@@ -352,18 +353,11 @@
     <!-- Zielgerüche (Unterseite der Einstellungen) -->
     <section id="v-gerueche" class="view hidden">
       <div class="navbar"><button class="nav-btn back" data-back="einst"><svg class="chev-l"><use href="#i-back"/></svg>Einstellungen</button><span></span></div>
-      <div class="title-row"><h1 class="large-title">Zielgerüche</h1><button class="nav-icon" id="zgPlusBtn" aria-label="Neu"><svg><use href="#i-plus"/></svg></button></div>
+      <h1 class="large-title">Zielgerüche</h1><span class="subtitle">Vordefiniert</span>
       <div class="m-pad"><div class="segmented" id="zgSeg"></div></div>
-      <div id="zgPanelG">
-        <form id="zgAdd" class="group form" autocomplete="off"><label class="field"><span>Neuer Geruch</span><input id="zgNeu" placeholder="z. B. Semtex" enterkeyhint="done" autocapitalize="sentences"></label><button type="submit" class="cell link-cell" id="zgAddOk">Hinzufügen</button></form>
-        <div class="section-h">Eigene</div><div class="group" id="zgEigene"></div>
-        <div id="zgVordef"></div>
-      </div>
-      <div id="zgPanelV" class="hidden">
-        <div class="section-h">Vordefiniert</div><div class="group" id="gvVordef"></div>
-        <div class="section-h">Meine Vorlagen</div><div class="group" id="gvEigene"></div>
-        <p class="group-foot">Vorlage = fertige Stoffliste. Beim Anlegen eines Lehrgangs wählst du nur die Vorlage, alle Stoffe sind sofort drin.</p>
-      </div>
+      <div id="zgPanelG"><div id="zgVordef"></div><div id="zgEigene"></div></div>
+      <div id="zgPanelV" class="hidden"><div class="group" id="gvVordef"></div><div id="gvEigene"></div></div>
+      <p class="group-foot">Diese Liste ist fest in der App und wird mit Updates ergänzt. Eigene Gerüche fügst du direkt im Lehrgang mit „+ Geruch“ hinzu.</p>
     </section>
 
   </main>
@@ -427,13 +421,13 @@
   <div id="busy" class="busy hidden"><div class="spinner"></div><div id="busyText">Bitte warten …</div></div>
   <div id="toast" class="toast hidden"></div>
 
-  <script src="config.js?v=37"></script>
+  <script src="config.js?v=40"></script>
   <script src="vendor/exceljs.min.js"></script>
-  <script src="js/workbook.js?v=37"></script>
-  <script src="js/services.js?v=37"></script>
-  <script src="js/vordefiniert.js?v=37"></script>
-  <script src="js/spuerhund.js?v=37"></script>
-  <script src="js/app.js?v=37"></script>
+  <script src="js/workbook.js?v=40"></script>
+  <script src="js/services.js?v=40"></script>
+  <script src="js/vordefiniert.js?v=40"></script>
+  <script src="js/spuerhund.js?v=40"></script>
+  <script src="js/app.js?v=40"></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 </body>
 </html>

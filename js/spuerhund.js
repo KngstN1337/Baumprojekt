@@ -44,14 +44,15 @@
     // Seite „Zielgerüche“: Alle Gerüche | Vorlagen
     let zgTab = 'g';
     function renderGerueche() {
-      $('#zgSeg').innerHTML = [['g', 'Alle Gerüche'], ['v', 'Vorlagen']].map(([k, t]) => '<button type="button" data-tab="' + k + '"' + (k === zgTab ? ' class="on"' : '') + '>' + t + '</button>').join('');
+      $('#zgSeg').innerHTML = [['g', 'Gerüche'], ['v', 'Vorlagen']].map(([k, t]) => '<button type="button" data-tab="' + k + '"' + (k === zgTab ? ' class="on"' : '') + '>' + t + '</button>').join('');
       ctx.show('#zgPanelG', zgTab === 'g'); ctx.show('#zgPanelV', zgTab === 'v');
-      $('#zgVordef').innerHTML = vordefGruppen().map(g => '<div class="section-h">' + esc(g.gruppe) + ' · vordefiniert</div><div class="group">' +
-        g.namen.map(n => '<div class="cell"><div class="cell-tx"><b>' + esc(n) + '</b></div></div>').join('') + '</div>').join('');
-      $('#zgEigene').innerHTML = st.gerueche.map((n, i) => '<button type="button" class="cell" data-eg="' + i + '"><div class="cell-tx"><b>' + esc(n) + '</b></div>' + CHEV + '</button>').join('') || '<div class="empty">Noch keine eigenen Gerüche.</div>';
-      const zeile = v => '<button type="button" class="cell" data-gv="' + esc(v.id) + '"><div class="cell-tx"><b>' + esc(v.name) + '</b><span>' + esc(v.stoffe.join(', ') || 'keine Stoffe') + '</span></div>' + CHEV + '</button>';
+      const zellen = l => l.map(n => '<div class="cell"><div class="cell-tx"><b>' + esc(n) + '</b></div></div>').join('');
+      $('#zgVordef').innerHTML = vordefGruppen().map(g => '<div class="section-h">' + esc(g.gruppe) + '</div><div class="group">' + zellen(g.namen) + '</div>').join('');
+      // Früher selbst angelegte Gerüche/Vorlagen bleiben sichtbar und in der Suche, damit nichts verloren geht
+      $('#zgEigene').innerHTML = st.gerueche.length ? '<div class="section-h">Früher selbst angelegt</div><div class="group">' + zellen(st.gerueche) + '</div>' : '';
+      const zeile = v => '<div class="cell"><div class="cell-tx wrap"><b>' + esc(v.name) + '</b><span>' + esc(v.stoffe.join(', ') || 'keine Stoffe') + '</span></div></div>';
       $('#gvVordef').innerHTML = geruchVorlagen().filter(v => v.vordef).map(zeile).join('') || '<div class="empty">Keine.</div>';
-      $('#gvEigene').innerHTML = st.geruchVorlagen.map(zeile).join('') + '<button type="button" class="cell link-cell" data-gv="neu">Neue Vorlage</button>';
+      $('#gvEigene').innerHTML = st.geruchVorlagen.length ? '<div class="section-h">Früher selbst angelegt</div><div class="group">' + st.geruchVorlagen.map(zeile).join('') + '</div>' : '';
       renderEinst();
     }
     function geruchHinzufuegen(ev) {
@@ -172,67 +173,57 @@
       if (!form) return;
       document.querySelectorAll('#courseForm input[name=art]').forEach(r => { r.checked = r.value === form.art; });
       ctx.show('#spuerBox', form.art === 'spuerhund');
-      const opt = (list, sel, leer) => '<option value=""' + (sel ? '' : ' selected') + '>' + leer + '</option>' +
-        ['Vordefiniert', 'Meine Vorlagen'].map((g, k) => { const l = list.filter(v => !!v.vordef === !k); return l.length ? '<optgroup label="' + g + '">' + l.map(v => '<option value="' + esc(v.id) + '"' + (v.id === sel ? ' selected' : '') + '>' + esc(v.name) + '</option>').join('') + '</optgroup>' : ''; }).join('');
-      const gv = geruchVorlagen().find(v => v.id === form.gv);
-      $('#gvSel').innerHTML = opt(geruchVorlagen(), form.gv, 'Keine Vorlage');
-      $('#gvName').textContent = gv ? gv.name : 'Keine Vorlage';
-      $('#gvInfo').textContent = form.stoffe.length + (form.stoffe.length === 1 ? ' Geruch' : ' Gerüche');
-      $('#formStoffe').innerHTML = form.stoffe.map((s, i) => '<div class="cell"><div class="cell-tx"><b>' + esc(s) + '</b></div><button type="button" class="rm" data-rmst="' + i + '" aria-label="' + esc(s) + ' entfernen">⊖</button></div>').join('') +
-        '<button type="button" class="cell link-cell" id="addStoff">Geruch hinzufügen</button>';
-      if (!$('#svSel')) return;
-      $('#svSel').innerHTML = opt(schrittVorlagen(), form.sv, 'Keine Vorlage');
-      $('#svName').textContent = form.svName || 'Keine Vorlage';
-      $('#svInfo').textContent = form.schritte.length ? form.schritte.length + (form.schritte.length === 1 ? ' Schritt' : ' Schritte') : 'Ohne Schritte wird nur gezählt';
-      $('#formSchritte').innerHTML = form.schritte.map((x, i) => '<div class="cell"><div class="avatar zg-nr">' + (i + 1) + '</div><div class="cell-tx wrap"><b>' + esc(x.name) + '</b>' + (x.beschr ? '<span>' + esc(x.beschr) + '</span>' : '') + '</div><button type="button" class="rm" data-rmsch="' + i + '" aria-label="Schritt ' + (i + 1) + ' entfernen">⊖</button></div>').join('') +
-        '<button type="button" class="cell link-cell" id="addSchritt">Schritt hinzufügen</button>';
+      // Vorlagen als Kacheln, Gerüche als Kärtchen mit ×
+      $('#gvTiles').innerHTML = geruchVorlagen().map(v => '<button type="button" class="zg-tile' + (v.id === form.gv ? ' on' : '') + '" data-gvt="' + esc(v.id) + '"><b>' + esc(v.name) + '</b><span>' + v.stoffe.length + (v.stoffe.length === 1 ? ' Geruch' : ' Gerüche') + '</span></button>').join('') +
+        '<button type="button" class="zg-tile' + (!form.gv ? ' on' : '') + '" data-gvt=""><b>Leer starten</b><span>selbst auswählen</span></button>';
+      $('#gvInfo').textContent = 'Gerüche in diesem Lehrgang · ' + form.stoffe.length;
+      $('#formStoffe').innerHTML = form.stoffe.map((s, i) => '<span class="zg-chip">' + esc(s) + '<button type="button" data-rmst="' + i + '" aria-label="' + esc(s) + ' entfernen">×</button></span>').join('') +
+        '<button type="button" class="zg-chip zg-chip-add" id="addStoff">+ Geruch</button>';
     }
     function formChange(e) {
       if (!form) return false;
       const t = e.target;
       if (t.name === 'art') { form.art = t.value; renderForm(); return true; }
-      if (t.id === 'gvSel') {
-        const v = geruchVorlagen().find(x => x.id === t.value);
-        if (v && form.stoffe.length && !form.stoffe.every(s => v.stoffe.includes(s)) && !confirm('Die Gerüche dieses Lehrgangs durch die Vorlage „' + v.name + '“ ersetzen?\n\nBereits gezählte Belohnungen bleiben erhalten.')) { renderForm(); return true; }
-        form.gv = t.value; if (v) form.stoffe = v.stoffe.slice(); renderForm(); return true;
-      }
-      if (t.id === 'svSel') {
-        const v = schrittVorlagen().find(x => x.id === t.value);
-        form.sv = t.value; form.svName = v ? v.name : ''; form.schritte = v ? v.schritte.map(x => ({ name: x.name, beschr: x.beschr || '' })) : []; renderForm(); return true;
-      }
       return false;
+    }
+    function vorlageWaehlen(id) {
+      const v = geruchVorlagen().find(x => x.id === id), neu = v ? v.stoffe : [];
+      if (id === form.gv) return;
+      if (form.stoffe.length && !form.stoffe.every(s => neu.includes(s)) && !confirm((v ? 'Die Gerüche durch die Vorlage „' + v.name + '“ ersetzen?' : 'Alle Gerüche aus diesem Lehrgang entfernen?') + '\n\nBereits gezählte Belohnungen bleiben erhalten.')) return;
+      form.gv = id; form.stoffe = neu.slice(); renderForm();
     }
     function formClick(e) {
       if (!form) return false;
+      const tile = e.target.closest('[data-gvt]');
+      if (tile) { vorlageWaehlen(tile.dataset.gvt); return true; }
       const rm = e.target.closest('[data-rmst]');
       if (rm) { form.stoffe.splice(Number(rm.dataset.rmst), 1); renderForm(); return true; }
       if (e.target.id === 'addStoff') { stoffWaehlen(); return true; }
-      const rs = e.target.closest('[data-rmsch]');
-      if (rs) { form.schritte.splice(Number(rs.dataset.rmsch), 1); renderForm(); return true; }
-      if (e.target.id === 'addSchritt') { schrittNeu(); return true; }
       return false;
     }
-    // Geruch zum Lehrgang hinzufügen: aus der Bibliothek antippen oder neu eintippen. Danach Rückfrage „Nur hier / In Vorlage“.
+    // „+ Geruch“: in der Liste suchen und antippen, oder neu eintippen (gilt nur für diesen Lehrgang)
     function stoffWaehlen() {
-      const frei = alleGerueche().filter(s => !form.stoffe.includes(s));
-      ctx.openModal('<h3>Geruch hinzufügen</h3><div class="group form m-group"><label class="field"><span>Neuer Geruch</span><input id="asNeu" placeholder="z. B. Sprengschnur" autocomplete="off" enterkeyhint="done"></label><button type="button" class="cell link-cell" id="asOk">Hinzufügen</button></div>' +
-        (frei.length ? '<div class="section-h">Aus der Liste</div><div class="group m-group" id="asList">' + frei.map(s => '<button type="button" class="cell" data-as="' + esc(s) + '"><div class="cell-tx"><b>' + esc(s) + '</b></div></button>').join('') + '</div>' : '') +
-        '<div class="actions"><button class="btn-gray" data-m="close">Fertig</button></div>');
+      const gruppeVon = n => { const g = vordefGruppen().find(g => g.namen.includes(n)); return g ? g.gruppe : 'Früher selbst angelegt'; };
+      ctx.openModal('<h3>Geruch hinzufügen</h3><div class="zg-such"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="7" cy="7" r="5"/><path d="M11 11l4 4" stroke-linecap="round"/></svg><input id="asNeu" placeholder="Suchen oder neu eintippen" autocomplete="off" enterkeyhint="done" autocapitalize="sentences"></div>' +
+        '<div class="group m-group" id="asList"></div><div class="actions"><button class="btn-filled" data-m="close">Fertig</button></div>');
+      const liste = () => {
+        const q = lc($('#asNeu').value.trim()), roh = $('#asNeu').value.trim();
+        const frei = alleGerueche().filter(s => !form.stoffe.includes(s) && (!q || lc(s).includes(q)));
+        const exakt = alleGerueche().some(s => lc(s) === q) || form.stoffe.some(s => lc(s) === q);
+        $('#asList').innerHTML = frei.slice(0, 40).map(s => '<button type="button" class="cell" data-as="' + esc(s) + '"><div class="cell-tx"><b>' + esc(s) + '</b><span>' + esc(gruppeVon(s)) + '</span></div><span class="zg-add-ic">+</span></button>').join('') +
+          (roh && !exakt ? '<button type="button" class="cell link-cell" data-as="' + esc(roh) + '">„' + esc(roh) + '“ neu hinzufügen</button>' : '') ||
+          '<div class="empty">' + (q ? 'Schon im Lehrgang.' : 'Alle Gerüche sind schon drin.') + '</div>';
+      };
       const nimm = name => {
         name = name.trim(); if (!name) return;
-        const neu = geruchMerken(name); if (neu) ctx.saveSettings();
         const echt = alleGerueche().find(x => lc(x) === lc(name)) || name;
-        if (!form.stoffe.includes(echt)) form.stoffe.push(echt);
-        renderForm(); ctx.closeModal();
-        const v = st.geruchVorlagen.find(x => x.id === form.gv);
-        if (v && !v.stoffe.includes(echt)) {
-          ctx.openModal('<h3>„' + esc(echt) + '“ hinzugefügt</h3><p class="modal-sub">Auch in der Vorlage „' + esc(v.name) + '“ speichern? Dann ist er beim nächsten Lehrgang gleich dabei.</p><div class="actions"><button class="btn-gray" data-m="close">Nur hier</button><button class="btn-filled" id="inV">In Vorlage</button></div>');
-          $('#inV').onclick = () => { v.stoffe.push(echt); speichern(); ctx.closeModal(); ctx.toast('✓ Auch in der Vorlage gespeichert'); };
-        } else ctx.toast('✓ „' + echt + '“ hinzugefügt' + (neu ? ' (und unter Einstellungen → Zielgerüche gemerkt)' : ''), 2500);
+        if (!form.stoffe.some(x => lc(x) === lc(echt))) form.stoffe.push(echt);
+        renderForm(); $('#asNeu').value = ''; liste(); ctx.toast('✓ ' + echt, 1200);
       };
-      $('#asOk').onclick = () => nimm($('#asNeu').value);
-      $('#asNeu').onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); nimm($('#asNeu').value); } };
-      if ($('#asList')) $('#asList').onclick = e => { const b = e.target.closest('[data-as]'); if (b) nimm(b.dataset.as); };
+      $('#asNeu').oninput = liste;
+      $('#asNeu').onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); const b = $('#asList [data-as]'); if (b) nimm(b.dataset.as); } };
+      $('#asList').onclick = e => { const b = e.target.closest('[data-as]'); if (b) nimm(b.dataset.as); };
+      liste();
     }
     // Schritt nur für diesen Lehrgang hinzufügen
     function schrittNeu() {
@@ -494,12 +485,7 @@
       KEYS: ['gerueche', 'geruchVorlagen', 'schrittVorlagen'],
       bind() {
         $('#zgSeg').addEventListener('click', e => { const b = e.target.closest('[data-tab]'); if (b) { zgTab = b.dataset.tab; renderGerueche(); } });
-        $('#zgAdd').addEventListener('submit', geruchHinzufuegen);
-        $('#zgAddOk').addEventListener('mousedown', e => e.preventDefault());
-        $('#zgEigene').addEventListener('click', e => { const b = e.target.closest('[data-eg]'); if (b) eigenerGeruch(Number(b.dataset.eg)); });
-        $('#zgPanelV').addEventListener('click', e => { const b = e.target.closest('[data-gv]'); if (b) geruchVorlage(b.dataset.gv); });
         if (MIT_SCHRITTEN) $('#v-schritte').addEventListener('click', e => { const b = e.target.closest('[data-sv]'); if (b) schrittVorlage(b.dataset.sv); });
-        $('#zgPlusBtn').addEventListener('click', () => { if (zgTab === 'v') geruchVorlage('neu'); else $('#zgNeu').focus(); });
         if (MIT_SCHRITTEN) $('#svPlusBtn').addEventListener('click', () => schrittVorlage('neu'));
         $('#zgBox').addEventListener('click', teamClick);
         initPlus($('#zgBox')); initPlus($('#v-training'));
