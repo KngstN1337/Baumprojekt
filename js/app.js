@@ -9,7 +9,7 @@
   const nowTime = () => { const d = new Date(); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); };
 
   // ---------------- Zustand ----------------
-  const settings = Object.assign({ openaiKey: '', sttModel: CFG.sttModel || 'gpt-4o-transcribe', llmModel: CFG.llmModel || 'gpt-4.1-mini' },
+  const settings = Object.assign({ openaiKey: '', sttModel: CFG.sttModel || 'gpt-4o-transcribe', llmModel: CFG.llmModel || 'gpt-4.1-mini', stil: 'fliesstext' },
     JSON.parse(localStorage.getItem('baumprojekt.settings') || '{}'));
   const clientId = () => CFG.googleClientId || '';
   const store = () => S.Drive;
@@ -144,11 +144,23 @@
     if (!settings.openaiKey) { toast('Bitte zuerst den OpenAI-Schlüssel eintragen – Anleitung siehe unten.', 5000); go('einst'); return; }
     try {
       busy('Ordne den Teams zu …');
-      segments = await S.assign(text, course.teams, { key: settings.openaiKey, model: settings.llmModel });
+      segments = await S.assign(text, course.teams, { key: settings.openaiKey, model: settings.llmModel, stil: settings.stil });
       busy();
       await S.KV.set('draft', { segments, datum: $('#noteDate').value, uhrzeit: noteTime, transcript: text });
       renderSegments(); showStep('preview');
     } catch (e) { busy(); toast('Zuordnung fehlgeschlagen: ' + e.message, 6000); }
+  }
+  function renderStil() {
+    $('#stilChips').innerHTML = S.STILE.map(st => '<button type="button" role="radio" aria-checked="' + (st.id === settings.stil) + '" data-stil="' + st.id + '"' + (st.id === settings.stil ? ' class="on"' : '') + '>' + esc(st.name) + '</button>').join('');
+    $('#stilText').textContent = (S.STILE.find(st => st.id === settings.stil) || S.STILE[0]).text;
+  }
+  function chooseStil(id) {
+    if (!id || id === settings.stil) return;
+    settings.stil = id;
+    localStorage.setItem('baumprojekt.settings', JSON.stringify(settings));
+    renderStil();
+    // In der Vorschau: gleich im neuen Stil neu formulieren.
+    if (!$('#step-preview').classList.contains('hidden') && $('#transcript').value.trim()) doAssign();
   }
   function renderSegments() {
     const teamOpts = sel => ['Unklar', ...course.teams.map(t => t.name)].map(n => '<option' + (n === sel ? ' selected' : '') + '>' + esc(n) + '</option>').join('');
@@ -157,7 +169,7 @@
       '<div class="card seg-card' + (s.team === 'Unklar' ? ' warn' : '') + '" data-i="' + i + '">' +
       '<div class="row"><select data-f="team">' + teamOpts(s.team) + '</select><select data-f="kategorie">' + katOpts(s.kategorie) + '</select>' +
       '<button class="icon" data-del="' + i + '" title="Löschen">✕</button></div>' +
-      '<textarea data-f="text" rows="3">' + esc(s.text) + '</textarea></div>').join('') || '<p class="muted">Keine Abschnitte.</p>';
+      '<textarea data-f="text" rows="' + Math.min(12, Math.max(3, Math.ceil(s.text.length / 45) + (s.text.match(/\n/g) || []).length)) + '">' + esc(s.text) + '</textarea></div>').join('') || '<p class="muted">Keine Abschnitte.</p>';
   }
   function syncSegmentsFromUi() {
     document.querySelectorAll('.seg-card').forEach(card => {
@@ -334,6 +346,8 @@
     $('#lastAudioBtn').addEventListener('click', async () => { const a = await S.KV.get('lastAudio'); if (a) { noteTime = a.uhrzeit; $('#noteDate').value = a.datum; processAudio(a.blob); } });
     $('#discardText').addEventListener('click', () => { $('#transcript').value = ''; showStep('record'); });
     $('#assignBtn').addEventListener('click', doAssign);
+    renderStil();
+    $('#stilChips').addEventListener('click', e => { const b = e.target.closest('[data-stil]'); if (b) chooseStil(b.dataset.stil); });
     $('#backToText').addEventListener('click', () => { syncSegmentsFromUi(); showStep('text'); });
     $('#addSeg').addEventListener('click', () => { syncSegmentsFromUi(); segments.push({ team: 'Unklar', kategorie: 'Sonstiges', text: '' }); renderSegments(); });
     $('#segments').addEventListener('click', e => { const i = e.target.dataset.del; if (i != null) { syncSegmentsFromUi(); segments.splice(Number(i), 1); renderSegments(); } });
