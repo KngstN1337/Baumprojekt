@@ -353,7 +353,7 @@
           '<button type="button" class="zg-n" data-num aria-label="Zahl bearbeiten">' + gesamt(team, s) + '<svg><use href="#i-pencil"/></svg></button><button type="button" class="zg-plus" data-plus aria-label="Eine Belohnung an ' + esc(s) + '">+1</button></div>'; }).join('') ||
           '<div class="empty">Noch keine Zielgerüche. Unter Lehrgänge → „Aktuellen Lehrgang bearbeiten“ auswählen.</div>') +
         (stoffe().length && schritte().length ? '<button type="button" class="cell link-cell" id="zgAlle">Schritt für alle Gerüche setzen</button>' : '') + '</div>' +
-        '<p class="group-foot">+1 = eine Belohnung am Stoff. „Rückgängig“ oben nimmt das letzte +1 zurück. Zahl mit Stift antippen = Anzahl selbst eintragen. Stoff antippen = Verlauf je Tag.</p>' +
+        
         '<p class="zg-status sync-info"></p>';
       renderStatus();
     }
@@ -394,7 +394,7 @@
       const tagTxt = ctx.selDate() === ctx.today() ? 'heute' : esc(WBK.isoToDe(ctx.selDate()));
       // Gesamt korrigieren: neue Gesamtzahl eingeben, die Differenz wird am gewählten Tag als Korrektur gebucht (nichts wird gelöscht)
       ctx.openModal('<h3>' + esc(stoff) + ' · ' + (modus === 'gesamt' ? 'Gesamt korrigieren' : tagTxt) + '</h3><p class="modal-sub">' + esc(teamTitel(team)) + '</p>' +
-        '<div class="m-pad"' + (modus === 'gesamt' ? ' hidden' : '') + '><div class="segmented" id="zMod"><button type="button" data-m2="plus" class="on">Dazuzählen</button><button type="button" data-m2="minus">Abziehen</button><button type="button" data-m2="genau">Heute genau</button></div></div>' +
+        '<div class="m-pad"' + (modus === 'gesamt' ? ' hidden' : '') + '><div class="segmented" id="zMod"><button type="button" data-m2="plus" class="on">Dazuzählen</button><button type="button" data-m2="minus">Abziehen</button></div></div>' +
         '<input id="zIn" class="zg-input" type="number" inputmode="numeric" pattern="[0-9]*" min="0" placeholder="0" aria-label="Anzahl">' +
         '<p class="modal-sub" id="zVor"></p><div class="actions"><button class="btn-gray" data-m="close">Abbrechen</button><button class="btn-filled" id="zOk" disabled>Übernehmen</button></div>');
       // Minus-Zeichen gibt es auf der iPhone-Zahlentastatur nicht, darum eigener Modus „Abziehen“ (nie unter 0)
