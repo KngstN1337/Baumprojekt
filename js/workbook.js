@@ -1,6 +1,8 @@
 // Baumprojekt – Excel-Datei je Lehrgang (Format der ersten Vorlage: Übersicht, Notizen (Rohdaten), Teams)
 // Datenquelle ist das Blatt "Notizen (Rohdaten)". Die Übersicht wird daraus bei jedem Speichern neu
 // aufgebaut; die Spalte "Gesamteindruck" bleibt dabei erhalten.
+// Was in der Übersicht am PC geändert wurde, geht nicht verloren: Beim Schreiben merkt sich die App im versteckten
+// Blatt "_uebersicht", was in jeder Zelle stand. Beim Lesen wird verglichen, geänderte Zellen fließen in die Notizen zurück.
 (function (global) {
   'use strict';
   const ExcelJS = global.ExcelJS || (typeof require !== 'undefined' ? require('exceljs') : null);
@@ -10,6 +12,8 @@
   const SHEET_TEAMS = 'Teams';
   const SHEET_META = '_baumprojekt';
   const SHEET_GLOSSAR = '_glossar';
+  const SHEET_STAND = '_uebersicht';
+  const AM_PC = ' (am PC geändert)';
   const WD = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
   const BLUE = 'FF1F4E79';
   const thin = { style: 'thin', color: { argb: 'FFBFBFBF' } };
@@ -71,6 +75,16 @@
     return notes.slice().sort((a, b) => (a.datum + a.uhrzeit).localeCompare(b.datum + b.uhrzeit));
   }
 
+  // Inhalt einer Übersichtszelle: je Notiz ein Abschnitt „• Text (Vorname)“, getrennt durch Zeilenumbruch
+  function segments(notes, team, datum, mehrere) {
+    return notes.filter(n => n.team === team && n.datum === datum).map(n => ({
+      team, datum, uhrzeit: n.uhrzeit || '', von: n.von || '', text: n.text,
+      bullet: !/^\s*•/.test(n.text), suf: mehrere && n.von ? n.von.trim().split(/\s+/)[0] : ''
+    }));
+  }
+  const render = s => (s.bullet ? '• ' : '') + s.text + (s.suf ? ' (' + s.suf + ')' : '');
+  const norm = v => String(v == null ? '' : v).replace(/\r\n?/g, '\n').split('\n').map(l => l.trimEnd()).join('\n').trim();
+
   // ---------- Schreiben ----------
   function build(course) {
     const wb = new ExcelJS.Workbook();
@@ -101,7 +115,7 @@
 
     // Sprechen mehrere Trainer in den Lehrgang, steht in der Übersicht hinter jeder Notiz, von wem sie ist
     const mehrere = new Set(notes.map(n => n.von).filter(Boolean)).size > 1;
-    const vonKurz = n => (mehrere && n.von ? ' (' + n.von.trim().split(/\s+/)[0] + ')' : '');
+    const stand = [];
     const allTeamNames = teams.map(t => t.name);
     notes.forEach(n => { if (n.team && !allTeamNames.includes(n.team)) allTeamNames.push(n.team); });
     allTeamNames.forEach((name, r) => {
@@ -110,7 +124,9 @@
       row.getCell(1).value = name;
       row.getCell(1).font = { bold: true };
       days.forEach((d, i) => {
-        const txt = notes.filter(n => n.team === name && n.datum === d).map(n => (/^\s*•/.test(n.text) ? '' : '• ') + n.text + vonKurz(n)).join('\n');
+        const segs = segments(notes, name, d, mehrere);
+        stand.push(...segs);
+        const txt = segs.map(render).join('\n');
         if (txt) row.getCell(i + 2).value = txt;
         maxLines = Math.max(maxLines, Math.ceil(txt.length / 42) + (txt.match(/\n/g) || []).length);
       });
@@ -167,7 +183,93 @@
     wg.getRow(1).values = ['Begriff', 'Oft erkannt als', 'Von'];
     (course.glossar || []).forEach((g, i) => { wg.getRow(i + 2).values = [g.begriff, g.falsch || '', g.von || '']; });
 
+    // Verstecktes Abbild der Übersicht (je Abschnitt eine Zeile), damit Änderungen am PC erkannt werden
+    const wsn = wb.addWorksheet(SHEET_STAND, { state: 'hidden' });
+    wsn.getRow(1).values = ['Team', 'Datum', 'Uhrzeit', 'Von', 'Punkt', 'Kürzel', 'Text'];
+    stand.forEach((x, i) => { wsn.getRow(i + 2).values = [x.team, x.datum, x.uhrzeit, x.von, x.bullet ? '1' : '0', x.suf, x.text]; });
+
     return wb;
+  }
+
+  // ---------- Änderungen aus der Übersicht übernehmen ----------
+  // Je Zelle: Abschnitte, die unverändert drinstehen, bleiben. Text zwischen zwei unveränderten Abschnitten gehört zu den
+  // fehlenden Abschnitten dazwischen (= geänderte Notiz). Fehlt er ganz, wurde die Notiz gelöscht. Neuer Text ohne
+  // passenden Abschnitt wird eine neue Notiz. Gibt die Zahl der geänderten Notizen zurück.
+  function applyOverviewEdits(wb, course) {
+    const wsn = wb.getWorksheet(SHEET_STAND), wu = wb.getWorksheet(SHEET_UEB);
+    if (!wsn || !wu) return 0; // alte Datei: noch kein Abbild, dann gilt wie bisher nur das Blatt Rohdaten
+    const t = (r, k) => String(cellText(r.getCell(k).value) || '');
+    const stand = new Map();
+    wsn.eachRow((r, i) => {
+      if (i === 1) return;
+      const x = { team: t(r, 1).trim(), datum: t(r, 2).trim(), uhrzeit: t(r, 3).trim(), von: t(r, 4).trim(), bullet: t(r, 5).trim() === '1', suf: t(r, 6).trim(), text: t(r, 7).trim() };
+      const key = x.team + '|' + x.datum;
+      if (!stand.has(key)) stand.set(key, []);
+      stand.get(key).push(x);
+    });
+    const known = new Set([...course.teams.map(tm => tm.name), ...[...stand.values()].map(a => a[0].team)]);
+    const dateCols = [];
+    wu.getRow(3).eachCell((c, col) => { const m = String(cellText(c.value) || '').match(/(\d{1,2}\.\d{1,2}\.\d{4})/); if (col > 1 && m) dateCols.push([col, parseDateCell(m[1])]); });
+    let count = 0;
+    const find = s => course.notes.findIndex(n => n.datum === s.datum && n.team === s.team && (n.uhrzeit || '') === s.uhrzeit && (n.von || '') === s.von && n.text === s.text);
+    const clean = (s, piece) => {
+      let x = piece;
+      if (!s || s.bullet) x = x.replace(/^•\s*/, '');
+      if (s && s.suf && x.endsWith('(' + s.suf + ')')) x = x.slice(0, -(s.suf.length + 2));
+      return x.trim();
+    };
+    wu.eachRow((r, ri) => {
+      if (ri < 4) return;
+      const team = t(r, 1).trim();
+      if (!team || !known.has(team)) return; // umbenannte/fremde Zeilen nicht anfassen
+      dateCols.forEach(([col, datum]) => {
+        const segs = stand.get(team + '|' + datum) || [];
+        const cur = norm(cellText(r.getCell(col).value));
+        if (cur === norm(segs.map(render).join('\n'))) return;
+        // unveränderte Abschnitte in Reihenfolge suchen (nur an Zeilengrenzen)
+        let pos = 0;
+        const hit = segs.map(s => {
+          const want = norm(render(s));
+          for (let k = cur.indexOf(want, pos); k >= 0; k = cur.indexOf(want, k + 1)) {
+            const e = k + want.length;
+            if ((k === 0 || cur[k - 1] === '\n') && (e === cur.length || cur[e] === '\n')) { pos = e; return [k, e]; }
+          }
+          return null;
+        });
+        const gap = (pending, raw, near) => {
+          const g = norm(raw);
+          if (!pending.length) {
+            if (g) { course.notes.push({ datum, uhrzeit: near ? near.uhrzeit : '', team, text: clean(null, g), quelle: 'Am PC ergänzt', von: '' }); count++; }
+            return;
+          }
+          let pieces = [];
+          if (g) {
+            pieces = [g];
+            if (pending.length > 1) {
+              const p = g.split('\n').reduce((a, l) => { if (/^\s*•/.test(l) || !a.length) a.push(l); else a[a.length - 1] += '\n' + l; return a; }, []);
+              if (p.length === pending.length) pieces = p;
+            }
+          }
+          pending.forEach((s, k) => {
+            const idx = find(s);
+            if (k < pieces.length) {
+              const neu = clean(s, pieces[k]);
+              if (neu === s.text) return;
+              if (idx >= 0) { const n = course.notes[idx]; n.text = neu; if (!(n.quelle || '').endsWith(AM_PC)) n.quelle = (n.quelle || 'Sprachnotiz').replace(/ \(bearbeitet\)$/, '') + AM_PC; }
+              else course.notes.push({ datum, uhrzeit: s.uhrzeit, team, text: neu, quelle: 'Am PC ergänzt', von: '' });
+              count++;
+            } else if (idx >= 0) { course.notes.splice(idx, 1); count++; }
+          });
+        };
+        let prev = 0, pending = [], near = null;
+        segs.forEach((s, i) => {
+          if (hit[i]) { gap(pending, cur.slice(prev, hit[i][0]), near || s); pending = []; prev = hit[i][1]; near = s; }
+          else pending.push(s);
+        });
+        gap(pending, cur.slice(prev), near);
+      });
+    });
+    return count;
   }
 
   async function toBuffer(course) { return build(course).xlsx.writeBuffer(); }
@@ -226,6 +328,7 @@
         if (name && g) course.gesamt[name] = g;
       });
     }
+    course.amPcGeaendert = applyOverviewEdits(wb, course);
     if (!course.meta.start) course.meta.start = course.notes.length ? sortNotes(course.notes)[0].datum : dateToIso(new Date());
     return course;
   }
