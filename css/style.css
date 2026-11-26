@@ -141,3 +141,14 @@ body:has(#v-training:not(.hidden)) .tabs{display:none}
 .cell-tx .zg-bar,.zg-bar{display:block;height:8px;border-radius:4px;background:var(--fill);overflow:hidden;margin:7px 0 4px}.zg-bar i{display:block;height:100%;border-radius:4px;transition:width .3s}
 .zg-undo{display:inline-flex;align-items:center;gap:6px;margin-top:12px;border:0;border-radius:18px;background:var(--fill);color:var(--tint);font-size:15px;font-weight:600;padding:8px 14px}.zg-undo svg{width:9px;height:15px}.zg-undo[hidden]{display:inline-flex;visibility:hidden}
 .modal-card,.sheet{overscroll-behavior:contain}
+/* Lehrgang: Vorlage als Kachel, Gerüche als Kärtchen */
+.zg-tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 16px 24px}
+.zg-tile{background:var(--card);border:2px solid transparent;border-radius:14px;padding:11px 13px;text-align:left;color:var(--label);font:inherit}.zg-tile.on{border-color:var(--fill-tint)}
+.zg-tile b{display:block;font-size:16px;font-weight:600}.zg-tile span{font-size:13px;color:var(--sec)}
+.zg-chips{display:flex;flex-wrap:wrap;gap:8px;padding:14px 14px}
+.zg-chip{display:inline-flex;align-items:center;gap:2px;background:var(--fill);border-radius:17px;padding:4px 4px 4px 12px;font-size:15px;color:var(--label);border:0;font-family:inherit}
+.zg-chip button{background:none;border:0;color:var(--sec);font-size:19px;line-height:1;padding:2px 8px;cursor:pointer}
+.zg-chip-add{padding:6px 13px;background:none;border:1.5px dashed var(--tint);color:var(--tint);font-weight:600;cursor:pointer}
+.zg-such{display:flex;align-items:center;gap:8px;background:var(--fill);border-radius:10px;margin:8px 16px 14px;padding:0 12px;color:var(--sec)}.zg-such svg{width:16px;height:16px;flex:0 0 auto}
+.zg-such input{flex:1;border:0;background:none;font:inherit;font-size:17px;padding:10px 0;color:var(--label);outline:none}
+#asList{max-height:45vh;overflow:auto}.zg-add-ic{color:var(--tint);font-size:24px;font-weight:300}
