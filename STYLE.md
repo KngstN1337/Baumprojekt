@@ -24,8 +24,8 @@ Systemschrift (auf dem iPhone SF Pro). Größen: Großer Titel 34 px fett · Tex
 ## Seitenaufbau
 ```html
 <section id="v-xyz" class="view hidden">
-  <div class="navbar"><span></span><button class="nav-icon" aria-label="Neu"><svg><use href="#i-plus"/></svg></button></div>
-  <h1 class="large-title">Titel</h1>
+  <div class="title-row"><h1 class="large-title">Titel</h1><button class="nav-icon" aria-label="Neu"><svg><use href="#i-plus"/></svg></button></div>
+  <label class="subtitle picker"><b>Gewählter Wert</b><svg><use href="#i-updown"/></svg><span class="rest"> · Zusatz</span><select>…</select></label>
   <div class="section-h">Abschnitt</div>
   <div class="group">
     <div class="cell"><div class="cell-tx"><b>Zeile</b><span>Unterzeile</span></div></div>
@@ -33,7 +33,8 @@ Systemschrift (auf dem iPhone SF Pro). Größen: Großer Titel 34 px fett · Tex
   </div>
 </section>
 ```
-- Navigationsleiste: links `nav-btn back` (Zurück mit `#i-back`), rechts Text-`nav-btn` oder Rund-Knopf `nav-icon` (Plus usw.). Text rechts höchstens ein kurzes Wort.
+- **Oben nichts Wichtiges direkt unter die Statusleiste setzen.** iOS legt dort einen Unschärfe-Verlauf über die Seite. `main` hat deshalb oben extra Abstand; Aktionen gehören in die `title-row` neben den großen Titel, nicht in eine eigene Leiste darüber.
+- Unterseiten (z. B. Team) haben eine `.navbar`: links `nav-btn back` (Zurück mit `#i-back`), rechts höchstens ein kurzes Wort als `nav-btn`.
 - Abstände kommen aus den Klassen (16 px Seitenrand, 28 px zwischen Gruppen). Keine eigenen `margin`/`padding` an Bausteinen.
 
 ## Bausteine

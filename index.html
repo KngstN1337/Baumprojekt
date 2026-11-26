@@ -12,8 +12,8 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/icon-192.png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/design.css?v=12">
-  <link rel="stylesheet" href="css/style.css?v=12">
+  <link rel="stylesheet" href="css/design.css?v=13">
+  <link rel="stylesheet" href="css/style.css?v=13">
 </head>
 <body class="locked">
   <section id="login" class="login">
@@ -31,9 +31,8 @@
   <main>
     <!-- Heute: Tag wählen, Team antippen, sprechen -->
     <section id="v-heute" class="view">
-      <div class="navbar"><span></span><button class="nav-btn" data-go="lehrgang">Lehrgang</button></div>
       <h1 class="large-title" id="dayTitle">Heute</h1>
-      <button class="subtitle" id="courseBtn" data-go="lehrgang">Kein Lehrgang gewählt</button>
+      <label class="subtitle picker" id="coursePick"><b id="courseBtn">Kein Lehrgang gewählt</b><svg><use href="#i-updown"/></svg><span class="rest" id="weekInfo"></span><select id="courseSelectTop" aria-label="Lehrgang wechseln"></select></label>
       <div class="days" id="days"></div>
       <div class="section-h" id="teamsHead">Teams</div>
       <div class="group" id="teamList"></div>
@@ -54,8 +53,7 @@
 
     <!-- Lehrgänge -->
     <section id="v-lehrgang" class="view hidden">
-      <div class="navbar"><span></span><button class="nav-icon" id="newCourseBtn" aria-label="Neuer Lehrgang" title="Neuer Lehrgang"><svg><use href="#i-plus"/></svg></button></div>
-      <h1 class="large-title">Lehrgänge</h1>
+      <div class="title-row"><h1 class="large-title">Lehrgänge</h1><button class="nav-icon" id="newCourseBtn" aria-label="Neuer Lehrgang" title="Neuer Lehrgang"><svg><use href="#i-plus"/></svg></button></div>
       <div class="section-h">Aktueller Lehrgang</div>
       <div class="group">
         <label class="cell picker"><div class="cell-tx"><b id="courseName">–</b><span id="courseInfo"></span></div><span class="val">Wechseln<svg><use href="#i-updown"/></svg></span><select id="courseSelect" aria-label="Lehrgang wählen"></select></label>
@@ -88,7 +86,6 @@
 
     <!-- Hilfe -->
     <section id="v-hilfe" class="view hidden help">
-      <div class="navbar"></div>
       <h1 class="large-title">Hilfe</h1>
       <div class="card">
         <p>Baumprojekt ist eine App auf deinem Handy. Du wählst den Tag, tippst bei einem Team auf das Mikrofon und sprichst, was dir aufgefallen ist. Die App schreibt es auf und trägt es in die Excel-Datei des Lehrgangs ein. Die Excel-Datei musst du dafür nicht öffnen: Die App legt sie selbst in deinem Google Drive an und füllt sie.</p>
@@ -154,7 +151,6 @@
 
     <!-- Einstellungen -->
     <section id="v-einst" class="view hidden">
-      <div class="navbar"></div>
       <h1 class="large-title">Einstellungen</h1>
       <form id="settingsForm" class="card">
         <h3>Google-Konto</h3>
@@ -217,7 +213,6 @@
     </div>
     <div id="sheetBusy" class="sheet-busy hidden"><div class="spinner"></div><span id="sheetBusyText">Spracherkennung läuft …</span></div>
     <div id="sheetEdit" class="hidden">
-      <div class="kat-row"><select id="noteKat"></select></div>
       <textarea id="noteText" rows="7" placeholder="Notiz eintippen …"></textarea>
       <div id="unklarBox" class="chips hidden" aria-label="Unsichere Wörter"></div>
       <button class="text-btn more-rec" id="moreRec"><svg><use href="#i-mic"/></svg>Weiter aufnehmen</button>
@@ -254,11 +249,11 @@
   <div id="busy" class="busy hidden"><div class="spinner"></div><div id="busyText">Bitte warten …</div></div>
   <div id="toast" class="toast hidden"></div>
 
-  <script src="config.js?v=12"></script>
+  <script src="config.js?v=13"></script>
   <script src="vendor/exceljs.min.js"></script>
-  <script src="js/workbook.js?v=12"></script>
-  <script src="js/services.js?v=12"></script>
-  <script src="js/app.js?v=12"></script>
+  <script src="js/workbook.js?v=13"></script>
+  <script src="js/services.js?v=13"></script>
+  <script src="js/app.js?v=13"></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 </body>
 </html>
