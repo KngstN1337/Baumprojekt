@@ -180,7 +180,7 @@
     const i = course.teams.indexOf(tm);
     $('#teamAvatar').outerHTML = avatar(tm, i, 'big').replace('class="avatar big"', 'class="avatar big" id="teamAvatar"');
     $('#teamName').textContent = tm.teilnehmer || tm.name;
-    $('#teamDog').textContent = tm.hund ? 'mit ' + tm.hund + (tm.rasse ? ' · ' + tm.rasse : '') : '';
+    $('#teamDog').textContent = tm.hund ? 'mit ' + tm.hund + (tm.behoerde ? ' · ' + tm.behoerde : '') : '';
     $('#teamBack').lastChild.textContent = selDate === today() ? 'Heute' : 'Zurück';
     renderTeamNotes();
     go('team');
@@ -699,8 +699,10 @@
   }
   function teamRow(t) {
     t = t || {};
-    return '<div class="team-row"><input placeholder="Teilnehmer/in" data-k="teilnehmer" value="' + esc(t.teilnehmer) + '"><input placeholder="Hund" data-k="hund" value="' + esc(t.hund) + '"><input placeholder="Rasse/Alter" data-k="rasse" value="' + esc(t.rasse) + '"><input type="hidden" data-k="bemerkung" value="' + esc(t.bemerkung) + '"><button type="button" class="rm" data-rm aria-label="Team entfernen">⊖</button></div>';
+    return '<div class="team-row"><input placeholder="Teilnehmer/in" data-k="teilnehmer" value="' + esc(t.teilnehmer) + '"><input placeholder="Hund" data-k="hund" value="' + esc(t.hund) + '"><input placeholder="Behörde" data-k="behoerde" value="' + esc(t.behoerde) + '">' +
+      '<input type="hidden" data-k="rasse" value="' + esc(t.rasse) + '"><input type="hidden" data-k="bemerkung" value="' + esc(t.bemerkung) + '"><button type="button" class="rm" data-rm aria-label="Team entfernen">⊖</button></div>';
   }
+
   function openCourseForm(edit) {
     editing = edit;
     const f = $('#courseForm');
@@ -708,14 +710,19 @@
     $('#courseFormTitle').textContent = edit ? 'Lehrgang bearbeiten' : 'Neuer Lehrgang';
     const c = edit ? course : { meta: { start: today(), wochen: 4 }, teams: [{}, {}, {}, {}, {}] };
     f.titel.value = c.meta.titel || ''; f.trainer.value = c.meta.trainer || localStorage.getItem('baumprojekt.trainer') || ''; f.ort.value = c.meta.ort || '';
-    f.start.value = c.meta.start; f.querySelector('input[name=wochen][value="' + (c.meta.wochen == 10 ? 10 : 4) + '"]').checked = true;
+    const w = Number(c.meta.wochen) || 4, fest = w === 4 || w === 10;
+    f.start.value = c.meta.start; f.querySelector('input[name=wochen][value="' + (fest ? w : 'x') + '"]').checked = true;
+    f.wochenX.value = fest ? '' : w; show('#wochenX', !fest);
     $('#teamRows').innerHTML = c.teams.map(teamRow).join('');
     show(f, true); f.scrollIntoView({ behavior: 'smooth' });
   }
   async function submitCourse(ev) {
     ev.preventDefault();
     const f = ev.target;
-    const meta = { titel: f.titel.value.trim(), trainer: f.trainer.value.trim(), ort: f.ort.value.trim(), start: f.start.value, wochen: Number(f.querySelector('input[name=wochen]:checked').value) };
+    const meta = { titel: f.titel.value.trim(), trainer: f.trainer.value.trim(), ort: f.ort.value.trim(), start: f.start.value, wochen: 0 };
+    const wv = f.querySelector('input[name=wochen]:checked').value;
+    meta.wochen = wv === 'x' ? Math.round(Number(f.wochenX.value)) : Number(wv);
+    if (!(meta.wochen >= 1 && meta.wochen <= 52)) { toast('Bitte die Anzahl der Wochen eintragen (1 bis 52).'); f.wochenX.focus(); return; }
     const teams = [...document.querySelectorAll('.team-row')].map(r => { const t = {}; r.querySelectorAll('[data-k]').forEach(i => { t[i.dataset.k] = i.value.trim(); }); return t; })
       .filter(t => t.teilnehmer || t.hund).map(t => ({ ...t, name: WBK.teamName(t) }));
     if (!teams.length) { toast('Bitte mindestens ein Team eintragen.'); return; }
@@ -917,6 +924,7 @@
     $('#teamRows').addEventListener('click', e => { if (e.target.hasAttribute('data-rm')) e.target.closest('.team-row').remove(); });
     $('#cancelCourse').addEventListener('click', () => show('#courseForm', false));
     $('#courseForm').addEventListener('submit', submitCourse);
+    $('#courseForm').addEventListener('change', e => { if (e.target.name === 'wochen') { show('#wochenX', e.target.value === 'x'); if (e.target.value === 'x') $('#courseForm').wochenX.focus(); } });
     $('#downloadBtn').addEventListener('click', download);
     $('#settingsForm').addEventListener('submit', saveSettings);
     $('#checkKeyBtn').addEventListener('click', () => { saveSettings(); });

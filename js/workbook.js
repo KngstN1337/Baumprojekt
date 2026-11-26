@@ -82,7 +82,7 @@
 
     // Übersicht
     const ws = wb.addWorksheet(SHEET_UEB, { views: [{ state: 'frozen', xSplit: 1, ySplit: 3 }] });
-    ws.getCell('A1').value = 'Lehrgang: ' + (m.titel || '') + '  ·  Trainer: ' + (m.trainer || '___________') + '  ·  Ort: ' + (m.ort || '___________');
+    ws.getCell('A1').value = 'Lehrgang: ' + (m.titel || '') + '  ·  Trainer: ' + (m.trainer || '___________') + (m.ort ? '  ·  Ort: ' + m.ort : '');
     ws.getCell('A1').font = { bold: true, size: 13 };
     const head = ws.getRow(3);
     head.height = 32;
@@ -145,15 +145,17 @@
 
     // Teams
     const wt = wb.addWorksheet(SHEET_TEAMS);
-    const th = ['Team', 'Teilnehmer/in', 'Hund', 'Rasse / Alter', 'Bemerkung'];
-    const tw = [18, 18, 10, 22, 30];
-    th.forEach((h, i) => {
+    // „Rasse / Alter“ wird nicht mehr abgefragt; Spalte bleibt nur, solange alte Teams einen Eintrag haben
+    const mitRasse = teams.some(t => t.rasse);
+    const TC = [['Team', 18, t => t.name], ['Teilnehmer/in', 18, t => t.teilnehmer || ''], ['Hund', 12, t => t.hund || ''], ['Behörde', 22, t => t.behoerde || ''],
+      ...(mitRasse ? [['Rasse / Alter', 22, t => t.rasse || '']] : []), ['Bemerkung', 30, t => t.bemerkung || '']];
+    TC.forEach(([h, w], i) => {
       const c = wt.getRow(1).getCell(i + 1);
       c.value = h; c.font = { bold: true, color: { argb: 'FFFFFFFF' } };
       c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: BLUE } };
-      wt.getColumn(i + 1).width = tw[i];
+      wt.getColumn(i + 1).width = w;
     });
-    teams.forEach((t, i) => { wt.getRow(i + 2).values = [t.name, t.teilnehmer || '', t.hund || '', t.rasse || '', t.bemerkung || '']; });
+    teams.forEach((t, i) => { wt.getRow(i + 2).values = TC.map(col => col[2](t)); });
 
     // Versteckte Einstellungen
     const wm = wb.addWorksheet(SHEET_META, { state: 'hidden' });
@@ -182,9 +184,13 @@
     course.meta.wochen = Number(course.meta.wochen) || 4;
 
     const wt = wb.getWorksheet(SHEET_TEAMS);
+    const tcol = {};
+    if (wt) wt.getRow(1).eachCell((c, k) => { tcol[String(cellText(c.value) || '').trim()] = k; });
+    const tat = (name, alt) => tcol[name] || (Object.keys(tcol).length ? 0 : alt);
+    const ttxt = (r, k) => k ? String(cellText(r.getCell(k).value) || '').trim() : '';
     if (wt) wt.eachRow((r, i) => {
       if (i === 1) return;
-      const t = { name: String(cellText(r.getCell(1).value) || '').trim(), teilnehmer: String(cellText(r.getCell(2).value) || '').trim(), hund: String(cellText(r.getCell(3).value) || '').trim(), rasse: String(cellText(r.getCell(4).value) || '').trim(), bemerkung: String(cellText(r.getCell(5).value) || '').trim() };
+      const t = { name: ttxt(r, tat('Team', 1)), teilnehmer: ttxt(r, tat('Teilnehmer/in', 2)), hund: ttxt(r, tat('Hund', 3)), behoerde: ttxt(r, tat('Behörde', 0)), rasse: ttxt(r, tat('Rasse / Alter', 4)), bemerkung: ttxt(r, tat('Bemerkung', 5)) };
       t.name = teamName(t);
       if (t.name) course.teams.push(t);
     });
