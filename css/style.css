@@ -63,3 +63,10 @@ body:not(.locked) #login{display:none}
 .guide ol{padding-left:20px;margin:8px 0 0}.guide li{margin:8px 0;font-size:15px}
 .guide a{color:var(--blue);font-weight:600}
 #keyStatus{margin:-4px 0 8px;min-height:1em}
+.key-status{margin:4px 0 10px;font-size:15px;border-radius:8px}
+.key-status:empty{display:none}
+.key-status.ok,.key-status.err,.key-status.warn,.key-status.busy{padding:10px 12px;font-weight:600}
+.key-status.ok{background:#e3f5e6;color:#1b6b2c;border:1px solid #9fd5aa}
+.key-status.err{background:#fde8e8;color:#a32020;border:1px solid #f0a8a8}
+.key-status.warn{background:var(--warn);color:#7a5a00;border:1px solid #f0c64a}
+.key-status.busy{background:#eef4fa;color:var(--blue)}

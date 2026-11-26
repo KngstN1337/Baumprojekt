@@ -25,13 +25,13 @@ Am Windows-PC: Mit „Google Drive für Desktop“ erscheint Drive als Laufwerk 
 ## Datenschutz
 - Kein eigener Server. Die App ist eine statische Webseite; alles läuft im Browser des Handys.
 - Google-Zugriff mit dem Recht `drive.file`: Die App sieht nur Dateien, die sie selbst angelegt hat (Ordner „Baumprojekt Lehrgänge“), nicht den Rest des Drives.
-- Der OpenAI-Schlüssel wird nur auf dem Gerät gespeichert und direkt an OpenAI geschickt. Audio und Text gehen nur an OpenAI (zur Erkennung) und ins eigene Google Drive.
+- Der OpenAI-Schlüssel liegt auf dem Gerät und im eigenen Google Drive des Nutzers und wird direkt an OpenAI geschickt. Audio und Text gehen nur an OpenAI (zur Erkennung) und ins eigene Google Drive.
 - Der Herausgeber der App (Hendrik) hat keinen Zugriff auf Notizen, Dateien oder Schlüssel.
 
 ## Zugang (Whitelist)
 Die App ist nur nach Google-Anmeldung nutzbar. Solange die Google-App im Status *Test* ist, können sich nur die Konten anmelden, die in der Google Cloud Console unter „OAuth-Zustimmungsbildschirm → Testnutzer“ eingetragen sind (max. 100). Alle anderen bekommen „Zugriff blockiert“. Neue Nutzer freischalten = dort ihre Gmail-Adresse hinzufügen. Bitte die App NICHT veröffentlichen, sonst kann sich jeder anmelden.
 
-Nach dem Abmelden, auf einem neuen Handy oder nach gelöschten Browserdaten: wieder anmelden, die Lehrgänge kommen aus Google Drive zurück. Nur der OpenAI-Schlüssel muss neu eingetragen werden.
+Nach dem Abmelden, auf einem neuen Handy oder nach gelöschten Browserdaten: wieder anmelden, die Lehrgänge kommen aus Google Drive zurück. Der OpenAI-Schlüssel wird als Datei „Baumprojekt-Einstellungen (nicht löschen).json“ im eigenen Drive-Ordner gespeichert und nach der Anmeldung automatisch geladen.
 
 ## Veröffentlichen (einmalig, durch Hendrik)
 1. **Hosting**: Den Ordner `app/` in ein GitHub-Repository legen und GitHub Pages aktivieren (Settings → Pages → Branch `main`, Ordner `/`). Ergebnis z. B. `https://<name>.github.io/baumprojekt/`.
