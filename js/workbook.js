@@ -254,22 +254,21 @@
     const stoffe = sp.stoffe.slice();
     zg.forEach(e => { if (e.stoff && !stoffe.includes(e.stoff)) stoffe.push(e.stoff); });
     // Übersicht: je Team und Stoff eine Zeile, Schritt, Summe und Belohnungen je Tag
-    const ws = wb.addWorksheet(SHEET_ZG, { views: [{ state: 'frozen', xSplit: 4, ySplit: 3 }] });
-    ws.getCell('A1').value = 'Zielgerüche: ' + (m.titel || '') + (m.schrittVorlage ? '  ·  Schritte: ' + m.schrittVorlage : '');
+    const ws = wb.addWorksheet(SHEET_ZG, { views: [{ state: 'frozen', xSplit: 3, ySplit: 3 }] });
+    ws.getCell('A1').value = 'Zielgerüche: ' + (m.titel || '');
     ws.getCell('A1').font = { bold: true, size: 13 };
-    head(ws.getRow(3), ['Team', 'Stoff', 'Schritt', 'Belohnungen gesamt', ...days.map(d => 'Tag ' + dayIndex(m.start, d) + '\n' + isoToDe(d).slice(0, 6))],
-      [22, 18, 22, 12, ...days.map(() => 8)], ws);
+    head(ws.getRow(3), ['Team', 'Stoff', 'Belohnungen gesamt', ...days.map(d => 'Tag ' + dayIndex(m.start, d) + '\n' + isoToDe(d).slice(0, 6))],
+      [22, 18, 12, ...days.map(() => 8)], ws);
     ws.getRow(3).height = 32;
     let r = 4;
     teams.forEach(t => stoffe.forEach(st => {
-      const row = ws.getRow(r++), nr = zgSchritt(zg, t.name, st), schr = sp.schritte[nr - 1];
+      const row = ws.getRow(r++);
       row.getCell(1).value = t.name; row.getCell(1).font = { bold: true };
       row.getCell(2).value = st;
-      row.getCell(3).value = nr ? nr + (schr && schr.name && schr.name !== 'Schritt ' + nr ? ' · ' + schr.name : '') : '';
-      row.getCell(4).value = zgSumme(zg, t.name, st);
-      row.getCell(4).font = { bold: true };
-      days.forEach((d, i) => { const n = zgSumme(zg, t.name, st, d); if (n) row.getCell(i + 5).value = n; });
-      for (let c = 1; c <= days.length + 4; c++) { const cell = row.getCell(c); cell.border = BORDER; if (c > 2) cell.alignment = { horizontal: 'center' }; }
+      row.getCell(3).value = zgSumme(zg, t.name, st);
+      row.getCell(3).font = { bold: true };
+      days.forEach((d, i) => { const n = zgSumme(zg, t.name, st, d); if (n) row.getCell(i + 4).value = n; });
+      for (let c = 1; c <= days.length + 3; c++) { const cell = row.getCell(c); cell.border = BORDER; if (c > 2) cell.alignment = { horizontal: 'center' }; }
     }));
     // Rohdaten: jede Belohnung, Korrektur und jeder Schrittwechsel eine Zeile (Datenquelle)
     const wr = wb.addWorksheet(SHEET_ZG_ROH, { views: [{ state: 'frozen', ySplit: 1 }] });

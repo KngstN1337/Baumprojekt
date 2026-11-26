@@ -24,13 +24,6 @@ window.BaumprojektVordefiniert = {
     { name: 'Rauschgift', stoffe: ['Cannabis', 'Kokain', 'Heroin', 'Amphetamin'] },
     { name: 'Datenspeicher', stoffe: ['SIM-Karte', 'USB-Stick', 'Mikrofon', 'Kamera', 'Festplatte', 'Mobiltelefon'] }
   ],
-  // Schritt-Vorlagen: Konditionierungsschritte (Name und kurze Beschreibung)
-  schrittVorlagen: [
-    { name: 'Kong - Zielgeruch Koppelung', schritte: [
-      { name: 'Reagenzglas, Kongstück, Zielgeruch', beschr: '' },
-      { name: 'Reagenzglas (frisch kontaminiert), Zielgeruch', beschr: '' },
-      { name: 'Reagenzglas (alt kontaminiert), Zielgeruch', beschr: '' },
-      { name: 'Reagenzglas, Zielgeruch', beschr: '' }
-    ] }
-  ]
+  // Schritt-Vorlagen: zurzeit in der App ausgeblendet (MIT_SCHRITTEN in spuerhund.js)
+  schrittVorlagen: []
 };

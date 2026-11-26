@@ -11,6 +11,8 @@
     const $ = s => document.querySelector(s);
     const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
     const lc = s => String(s || '').toLowerCase().trim();
+    // Konditionierungsschritte sind ausgeblendet (Hendrik: zu unübersichtlich). Gespeicherte Schritt-Daten bleiben in der Excel erhalten.
+    const MIT_SCHRITTEN = false;
     const st = ctx.settings;
     const CHEV = '<svg class="chev"><use href="#i-chev"/></svg>';
     const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
@@ -34,7 +36,7 @@
     function geruchMerken(name) { if (!alleGerueche().some(x => lc(x) === lc(name))) { st.gerueche.push(name); st.gerueche.sort((a, b) => a.localeCompare(b, 'de')); return true; } return false; }
 
     function renderEinst() {
-      const c1 = $('#zgCount'), c2 = $('#svCount');
+      const c1 = $('#zgCount'), c2 = MIT_SCHRITTEN && $('#svCount');
       if (c1) c1.textContent = alleGerueche().length + ' · ' + geruchVorlagen().length + ' Vorlagen';
       if (c2) c2.textContent = schrittVorlagen().length + ' Vorlagen';
     }
@@ -163,7 +165,7 @@
       const gv = geruchVorlagen().find(v => v.name === m.geruchVorlage), sv = schrittVorlagen().find(v => v.name === m.schrittVorlage);
       form = { art: m.art || '', gv: gv ? gv.id : '', sv: sv ? sv.id : '', svName: m.schrittVorlage || '', stoffe: sp.stoffe.slice(), schritte: sp.schritte.map(x => ({ ...x })) };
       // Neuer Lehrgang: erste Schritt-Vorlage vorschlagen
-      if (!c) { const s0 = schrittVorlagen()[0]; if (s0) { form.sv = s0.id; form.svName = s0.name; form.schritte = s0.schritte.map(x => ({ ...x })); } }
+      if (!c && MIT_SCHRITTEN) { const s0 = schrittVorlagen()[0]; if (s0) { form.sv = s0.id; form.svName = s0.name; form.schritte = s0.schritte.map(x => ({ ...x })); } }
       renderForm();
     }
     function renderForm() {
@@ -178,6 +180,7 @@
       $('#gvInfo').textContent = form.stoffe.length + (form.stoffe.length === 1 ? ' Geruch' : ' Gerüche');
       $('#formStoffe').innerHTML = form.stoffe.map((s, i) => '<div class="cell"><div class="cell-tx"><b>' + esc(s) + '</b></div><button type="button" class="rm" data-rmst="' + i + '" aria-label="' + esc(s) + ' entfernen">⊖</button></div>').join('') +
         '<button type="button" class="cell link-cell" id="addStoff">Geruch hinzufügen</button>';
+      if (!$('#svSel')) return;
       $('#svSel').innerHTML = opt(schrittVorlagen(), form.sv, 'Keine Vorlage');
       $('#svName').textContent = form.svName || 'Keine Vorlage';
       $('#svInfo').textContent = form.schritte.length ? form.schritte.length + (form.schritte.length === 1 ? ' Schritt' : ' Schritte') : 'Ohne Schritte wird nur gezählt';
@@ -305,7 +308,7 @@
     // ---------------- Akte (Team-Seite) ----------------
     const istSpuer = () => { const c = ctx.course(); return !!(c && c.meta && c.meta.art === 'spuerhund'); };
     const stoffe = () => { const c = ctx.course(); return (c && c.spuer && c.spuer.stoffe) || []; };
-    const schritte = () => { const c = ctx.course(); return (c && c.spuer && c.spuer.schritte) || []; };
+    const schritte = () => { const c = ctx.course(); return (MIT_SCHRITTEN && c && c.spuer && c.spuer.schritte) || []; };
     const punkte = n => schritte().length ? '<span class="zg-dots" aria-label="Schritt ' + n + ' von ' + schritte().length + '">' + schritte().map((_, i) => '<i' + (i < n ? ' class="on"' : '') + '></i>').join('') + '</span>' : '';
     const schrittText = n => schritte().length && n ? 'Schritt ' + n + (schritte()[n - 1] && schritte()[n - 1].name !== 'Schritt ' + n ? ' · ' + schritte()[n - 1].name : '') : '';
     function renderTeam() {
@@ -323,7 +326,7 @@
           '<button type="button" class="zg-n" data-num aria-label="Zahl eingeben">' + gesamt(team, s) + '</button><button type="button" class="zg-plus" data-plus aria-label="Eine Belohnung an ' + esc(s) + '">+1</button></div>'; }).join('') ||
           '<div class="empty">Noch keine Zielgerüche. Unter Lehrgänge → „Aktuellen Lehrgang bearbeiten“ auswählen.</div>') +
         (stoffe().length && schritte().length ? '<button type="button" class="cell link-cell" id="zgAlle">Schritt für alle Gerüche setzen</button>' : '') + '</div>' +
-        '<p class="group-foot">+1 = eine Belohnung am Stoff. Gedrückt halten = eine zurücknehmen. Auf die Gesamtzahl tippen, um eine Anzahl einzutippen. Stoff antippen = Schritt und Verlauf.</p>' +
+        '<p class="group-foot">+1 = eine Belohnung am Stoff. Gedrückt halten = eine zurücknehmen. Auf die Gesamtzahl tippen, um eine Anzahl einzutippen. Stoff antippen = Verlauf je Tag.</p>' +
         '<p class="zg-status sync-info"></p>';
       renderStatus();
     }
@@ -392,7 +395,7 @@
           '<button type="button" class="cell" id="dZahl"><div class="cell-tx"><b>' + (ctx.selDate() === ctx.today() ? 'Heute' : esc(kurzDatum(ctx.selDate()))) + '</b><span>Antippen, um eine Zahl einzugeben</span></div><span class="zg-cnt">' + heute(team, stoff) + '</span></button></div>' +
           (tage.length ? '<div class="section-h">Verlauf</div><div class="group m-group">' + tage.map(d => {
             const s = alle.filter(e => e.datum === d && e.schritt !== '').map(e => e.schritt);
-            return '<div class="cell"><div class="cell-tx"><b>' + esc(kurzDatum(d)) + '</b>' + (s.length ? '<span>Schritt ' + s[s.length - 1] + ' gesetzt</span>' : '') + '</div><span class="zg-cnt small-cnt">' + WBK.zgSumme(alle, team, stoff, d) + '</span></div>';
+            return '<div class="cell"><div class="cell-tx"><b>' + esc(kurzDatum(d)) + '</b>' + (s.length && sch.length ? '<span>Schritt ' + s[s.length - 1] + ' gesetzt</span>' : '') + '</div><span class="zg-cnt small-cnt">' + WBK.zgSumme(alle, team, stoff, d) + '</span></div>';
           }).join('') + '</div>' : '') +
           '<div class="actions"><button class="btn-filled" data-m="close">Fertig</button></div>';
         if ($('#dSeg')) $('#dSeg').onclick = e => { const b = e.target.closest('[data-sn]'); if (!b) return; const k = Number(b.dataset.sn); if (k === n) return; eintragen(team, stoff, null, k); male(); };
@@ -461,9 +464,9 @@
         $('#zgAddOk').addEventListener('mousedown', e => e.preventDefault());
         $('#zgEigene').addEventListener('click', e => { const b = e.target.closest('[data-eg]'); if (b) eigenerGeruch(Number(b.dataset.eg)); });
         $('#zgPanelV').addEventListener('click', e => { const b = e.target.closest('[data-gv]'); if (b) geruchVorlage(b.dataset.gv); });
-        $('#v-schritte').addEventListener('click', e => { const b = e.target.closest('[data-sv]'); if (b) schrittVorlage(b.dataset.sv); });
+        if (MIT_SCHRITTEN) $('#v-schritte').addEventListener('click', e => { const b = e.target.closest('[data-sv]'); if (b) schrittVorlage(b.dataset.sv); });
         $('#zgPlusBtn').addEventListener('click', () => { if (zgTab === 'v') geruchVorlage('neu'); else $('#zgNeu').focus(); });
-        $('#svPlusBtn').addEventListener('click', () => schrittVorlage('neu'));
+        if (MIT_SCHRITTEN) $('#svPlusBtn').addEventListener('click', () => schrittVorlage('neu'));
         $('#zgBox').addEventListener('click', teamClick);
         initPlus($('#zgBox')); initPlus($('#v-training'));
         $('#v-training').addEventListener('click', trainingClick);
