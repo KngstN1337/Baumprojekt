@@ -12,8 +12,8 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/icon-192.png">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-  <link rel="stylesheet" href="css/design.css?v=19">
-  <link rel="stylesheet" href="css/style.css?v=19">
+  <link rel="stylesheet" href="css/design.css?v=20">
+  <link rel="stylesheet" href="css/style.css?v=20">
 </head>
 <body class="locked">
   <section id="login" class="login">
@@ -45,10 +45,22 @@
     <section id="v-team" class="view hidden">
       <div class="navbar"><button class="nav-btn back" id="teamBack"><svg class="chev-l"><use href="#i-back"/></svg>Heute</button><span></span><button class="nav-btn" id="typeBtn">Eintippen</button></div>
       <div class="hero"><div class="avatar big" id="teamAvatar"></div><h2 id="teamName"></h2><span id="teamDog"></span></div>
+      <div id="zgBox"></div>
       <div id="teamNotes"></div>
       <div class="section-h">Aufnahmen</div>
       <div class="group" id="teamRecs"></div>
       <div class="cta-wrap"><button class="btn-filled cta" id="teamRec"><svg><use href="#i-mic"/></svg>Aufnehmen</button></div>
+    </section>
+
+    <!-- Spürhund: Trainingsmodus (große +1-Fläche für eine Hand) -->
+    <section id="v-training" class="view hidden">
+      <div class="navbar"><span></span><button class="nav-btn" id="trDone" style="font-weight:600">Fertig</button></div>
+      <div class="tr-head"><span id="trTeam"></span><h1 id="trStoff"></h1></div>
+      <div class="tr-seg"><div class="segmented" id="trSeg"></div></div>
+      <button type="button" class="tr-n" id="trZahl" aria-label="Zahl eingeben"><b id="trHeute">0</b><span id="trGesamt"></span></button>
+      <button type="button" class="tr-tap" id="trTap">+1<small>Belohnt</small></button>
+      <div class="tr-foot"><button type="button" class="text-btn" id="trUndo">Rückgängig</button><button type="button" class="text-btn tr-schritt" id="trSchritt"></button></div>
+      <p class="zg-status sync-info"></p>
     </section>
 
     <!-- Lehrgänge -->
@@ -78,6 +90,15 @@
           <div class="field"><span>Dauer</span><div class="segmented small-seg"><label><input type="radio" name="wochen" value="4" checked><i>4 Wochen</i></label><label><input type="radio" name="wochen" value="10"><i>10 Wochen</i></label><label><input type="radio" name="wochen" value="x"><i>Individuell</i></label></div></div>
           <input type="hidden" name="ort">
           <label class="field hidden" id="wochenX"><span>Wochen</span><input type="number" name="wochenX" min="1" max="52" inputmode="numeric" placeholder="z. B. 6"></label>
+          <div class="field"><span>Art</span><div class="segmented small-seg"><label><input type="radio" name="art" value="" checked><i>Allgemein</i></label><label><input type="radio" name="art" value="spuerhund"><i>Spürhund</i></label></div></div>
+        </div>
+        <div id="spuerBox" class="hidden">
+          <div class="section-h">Zielgerüche</div>
+          <div class="group"><label class="cell picker"><div class="cell-tx"><b id="gvName">Keine Vorlage</b><span id="gvInfo"></span></div><span class="val">Vorlage<svg><use href="#i-updown"/></svg></span><select id="gvSel" aria-label="Geruchs-Vorlage wählen"></select></label></div>
+          <div class="group" id="formStoffe"></div>
+          <div class="section-h">Konditionierungsschritte</div>
+          <div class="group"><label class="cell picker"><div class="cell-tx wrap"><b id="svName">Keine Vorlage</b><span id="svInfo"></span></div><span class="val">Vorlage<svg><use href="#i-updown"/></svg></span><select id="svSel" aria-label="Schritt-Vorlage wählen"></select></label></div>
+          <p class="group-foot">Vorlagen pflegst du unter Einstellungen → Spürhund. Spätere Änderungen an einer Vorlage ändern diesen Lehrgang nicht.</p>
         </div>
         <div class="section-h">Teams</div>
         <div class="group form" id="teamRows"></div>
@@ -134,6 +155,16 @@
         </ol>
         <p>Speichert ihr gleichzeitig, geht nichts verloren: Die App liest die Datei vor dem Speichern neu ein, prüft danach, ob die Notiz wirklich drinsteht, und wiederholt es sonst. Die Notizen des Kollegen erscheinen nach spätestens einer Minute.</p>
       </details>
+      <details class="card"><summary>Spürhund: Zielgerüche zählen</summary>
+        <p>Beim Anlegen oder Bearbeiten eines Lehrgangs (Lehrgänge → „Aktuellen Lehrgang bearbeiten“) bei <b>Art</b> „Spürhund“ wählen. Dann eine <b>Geruchs-Vorlage</b> und eine <b>Schritt-Vorlage</b> aussuchen. Einzelne Gerüche kannst du entfernen oder dazunehmen.</p>
+        <ul>
+          <li><b>Zählen:</b> Team antippen. Bei jedem Stoff steht ein <b>+1</b>-Knopf. Antippen = eine Belohnung. Gedrückt halten = eine zurücknehmen.</li>
+          <li><b>Zahl eintippen:</b> Auf die Gesamtzahl tippen, Anzahl eingeben, „Dazuzählen“ oder „Heute genau“ wählen.</li>
+          <li><b>Schritt setzen:</b> Auf den Namen des Stoffs tippen. Dort siehst du auch den Verlauf je Tag.</li>
+          <li><b>Trainingsmodus:</b> Große +1-Fläche für eine Hand. Oben den Stoff wechseln.</li>
+        </ul>
+        <p>Jeder Tipp wird sofort auf dem Handy gesichert und nach ein paar Sekunden in die Excel-Datei geschrieben (Blätter „Zielgerüche“ und „Zielgerüche (Rohdaten)“). Eigene Gerüche und Vorlagen pflegst du unter Einstellungen → Spürhund.</p>
+      </details>
       <details class="card"><summary>Etwas nachträglich ändern</summary>
         <p>Tippe unter Heute auf ein Team und dann auf die Notiz. Du kannst den Text ändern, einen anderen Stil wählen, etwas dazu sprechen („Weiter aufnehmen“) oder die Notiz unten mit „Notiz löschen“ entfernen. Vor jeder Änderung legt die App eine Sicherung der Excel-Datei an, die Sprachaufnahme bleibt immer erhalten.</p>
         <p><b>Am PC in Excel:</b> Ändere den Text einfach direkt in der <b>Übersicht</b> (Team-Zeile, Tages-Spalte). Du kannst Text verbessern, einen Punkt löschen oder etwas dazuschreiben. Speichere die Datei und schließe sie. Beim nächsten Öffnen der App wird deine Änderung übernommen und in der App angezeigt (mit dem Hinweis „am PC“).</p>
@@ -185,6 +216,10 @@
       </form>
       <div class="section-h">Spracherkennung</div>
       <div class="group"><button type="button" class="cell" id="glossOpen"><div class="cell-tx"><b>Glossar</b></div><span class="cell-st muted" id="glossCount"></span><svg class="chev"><use href="#i-chev"/></svg></button></div>
+      <div class="section-h">Spürhund</div>
+      <div class="group"><button type="button" class="cell" id="zgOpen"><div class="cell-tx"><b>Zielgerüche</b></div><span class="cell-st muted" id="zgCount"></span><svg class="chev"><use href="#i-chev"/></svg></button>
+        <button type="button" class="cell" id="svOpen"><div class="cell-tx"><b>Konditionierungsschritte</b></div><span class="cell-st muted" id="svCount"></span><svg class="chev"><use href="#i-chev"/></svg></button></div>
+      <p class="group-foot">Wie beim Glossar: Vordefiniertes ist schon drin, eigene Gerüche und Vorlagen kommen dazu. Im Lehrgang wählst du dann nur noch die Vorlage.</p>
       <div class="card">
         <button id="wipeBtn" class="danger">Alle Baumprojekt-Daten auf diesem Gerät löschen</button>
         <p class="small muted">Löscht den OpenAI-Schlüssel, Einstellungen und nicht gespeicherte Entwürfe auf diesem Gerät. Die Dateien in Google Drive bleiben erhalten.</p>
@@ -211,6 +246,31 @@
         <div class="group" id="glossFremd"></div>
         <p class="group-foot">Begriffe des anderen Trainers. Sie gelten in diesem Lehrgang automatisch mit. Antippen, um einen davon in dein eigenes Glossar zu übernehmen.</p>
       </div>
+    </section>
+    <!-- Zielgerüche (Unterseite der Einstellungen) -->
+    <section id="v-gerueche" class="view hidden">
+      <div class="navbar"><button class="nav-btn back" data-back="einst"><svg class="chev-l"><use href="#i-back"/></svg>Einstellungen</button><span></span></div>
+      <div class="title-row"><h1 class="large-title">Zielgerüche</h1><button class="nav-icon" id="zgPlusBtn" aria-label="Neu"><svg><use href="#i-plus"/></svg></button></div>
+      <div class="m-pad"><div class="segmented" id="zgSeg"></div></div>
+      <div id="zgPanelG">
+        <form id="zgAdd" class="group form" autocomplete="off"><label class="field"><span>Neuer Geruch</span><input id="zgNeu" placeholder="z. B. Semtex" enterkeyhint="done" autocapitalize="sentences"></label><button type="submit" class="cell link-cell" id="zgAddOk">Hinzufügen</button></form>
+        <div class="section-h">Eigene</div><div class="group" id="zgEigene"></div>
+        <div id="zgVordef"></div>
+      </div>
+      <div id="zgPanelV" class="hidden">
+        <div class="section-h">Vordefiniert</div><div class="group" id="gvVordef"></div>
+        <div class="section-h">Meine Vorlagen</div><div class="group" id="gvEigene"></div>
+        <p class="group-foot">Vorlage = fertige Stoffliste. Beim Anlegen eines Lehrgangs wählst du nur die Vorlage, alle Stoffe sind sofort drin.</p>
+      </div>
+    </section>
+
+    <!-- Konditionierungsschritte (Unterseite der Einstellungen) -->
+    <section id="v-schritte" class="view hidden">
+      <div class="navbar"><button class="nav-btn back" data-back="einst"><svg class="chev-l"><use href="#i-back"/></svg>Einstellungen</button><span></span></div>
+      <div class="title-row"><h1 class="large-title zg-lt">Konditionierungs&shy;schritte</h1><button class="nav-icon" id="svPlusBtn" aria-label="Neue Vorlage"><svg><use href="#i-plus"/></svg></button></div>
+      <div class="section-h">Vordefiniert</div><div class="group" id="svVordef"></div>
+      <div class="section-h">Meine Vorlagen</div><div class="group" id="svEigene"></div>
+      <p class="group-foot">Antippen, um die Schritte zu beschriften. Vordefinierte Vorlagen kopierst du und passt die Kopie an.</p>
     </section>
   </main>
 
@@ -272,11 +332,13 @@
   <div id="busy" class="busy hidden"><div class="spinner"></div><div id="busyText">Bitte warten …</div></div>
   <div id="toast" class="toast hidden"></div>
 
-  <script src="config.js?v=19"></script>
+  <script src="config.js?v=20"></script>
   <script src="vendor/exceljs.min.js"></script>
-  <script src="js/workbook.js?v=19"></script>
-  <script src="js/services.js?v=19"></script>
-  <script src="js/app.js?v=19"></script>
+  <script src="js/workbook.js?v=20"></script>
+  <script src="js/services.js?v=20"></script>
+  <script src="js/vordefiniert.js?v=20"></script>
+  <script src="js/spuerhund.js?v=20"></script>
+  <script src="js/app.js?v=20"></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 </body>
 </html>

@@ -42,12 +42,14 @@
   function show(el, on) { (typeof el === 'string' ? $(el) : el).classList.toggle('hidden', !on); }
   function go(view) {
     document.querySelectorAll('.view').forEach(v => show(v, v.id === 'v-' + view));
-    const tab = view === 'team' ? 'heute' : view === 'glossar' ? 'einst' : view;
+    const tab = view === 'team' || view === 'training' ? 'heute' : ['glossar', 'gerueche', 'schritte'].includes(view) ? 'einst' : view;
     document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('active', b.dataset.go === tab));
     if (view === 'heute') renderToday();
     if (view === 'lehrgang') refreshCourses();
     if (view === 'einst') fillSettings();
     if (view === 'glossar') renderGlossar();
+    if (view === 'gerueche') SP.renderGerueche();
+    if (view === 'schritte') SP.renderSchritte();
     window.scrollTo(0, 0);
   }
   function banner(html, onClick) {
@@ -57,6 +59,14 @@
   const FARBEN = ['#5e8fbf', '#8e7cc3', '#c48a5a', '#5aa58a', '#c46b7d', '#6f9a4e', '#b07fb0', '#4f9aa8', '#c4935a', '#7f8cc4'];
   function initials(t) { return ((t.teilnehmer || t.name || '?').trim().split(/\s+/).map(w => w[0]).slice(0, 2).join('') || '?').toUpperCase(); }
   function avatar(t, i, cls) { return '<div class="avatar ' + (cls || '') + '" style="background:' + FARBEN[i % FARBEN.length] + '">' + esc(initials(t)) + '</div>'; }
+
+  // Spürhund-Lehrgänge (Zielgerüche, Belohnungen, Schritte) – eigener Baustein in js/spuerhund.js
+  const SP = window.BaumprojektSpuerhund({
+    settings, course: () => course, activeId: () => activeId, selDate: () => selDate, today, myName, currentTeam: () => currentTeam,
+    teamByName: n => teamByName(n), toast, show, go: v => go(v), openModal: h => openModal(h), closeModal: () => closeModal(),
+    modifyCourse: (fn, check) => modifyCourse(fn, check),
+    saveSettings: () => { localStorage.setItem('baumprojekt.settings', JSON.stringify(settings)); syncSettingsToDrive(true); }
+  });
 
   // Führt eine Aktion aus; fehlt die Google-Anmeldung, wird ein Verbinden-Knopf angeboten und danach wiederholt.
   async function withStore(label, fn) {
@@ -96,14 +106,14 @@
       if (course.amPcGeaendert) {
         const n = course.amPcGeaendert;
         toast('✓ ' + n + (n > 1 ? ' Änderungen' : ' Änderung') + ' aus der Excel-Übersicht übernommen', 5000);
-        modifyCourse(() => {}).then(() => { renderToday(); if (currentTeam) renderTeamNotes(); }).catch(e => console.warn('Übernahme später erneut', e));
+        modifyCourse(() => {}).then(() => { renderToday(); if (currentTeam) renderTeamNotes(); SP.renderAll(); }).catch(e => console.warn('Übernahme später erneut', e));
       }
       await loadInfo();
     } catch (e) {
       if (/40[34]/.test(e.message)) { setActive(''); course = null; return loadActive(); }
       if (!e.needsLogin && !cached) toast(e.message, 5000);
     }
-    clampDate(); renderToday();
+    clampDate(); renderToday(); SP.renderAll(); SP.flush();
   }
   // Ausgewählter Tag: heute, wenn er im Lehrgang liegt, sonst der nächstgelegene Lehrgangstag
   function clampDate() {
@@ -189,7 +199,7 @@
     $('#teamName').textContent = tm.teilnehmer || tm.name;
     $('#teamDog').textContent = tm.hund ? 'mit ' + tm.hund + (tm.behoerde ? ' · ' + tm.behoerde : '') : '';
     $('#teamBack').lastChild.textContent = selDate === today() ? 'Heute' : 'Zurück';
-    renderTeamNotes();
+    renderTeamNotes(); SP.renderTeam();
     go('team');
     renderRecordings($('#teamRecs'), r => r.team === name);
   }
@@ -882,6 +892,7 @@
     f.start.value = c.meta.start; f.querySelector('input[name=wochen][value="' + (fest ? w : 'x') + '"]').checked = true;
     f.wochenX.value = fest ? '' : w; show('#wochenX', !fest);
     $('#teamRows').innerHTML = c.teams.map(teamRow).join('');
+    SP.fillForm(edit ? course : null);
     show(f, true); f.scrollIntoView({ behavior: 'smooth' });
   }
   async function submitCourse(ev) {
@@ -895,17 +906,20 @@
       .filter(t => t.teilnehmer || t.hund).map(t => ({ ...t, name: WBK.teamName(t) }));
     if (!teams.length) { toast('Bitte mindestens ein Team eintragen.'); return; }
     localStorage.setItem('baumprojekt.trainer', meta.trainer);
+    const sp = SP.readForm();
+    Object.assign(meta, sp.meta);
     try {
       if (editing) {
         const oldTitel = course.meta.titel;
         await withStore('Speichere …', () => modifyCourse(c => {
           // Umbenannte Teams auch in vorhandenen Notizen umbenennen (gleiche Position in der Liste)
-          c.teams.forEach((old, i) => { if (teams[i] && old.name !== teams[i].name) c.notes.forEach(n => { if (n.team === old.name) n.team = teams[i].name; }); });
+          c.teams.forEach((old, i) => { if (teams[i] && old.name !== teams[i].name) [...c.notes, ...(c.zg || [])].forEach(n => { if (n.team === old.name) n.team = teams[i].name; }); });
           c.meta = meta; c.teams = teams;
+          if (sp.spuer) c.spuer = sp.spuer;
         }));
         if (oldTitel !== meta.titel) await S.Drive.rename(activeId, meta.titel).catch(e => toast('Ordner konnte nicht umbenannt werden: ' + e.message, 5000));
       } else {
-        const c = { meta, teams, notes: [], gesamt: {} };
+        const c = { meta, teams, notes: [], gesamt: {}, spuer: sp.spuer || { stoffe: [], schritte: [] }, zg: [] };
         const id = await withStore('Lege Lehrgang an …', async () => store().create(meta.titel, await WBK.toBuffer(c)));
         setActive(id, true); course = c; await S.KV.set('course:' + id, c);
       }
@@ -936,7 +950,7 @@
     f.openaiKey.value = settings.openaiKey; f.sttModel.value = settings.sttModel; f.llmModel.value = settings.llmModel;
     $('#keyGuide').open = !settings.openaiKey;
     if (!settings.openaiKey) { $('#keyStatus').className = 'key-status warn'; $('#keyStatus').textContent = '⚠ Noch kein Schlüssel eingetragen.'; }
-    updateDriveStatus(); renderGlossar();
+    updateDriveStatus(); renderGlossar(); SP.renderEinst();
   }
   function updateDriveStatus() {
     const u = S.Drive.user;
@@ -961,7 +975,7 @@
     if (kind !== 'busy') toast(text, 5000);
   }
   async function syncSettingsToDrive(leise) {
-    try { await S.Drive.saveSettings({ openaiKey: settings.openaiKey, sttModel: settings.sttModel, llmModel: settings.llmModel, glossar: settings.glossar, aktiverLehrgang: activeId || '', ausgeblendet: settings.ausgeblendet || [] }); }
+    try { await S.Drive.saveSettings({ openaiKey: settings.openaiKey, sttModel: settings.sttModel, llmModel: settings.llmModel, glossar: settings.glossar, gerueche: settings.gerueche, geruchVorlagen: settings.geruchVorlagen, schrittVorlagen: settings.schrittVorlagen, aktiverLehrgang: activeId || '', ausgeblendet: settings.ausgeblendet || [] }); }
     catch (e) { if (!leise) toast('Einstellungen nur auf diesem Gerät gespeichert (Google Drive nicht erreichbar).', 5000); }
   }
   // Nach dem Login: Einstellungen aus Google Drive holen (oder dorthin übertragen, falls nur hier vorhanden)
@@ -976,6 +990,7 @@
       else if (settings.openaiKey) hochladen = true;
       if (Array.isArray(remote.glossar)) settings.glossar = remote.glossar.filter(g => g && g.begriff);
       else if (settings.glossar.length) hochladen = true;
+      SP.KEYS.forEach(k => { if (Array.isArray(remote[k])) settings[k] = remote[k]; else if (settings[k] && settings[k].length) hochladen = true; });
       localStorage.setItem('baumprojekt.settings', JSON.stringify(settings));
     }
     if (hochladen) syncSettingsToDrive();
@@ -1061,7 +1076,7 @@
       const cell = e.target.closest('.cell[data-team]'); if (!cell) return;
       if (e.target.closest('.mic') || cell.dataset.team === ALLE) startRec(cell.dataset.team); else openTeam(cell.dataset.team);
     });
-    $('#teamBack').addEventListener('click', () => { currentTeam = null; go('heute'); });
+    $('#teamBack').addEventListener('click', () => { SP.flush(); currentTeam = null; go('heute'); });
     $('#teamRec').addEventListener('click', () => startRec(currentTeam));
     $('#typeBtn').addEventListener('click', () => typeNote(currentTeam));
     $('#stopBtn').addEventListener('click', () => stopRec(false));
@@ -1080,6 +1095,11 @@
     $('#glossList').addEventListener('click', e => { const b = e.target.closest('[data-gl]'); if (b) openBegriff(Number(b.dataset.gl)); });
     $('#glossOpen').addEventListener('click', () => go('glossar'));
     $('#glossBack').addEventListener('click', () => go('einst'));
+    document.querySelectorAll('[data-back]').forEach(b => b.addEventListener('click', () => go(b.dataset.back)));
+    $('#zgOpen').addEventListener('click', () => go('gerueche'));
+    $('#svOpen').addEventListener('click', () => go('schritte'));
+    $('#trDone').addEventListener('click', () => { SP.flush(); go('team'); SP.renderTeam(); });
+    SP.bind();
     $('#glossAdd').addEventListener('submit', glossarHinzufuegen);
     $('#gaOk').addEventListener('mousedown', e => e.preventDefault()); // Tastatur bleibt offen
     $('#gaB').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); if ($('#gaB').value.trim()) $('#gaF').focus(); } });
@@ -1102,7 +1122,8 @@
     $('#teamRows').addEventListener('click', e => { if (e.target.hasAttribute('data-rm')) e.target.closest('.team-row').remove(); });
     $('#cancelCourse').addEventListener('click', () => show('#courseForm', false));
     $('#courseForm').addEventListener('submit', submitCourse);
-    $('#courseForm').addEventListener('change', e => { if (e.target.name === 'wochen') { show('#wochenX', e.target.value === 'x'); if (e.target.value === 'x') $('#courseForm').wochenX.focus(); } });
+    $('#courseForm').addEventListener('click', e => { if (SP.formClick(e)) e.preventDefault(); });
+    $('#courseForm').addEventListener('change', e => { if (SP.formChange(e)) return; if (e.target.name === 'wochen') { show('#wochenX', e.target.value === 'x'); if (e.target.value === 'x') $('#courseForm').wochenX.focus(); } });
     $('#downloadBtn').addEventListener('click', download);
     $('#settingsForm').addEventListener('submit', saveSettings);
     $('#checkKeyBtn').addEventListener('click', () => { saveSettings(); });
