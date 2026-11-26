@@ -12,7 +12,7 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/icon-192.png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/style.css?v=9">
+  <link rel="stylesheet" href="css/style.css?v=10">
 </head>
 <body class="locked">
   <section id="login" class="login">
@@ -178,6 +178,14 @@
         <div class="actions"><button type="submit" class="btn-filled">Speichern &amp; prüfen</button></div>
         <button type="button" id="checkKeyBtn" class="text-btn">Schlüssel erneut prüfen</button>
       </form>
+      <div class="section-h">Glossar</div>
+      <div class="group" id="glossList"></div>
+      <p class="small muted group-foot">Die Spracherkennung und die Formulierung bekommen diese Fachbegriffe bei jeder Aufnahme mit. Klärst du in einer Notiz ein „Meinst du …?“, landet die Korrektur automatisch hier. Gespeichert in deinem Google Drive; bei geteilten Lehrgängen nutzt der andere Trainer deine Begriffe mit.</p>
+      <div id="glossFremdBox" class="hidden">
+        <div class="section-h">Aus dem geteilten Lehrgang</div>
+        <div class="group" id="glossFremd"></div>
+        <p class="small muted group-foot">Begriffe des anderen Trainers. Sie gelten in diesem Lehrgang automatisch mit. Antippen, um einen davon in dein eigenes Glossar zu übernehmen.</p>
+      </div>
       <div class="card">
         <button id="wipeBtn" class="danger">Alle Baumprojekt-Daten auf diesem Gerät löschen</button>
         <p class="small muted">Löscht den OpenAI-Schlüssel, Einstellungen und nicht gespeicherte Entwürfe auf diesem Gerät. Die Dateien in Google Drive bleiben erhalten.</p>
@@ -207,6 +215,7 @@
     <div id="sheetEdit" class="hidden">
       <div class="kat-row"><select id="noteKat"></select></div>
       <textarea id="noteText" rows="7" placeholder="Notiz eintippen …"></textarea>
+      <div id="unklarBox" class="chips hidden" aria-label="Unsichere Wörter"></div>
       <button class="text-btn more-rec" id="moreRec"><svg><use href="#i-mic"/></svg>Weiter aufnehmen</button>
       <div class="stil-label">Schreibstil</div>
       <div class="segmented" id="stilSeg" role="radiogroup" aria-label="Schreibstil"></div>
@@ -233,14 +242,16 @@
     <symbol id="i-gear" viewBox="0 0 24 24"><path d="M19.4 13a7.5 7.5 0 0 0 0-2l2.1-1.6-2-3.5-2.5 1a7 7 0 0 0-1.7-1L15 3h-4l-.4 2.7a7 7 0 0 0-1.7 1l-2.5-1-2 3.5L6.6 11a7.5 7.5 0 0 0 0 2l-2.1 1.6 2 3.5 2.5-1a7 7 0 0 0 1.7 1L11 21h4l.4-2.7a7 7 0 0 0 1.7-1l2.5 1 2-3.5zM12 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z"/></symbol>
   </svg>
 
+  <div id="modal" class="modal" role="dialog" aria-modal="true"><div class="modal-card" id="modalCard"></div></div>
+
   <div id="busy" class="busy hidden"><div class="spinner"></div><div id="busyText">Bitte warten …</div></div>
   <div id="toast" class="toast hidden"></div>
 
-  <script src="config.js?v=9"></script>
+  <script src="config.js?v=10"></script>
   <script src="vendor/exceljs.min.js"></script>
-  <script src="js/workbook.js?v=9"></script>
-  <script src="js/services.js?v=9"></script>
-  <script src="js/app.js?v=9"></script>
+  <script src="js/workbook.js?v=10"></script>
+  <script src="js/services.js?v=10"></script>
+  <script src="js/app.js?v=10"></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 </body>
 </html>

@@ -160,3 +160,23 @@ body:not(.locked) #login{display:none}
 .switch{appearance:none;-webkit-appearance:none;flex:none;width:51px;height:31px;border-radius:16px;background:var(--fill);position:relative;transition:background .2s;margin:0}
 .switch::after{content:"";position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:50%;background:#fff;box-shadow:0 2px 4px rgba(0,0,0,.2);transition:transform .2s}
 .switch:checked{background:var(--green)}.switch:checked::after{transform:translateX(20px)}
+
+/* „Meinst du …?“ und Glossar */
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 0}
+.chip{border:0;border-radius:16px;background:rgba(255,204,0,.22);color:var(--label);font-size:15px;padding:7px 12px;text-align:left;line-height:1.25}
+.chip small{display:block;font-size:12px;color:var(--sec)}
+.chip:active{transform:scale(.97)}
+.group-foot{margin:-20px 32px 28px}
+.modal{position:fixed;inset:0;z-index:25;background:rgba(0,0,0,.4);display:flex;align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s}
+body.modal-open .modal{opacity:1;pointer-events:auto}
+.modal-card{background:var(--bg);width:100%;max-width:640px;max-height:90vh;overflow:auto;border-radius:14px 14px 0 0;padding:16px 0 calc(16px + env(safe-area-inset-bottom));transform:translateY(30px);transition:transform .25s}
+body.modal-open .modal-card{transform:none}
+.modal-card h3{font-size:17px;font-weight:600;text-align:center;margin:0 0 4px}
+.modal-sub{text-align:center;color:var(--sec);font-size:14px;margin:0 16px 16px}
+.modal-sub mark{background:rgba(255,204,0,.35);color:var(--label);border-radius:4px;padding:0 4px}
+.m-group{margin-bottom:14px;background:var(--card)}
+.m-group .cell{cursor:pointer}
+.m-input{flex:1;min-width:0;font:inherit;border:0;background:none;color:var(--label);outline:none;padding:6px 0}
+.modal-foot{font-size:13px;color:var(--sec);margin:-6px 32px 6px}
+.modal .form .field>span{flex:0 0 130px}
+.modal .danger{margin-top:4px}
