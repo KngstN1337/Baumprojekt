@@ -16,7 +16,7 @@
   const mmss = s => Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
 
   // ---------------- Zustand ----------------
-  const settings = Object.assign({ openaiKey: '', sttModel: CFG.sttModel || 'gpt-4o-transcribe', llmModel: CFG.llmModel || 'gpt-4.1-mini', stil: 'fliesstext' },
+  const settings = Object.assign({ openaiKey: '', sttModel: CFG.sttModel || 'gpt-4o-transcribe', llmModel: CFG.llmModel || 'gpt-4.1-mini', stil: 'fliesstext', glossar: [] },
     JSON.parse(localStorage.getItem('baumprojekt.settings') || '{}'));
   const clientId = () => CFG.googleClientId || '';
   const store = () => S.Drive;
@@ -30,6 +30,10 @@
   let lastRev = '';
   const myName = () => (S.Drive.user && (S.Drive.user.displayName || S.Drive.user.emailAddress)) || '';
   // Geteilter Lehrgang mit freigegebenem Schlüssel des Einladenden → dieser, sonst der eigene
+  // Glossar: eigenes (im eigenen Drive, gilt für alle Lehrgänge) plus Begriffe des Kollegen aus dem geteilten Lehrgang
+  const lc = s => String(s || '').toLowerCase();
+  const fremdGlossar = () => ((course && course.glossar) || []).filter(g => g.von !== myName() && !settings.glossar.some(x => lc(x.begriff) === lc(g.begriff)));
+  const glossarAktiv = () => settings.glossar.concat(fremdGlossar());
   const openaiKey = () => (info && info.id === activeId && !info.ownedByMe && info.sharedKey) || settings.openaiKey;
 
   // ---------------- UI-Helfer ----------------
@@ -332,7 +336,8 @@
   async function processAudio(blob) {
     try {
       sheetState('busy', 'Spracherkennung läuft …');
-      const hint = 'Hundetraining. Teams: ' + course.teams.map(t => t.teilnehmer + ' mit ' + t.hund).join(', ') + '.';
+      const fach = S.glossarHinweis(glossarAktiv());
+      const hint = ('Hundetraining. Teams: ' + course.teams.map(t => t.teilnehmer + ' mit ' + t.hund).join(', ') + '.' + (fach ? ' Fachbegriffe: ' + fach + '.' : '')).slice(0, 2000);
       const text = await S.transcribe(blob, { key: openaiKey(), model: settings.sttModel, hint });
       if (job.aid && text) await keepTranscript(job.aid, text);
       const vorher = job.append ? (job.transcript || job.text || '').trim() : '';
@@ -346,8 +351,8 @@
     try {
       sheetState('busy', 'Formuliere im Stil „' + (STIL_KURZ[settings.stil] || (S.STILE.find(s => s.id === settings.stil) || S.STILE[0]).name) + '“ …');
       const tm = job.team === ALLE ? null : teamByName(job.team);
-      const r = await S.formulate(quelle, tm, { key: openaiKey(), model: settings.llmModel, stil: settings.stil });
-      job.text = r.text; job.kategorie = r.kategorie;
+      const r = await S.formulate(quelle, tm, { key: openaiKey(), model: settings.llmModel, stil: settings.stil, glossar: glossarAktiv() });
+      job.text = r.text; job.kategorie = r.kategorie; job.unklar = r.unklar;
       fillEdit(); sheetState('edit'); saveDraft();
     } catch (e) {
       // Ohne KI weiter: Rohtext zum Bearbeiten anbieten
@@ -358,8 +363,106 @@
   function fillEdit() {
     $('#noteKat').innerHTML = S.KATEGORIEN.map(k => '<option' + (k === job.kategorie ? ' selected' : '') + '>' + esc(k) + '</option>').join('');
     $('#noteText').value = job.text || '';
+    renderUnklar();
   }
+
+  // ---------------- „Meinst du …?“ – unsichere Wörter klären (wie im Fidus-K9-Lexikon) ----------------
+  const reEsc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  // Groß-/Kleinschreibung und Leerzeichen müssen nicht exakt passen; nur ganze Wörter
+  const wortMuster = w => new RegExp('(?<![\\p{L}\\p{N}])' + reEsc(w.trim()).replace(/\s+/g, '\\s+') + '(?![\\p{L}\\p{N}])', 'giu');
+  const wortKern = w => String(w || '').replace(/^[\s„“"'‚‘(]+|[\s„“"'‚‘).,;:!?]+$/g, '');
+  function renderUnklar() {
+    const box = $('#unklarBox'), text = $('#noteText').value;
+    const liste = ((job && job.unklar) || []).map((u, i) => ({ u, i })).filter(x => wortMuster(x.u.wort).test(text));
+    box.innerHTML = liste.map(x => '<button type="button" class="chip" data-unklar="' + x.i + '">' + (x.u.vorschlag ? 'Meinst du „' + esc(x.u.vorschlag) + '“?' : 'Stimmt „' + esc(x.u.wort) + '“?') + '<small>erkannt: ' + esc(x.u.wort) + '</small></button>').join('');
+    show(box, liste.length > 0);
+  }
+  function openMeinst(i) {
+    const u = job && job.unklar && job.unklar[i]; if (!u) return;
+    const v = (u.vorschlag || '').trim();
+    openModal('<h3>Meinst du …?</h3><p class="modal-sub">Erkannt wurde <mark>' + esc(u.wort) + '</mark></p>' +
+      '<div class="group m-group">' +
+      (v ? '<label class="cell"><input type="radio" name="mw" value="v" checked><div class="cell-tx wrap"><b>' + esc(v) + '</b><span>Vorschlag</span></div></label>' : '') +
+      '<label class="cell"><input type="radio" name="mw" value="s"><div class="cell-tx wrap"><b>„' + esc(u.wort) + '“ stimmt so</b></div></label>' +
+      '<label class="cell"><input type="radio" name="mw" value="a"' + (v ? '' : ' checked') + '><input class="m-input" id="mwAnders" placeholder="Anderes Wort …" autocomplete="off" autocorrect="off"></label></div>' +
+      '<div class="group m-group"><label class="cell"><div class="cell-tx"><b>Ins Glossar übernehmen</b></div><input type="checkbox" class="switch" id="mwGl" checked></label></div>' +
+      '<p class="modal-foot" id="mwFuss"></p>' +
+      '<div class="actions"><button class="btn-gray" data-m="close">Abbrechen</button><button class="btn-filled" id="mwOk">Übernehmen</button></div>');
+    const wahl = () => ($('#modal input[name=mw]:checked') || {}).value;
+    const richtig = () => wahl() === 'v' ? v : wahl() === 'a' ? $('#mwAnders').value.trim() : '';
+    const upd = () => {
+      const gl = $('#mwGl').checked, r = richtig();
+      $('#mwOk').disabled = wahl() !== 's' && !r;
+      $('#mwFuss').textContent = !gl ? 'Nur diese Notiz wird geändert.' : wahl() === 's' ? '„' + wortKern(u.wort) + '“ kommt als Fachbegriff ins Glossar und wird künftig so erkannt.' : r ? 'Künftig wird „' + wortKern(u.wort) + '“ als „' + r + '“ erkannt.' : 'Die Korrektur kommt ins Glossar.';
+    };
+    $('#modal').oninput = $('#modal').onchange = upd;
+    $('#mwAnders').addEventListener('focus', () => { $('#modal input[name=mw][value=a]').checked = true; upd(); });
+    $('#mwAnders').addEventListener('keydown', e => { if (e.key === 'Enter' && !$('#mwOk').disabled) $('#mwOk').click(); });
+    $('#mwOk').addEventListener('click', () => { korrigieren(u, richtig(), $('#mwGl').checked); closeModal(); });
+    upd();
+  }
+  function korrigieren(u, richtig, insGlossar) {
+    const ta = $('#noteText');
+    let ersetzt = 0;
+    if (richtig) ta.value = ta.value.replace(wortMuster(u.wort), () => { ersetzt++; return richtig; });
+    job.unklar = job.unklar.filter(x => x !== u);
+    saveDraft(); renderUnklar();
+    const kern = wortKern(u.wort);
+    if (insGlossar && richtig && lc(richtig) !== lc(kern)) {
+      const g = settings.glossar.find(x => lc(x.begriff) === lc(richtig));
+      if (g) { if ((g.falsch || '').split(/,\s*/).indexOf(kern) < 0) g.falsch = g.falsch ? g.falsch + ', ' + kern : kern; }
+      else settings.glossar.push({ begriff: richtig, falsch: kern });
+      saveGlossar();
+    } else if (insGlossar && kern && !richtig) {
+      if (!settings.glossar.some(x => lc(x.begriff) === lc(kern))) { settings.glossar.push({ begriff: kern, falsch: '' }); saveGlossar(); }
+    }
+    if (richtig && !ersetzt) toast('„' + u.wort + '“ steht so nicht mehr im Text. Bitte von Hand ändern.', 5000);
+    else toast(insGlossar ? '✓ Übernommen, Glossar ergänzt' : '✓ Übernommen');
+  }
+
+  // ---------------- Glossar pflegen ----------------
+  function saveGlossar() {
+    settings.glossar.sort((a, b) => a.begriff.localeCompare(b.begriff, 'de'));
+    localStorage.setItem('baumprojekt.settings', JSON.stringify(settings));
+    syncSettingsToDrive();
+    renderGlossar();
+  }
+  function renderGlossar() {
+    const zeile = (g, attr) => '<button type="button" class="cell" ' + attr + '><div class="cell-tx wrap"><b>' + esc(g.begriff) + '</b>' + (g.falsch ? '<span>oft erkannt als: ' + esc(g.falsch) + '</span>' : '') + '</div><svg class="chev"><use href="#i-chev"/></svg></button>';
+    $('#glossList').innerHTML = settings.glossar.map((g, i) => zeile(g, 'data-gl="' + i + '"')).join('') + '<button type="button" class="cell link-cell" data-gl="neu">Begriff hinzufügen</button>';
+    const f = fremdGlossar();
+    show('#glossFremdBox', f.length > 0);
+    $('#glossFremd').innerHTML = f.map((g, i) => zeile(Object.assign({}, g, { falsch: (g.falsch ? g.falsch + ' · ' : '') + 'von ' + (g.von || 'Kollege') }), 'data-glf="' + i + '"')).join('');
+  }
+  function openBegriff(i, vorlage) {
+    const alt = i >= 0 ? settings.glossar[i] : vorlage || null;
+    openModal('<h3>' + (i >= 0 ? 'Begriff' : 'Neuer Begriff') + '</h3>' +
+      '<div class="group form m-group"><label class="field"><span>Begriff</span><input id="gB" placeholder="z. B. Hetzarm" autocomplete="off" value="' + esc(alt ? alt.begriff : '') + '"></label>' +
+      '<label class="field"><span>Oft erkannt als</span><input id="gF" placeholder="optional" autocomplete="off" value="' + esc(alt ? (alt.falsch || '') : '') + '"></label></div>' +
+      '<p class="modal-foot">Mehrere Fehlerkennungen mit Komma trennen, z. B. „Hetz Arm, Hetzerarm“.</p>' +
+      '<div class="actions"><button class="btn-gray" data-m="close">Abbrechen</button><button class="btn-filled" id="gOk">Sichern</button></div>' +
+      (i >= 0 ? '<button class="danger" id="gDel">Begriff löschen</button>' : ''));
+    const upd = () => { $('#gOk').disabled = !$('#gB').value.trim(); };
+    $('#modal').oninput = upd; $('#modal').onchange = null; upd();
+    if (!alt) setTimeout(() => $('#gB').focus(), 50);
+    $('#gOk').addEventListener('click', () => {
+      const neu = { begriff: $('#gB').value.trim(), falsch: $('#gF').value.trim().replace(/\s*,\s*/g, ', ').replace(/^,\s*|,\s*$/g, '') };
+      if (!neu.begriff) return;
+      const dop = settings.glossar.findIndex((x, j) => j !== i && lc(x.begriff) === lc(neu.begriff));
+      if (dop >= 0 && i < 0) { const d = settings.glossar[dop]; neu.falsch = [d.falsch, neu.falsch].filter(Boolean).join(', '); settings.glossar[dop] = neu; }
+      else if (i >= 0) settings.glossar[i] = neu; else settings.glossar.push(neu);
+      saveGlossar(); closeModal(); toast('✓ Glossar gespeichert');
+    });
+    if (i >= 0) $('#gDel').addEventListener('click', () => { if (!confirm('„' + alt.begriff + '“ aus dem Glossar löschen?')) return; settings.glossar.splice(i, 1); saveGlossar(); closeModal(); });
+  }
+  function openModal(html) { $('#modalCard').innerHTML = html; document.body.classList.add('modal-open'); }
+  function closeModal() { document.body.classList.remove('modal-open'); $('#modal').oninput = $('#modal').onchange = null; }
   function saveDraft() { if (job) { job.text = $('#noteText').value; job.kategorie = $('#noteKat').value; S.KV.set('draft2', Object.assign({ courseId: activeId }, job)); } }
+  // Eigenes Glossar im Lehrgang ablegen, damit der zweite Trainer es mitbenutzt (eigene Zeilen werden ersetzt)
+  function glossarInKurs(c) {
+    const me = myName() || 'Trainer';
+    c.glossar = (c.glossar || []).filter(g => g.von !== me).concat(settings.glossar.map(g => ({ begriff: g.begriff, falsch: g.falsch || '', von: me })));
+  }
   async function saveNote() {
     saveDraft();
     const text = job.text.trim();
@@ -368,7 +471,7 @@
     const neu = teams.map(team => ({ datum: job.datum, uhrzeit: job.uhrzeit, team, kategorie: job.kategorie, text, quelle: job.transcript ? 'Sprachnotiz' : 'Eingetippt', von: myName() }));
     const drin = (c, n) => c.notes.some(m => m.datum === n.datum && m.uhrzeit === n.uhrzeit && m.team === n.team && m.text === n.text.trim());
     try {
-      await withStore('Speichere im Lehrgang …', () => modifyCourse(c => { c.notes.push(...neu.filter(n => !drin(c, n))); }, c => neu.every(n => drin(c, n))));
+      await withStore('Speichere im Lehrgang …', () => modifyCourse(c => { c.notes.push(...neu.filter(n => !drin(c, n))); glossarInKurs(c); }, c => neu.every(n => drin(c, n))));
       if (job.aid) await S.KV.del('lastAudio');
       closeSheet(); banner('');
       toast('✓ Gespeichert');
@@ -606,7 +709,7 @@
     f.openaiKey.value = settings.openaiKey; f.sttModel.value = settings.sttModel; f.llmModel.value = settings.llmModel;
     $('#keyGuide').open = !settings.openaiKey;
     if (!settings.openaiKey) { $('#keyStatus').className = 'key-status warn'; $('#keyStatus').textContent = '⚠ Noch kein Schlüssel eingetragen.'; }
-    updateDriveStatus();
+    updateDriveStatus(); renderGlossar();
   }
   function updateDriveStatus() {
     const u = S.Drive.user;
@@ -631,17 +734,22 @@
     if (kind !== 'busy') toast(text, 5000);
   }
   async function syncSettingsToDrive() {
-    try { await S.Drive.saveSettings({ openaiKey: settings.openaiKey, sttModel: settings.sttModel, llmModel: settings.llmModel }); }
-    catch (e) { toast('Schlüssel nur auf diesem Gerät gespeichert (Google Drive nicht erreichbar).', 5000); }
+    try { await S.Drive.saveSettings({ openaiKey: settings.openaiKey, sttModel: settings.sttModel, llmModel: settings.llmModel, glossar: settings.glossar }); }
+    catch (e) { toast('Einstellungen nur auf diesem Gerät gespeichert (Google Drive nicht erreichbar).', 5000); }
   }
   // Nach dem Login: Einstellungen aus Google Drive holen (oder dorthin übertragen, falls nur hier vorhanden)
   async function loadSettingsFromDrive() {
     let remote = null;
     try { remote = await S.Drive.loadSettings(); } catch (e) { return; }
-    if (remote && remote.openaiKey) {
-      Object.assign(settings, { openaiKey: remote.openaiKey, sttModel: remote.sttModel || settings.sttModel, llmModel: remote.llmModel || settings.llmModel });
+    let hochladen = !remote && (settings.openaiKey || settings.glossar.length);
+    if (remote) {
+      if (remote.openaiKey) Object.assign(settings, { openaiKey: remote.openaiKey, sttModel: remote.sttModel || settings.sttModel, llmModel: remote.llmModel || settings.llmModel });
+      else if (settings.openaiKey) hochladen = true;
+      if (Array.isArray(remote.glossar)) settings.glossar = remote.glossar.filter(g => g && g.begriff);
+      else if (settings.glossar.length) hochladen = true;
       localStorage.setItem('baumprojekt.settings', JSON.stringify(settings));
-    } else if (settings.openaiKey) { syncSettingsToDrive(); }
+    }
+    if (hochladen) syncSettingsToDrive();
   }
   async function checkKey() {
     if (!settings.openaiKey) return keyMsg('warn', '⚠ Noch kein Schlüssel eingetragen.');
@@ -733,7 +841,11 @@
     $('#dim').addEventListener('click', () => { if (rec && rec.state !== 'inactive') return; if ($('#sheetEdit').classList.contains('hidden') && $('#sheetErrBtns').classList.contains('hidden')) return; saveDraft(); document.body.classList.remove('sheet-open'); });
     $('#saveNote').addEventListener('click', saveNote);
     $('#discardNote').addEventListener('click', () => { if (!$('#noteText').value.trim() || confirm('Notiz verwerfen? Die Aufnahme selbst bleibt in Google Drive gesichert.')) { S.KV.del('lastAudio'); closeSheet(); } });
-    $('#noteText').addEventListener('input', saveDraft);
+    $('#noteText').addEventListener('input', () => { saveDraft(); renderUnklar(); });
+    $('#unklarBox').addEventListener('click', e => { const b = e.target.closest('[data-unklar]'); if (b) openMeinst(Number(b.dataset.unklar)); });
+    $('#glossList').addEventListener('click', e => { const b = e.target.closest('[data-gl]'); if (b) openBegriff(b.dataset.gl === 'neu' ? -1 : Number(b.dataset.gl)); });
+    $('#glossFremd').addEventListener('click', e => { const b = e.target.closest('[data-glf]'); if (b) openBegriff(-1, fremdGlossar()[Number(b.dataset.glf)]); });
+    $('#modal').addEventListener('click', e => { if (e.target.id === 'modal' || e.target.closest('[data-m=close]')) closeModal(); });
     $('#noteKat').addEventListener('change', saveDraft);
     $('#retryBtn').addEventListener('click', async () => { const a = await S.KV.get('lastAudio'); if (a) { if (a.append) { job.append = true; job.transcript = a.prev; } processAudio(a.blob); } else closeSheet(); });
     $('#errClose').addEventListener('click', () => { closeSheet(); restoreDraft(); });

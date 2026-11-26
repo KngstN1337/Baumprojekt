@@ -54,6 +54,12 @@
   ];
   const GEMEINSAM = '- Für alle Stile: Nichts erfinden, nichts weglassen, keine eigenen Schlüsse ergänzen. Namen von Teilnehmern und Hunden so schreiben wie in der Teamliste. ' +
     'Diktierbefehle wie „Absatz“, „neue Zeile“, „Punkt“, „Komma“ als Formatierung bzw. Satzzeichen umsetzen, nur wenn sie eindeutig als Befehl gemeint sind.';
+  // Glossar (wie im Fidus-K9-Lexikon): Fachbegriffe gehen an die Spracherkennung und an die Formulierung
+  const GLOSSAR_REGELN = '- Fachbegriffe so schreiben wie im Glossar. Steht dort eine typische Fehlerkennung, korrigiere sie.\n' +
+    '- unklar: Wörter im Text, die vermutlich falsch erkannt wurden und die du nicht sicher korrigieren kannst (z. B. unbekannte Fachbegriffe, Namen, sinnlose Wörter). ' +
+    'wort genau so, wie es in text steht; vorschlag ist deine beste Vermutung oder "". Höchstens 5, sonst leer lassen.';
+  const glossarListe = g => (g || []).map(x => x.begriff + (x.falsch ? ' (oft erkannt als: ' + x.falsch + ')' : '')).join('\n') || '(leer)';
+  const glossarHinweis = g => (g || []).map(x => x.begriff).join(', ');
   const stilVon = id => STILE.find(s => s.id === id) || STILE[0];
 
   async function assign(transcript, teams, opts) {
@@ -412,9 +418,11 @@
       'Du bist Assistent eines Hundetrainers. Er hat eine Notiz ' + (alle ? 'für ALLE Teams seines Lehrgangs' : 'zu genau einem Team (Teilnehmer/in mit Hund)') + ' eingesprochen. ' +
       'Schreibe daraus den Notiztext und wähle die passendste Kategorie. Hausaufgaben oder Übungsaufträge für zu Hause bekommen die Kategorie "Hausaufgabe".\n\n' +
       (alle ? '' : 'Team: Teilnehmer/in ' + (team.teilnehmer || '?') + ', Hund ' + (team.hund || '?') + (team.rasse ? ' (' + team.rasse + ')' : '') + '\n\n') +
-      'Regeln für text (Schreibstil „' + stil.name + '“):\n' + stil.regeln.join('\n') + '\n' + GEMEINSAM;
-    const schema = { type: 'object', additionalProperties: false, required: ['kategorie', 'text'],
-      properties: { kategorie: { type: 'string', enum: KATEGORIEN }, text: { type: 'string' } } };
+      'Regeln für text (Schreibstil „' + stil.name + '“):\n' + stil.regeln.join('\n') + '\n' + GEMEINSAM + '\n' + GLOSSAR_REGELN +
+      '\n\nGlossar (Begriff, dahinter typische Fehlerkennungen der Spracherkennung):\n' + glossarListe(opts.glossar);
+    const schema = { type: 'object', additionalProperties: false, required: ['kategorie', 'text', 'unklar'],
+      properties: { kategorie: { type: 'string', enum: KATEGORIEN }, text: { type: 'string' },
+        unklar: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['wort', 'vorschlag'], properties: { wort: { type: 'string' }, vorschlag: { type: 'string' } } } } } };
     const res = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: { Authorization: 'Bearer ' + opts.key, 'Content-Type': 'application/json' },
@@ -427,7 +435,10 @@
     if (!res.ok) throw await oaiError(res);
     const j = await res.json();
     const content = j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content;
-    return JSON.parse(content || '{"kategorie":"Sonstiges","text":""}');
+    const r = JSON.parse(content || '{"kategorie":"Sonstiges","text":"","unklar":[]}');
+    // Nur Rückfragen behalten, deren Wort wirklich im Text steht
+    r.unklar = (r.unklar || []).filter(u => u.wort && r.text.toLowerCase().indexOf(u.wort.toLowerCase()) >= 0 && u.wort !== u.vorschlag);
+    return r;
   }
   // ---------------- Google Picker: geteilten Lehrgang auswählen (nötig wegen drive.file) ----------------
   function loadScript(src) {
@@ -450,5 +461,5 @@
     });
   }
 
-  global.BaumprojektServices = { pick, transcribe, assign, formulate, STILE, Drive, KV, Outbox, KATEGORIEN, XLSX_MIME };
+  global.BaumprojektServices = { glossarHinweis, pick, transcribe, assign, formulate, STILE, Drive, KV, Outbox, KATEGORIEN, XLSX_MIME };
 })(window);
