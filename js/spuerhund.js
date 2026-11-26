@@ -314,7 +314,7 @@
       if (!istSpuer() || !team) { box.innerHTML = ''; if (link) link.innerHTML = ''; return; }
       // Akte: nur eine kompakte Zeile, die Liste steht auf eigener Seite
       const sumH = stoffe().reduce((a, s) => a + heute(team, s), 0), sumG = stoffe().reduce((a, s) => a + gesamt(team, s), 0);
-      if (link) link.innerHTML = '<div class="group"><button type="button" class="cell" id="zgOpenTeam"><div class="cell-tx"><b>Zielgerüche</b><span>' + stoffe().length + (stoffe().length === 1 ? ' Geruch' : ' Gerüche') + ' · heute ' + sumH + ' · gesamt ' + sumG + ' Belohnungen</span></div>' + CHEV + '</button></div>';
+      if (link) link.innerHTML = '<button type="button" class="cell" id="zgOpenTeam"><div class="cell-tx"><b>Zielgerüche</b><span>' + stoffe().length + (stoffe().length === 1 ? ' Geruch' : ' Gerüche') + ' · heute ' + sumH + ' · gesamt ' + sumG + ' Belohnungen</span></div>' + CHEV + '</button>';
       $('#zgSub').textContent = teamTitel(team);
       $('#zgBackTx').textContent = (ctx.teamByName(team) || {}).teilnehmer || team;
       const heuteTxt = ctx.selDate() === ctx.today() ? 'heute' : WBK.isoToDe(ctx.selDate()).slice(0, 6);

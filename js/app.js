@@ -44,7 +44,7 @@
   function show(el, on) { (typeof el === 'string' ? $(el) : el).classList.toggle('hidden', !on); }
   function go(view) {
     document.querySelectorAll('.view').forEach(v => show(v, v.id === 'v-' + view));
-    const tab = ['team', 'training', 'zgteam'].includes(view) ? 'heute' : ['glossar', 'gerueche', 'schritte'].includes(view) ? 'einst' : view;
+    const tab = ['team', 'training', 'zgteam', 'notizen', 'aufnahmen'].includes(view) ? 'heute' : ['glossar', 'gerueche', 'schritte'].includes(view) ? 'einst' : view;
     document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('active', b.dataset.go === tab));
     if (view === 'heute') renderToday();
     if (view === 'lehrgang') refreshCourses();
@@ -233,11 +233,20 @@
     $('#teamName').textContent = tm.teilnehmer || tm.name;
     $('#teamDog').textContent = tm.hund ? 'mit ' + tm.hund + (tm.behoerde ? ' · ' + tm.behoerde : '') : '';
     $('#teamBack').lastChild.textContent = selDate === today() ? 'Heute' : 'Zurück';
+    document.querySelectorAll('.akte-back').forEach(el => { el.textContent = tm.teilnehmer || tm.name; });
+    document.querySelectorAll('.akte-sub').forEach(el => { el.textContent = (tm.teilnehmer || tm.name) + (tm.hund ? ' mit ' + tm.hund : ''); });
     renderTeamNotes(); SP.renderTeam();
     go('team');
-    renderRecordings($('#teamRecs'), r => r.team === name);
+    $('#recsInfo').textContent = 'Lade …';
+    recordings().then(l => { if (currentTeam !== name) return; const n = l.filter(r => r.team === name).length; $('#recsInfo').textContent = n ? n + (n === 1 ? ' Aufnahme' : ' Aufnahmen') : 'noch keine'; }).catch(() => { $('#recsInfo').textContent = ''; });
+  }
+  // Akte: Kurzinfo zu den Notizen (Anzahl, zuletzt)
+  function renderTeamInfo() {
+    const notes = course.notes.filter(n => n.team === currentTeam), last = WBK.sortNotes(notes).pop();
+    $('#notesInfo').textContent = notes.length ? notes.length + (notes.length === 1 ? ' Notiz' : ' Notizen') + ' · zuletzt ' + (last.datum === today() ? 'heute' : WBK.isoToDe(last.datum).slice(0, 6)) : 'noch keine';
   }
   function renderTeamNotes() {
+    renderTeamInfo();
     const notes = WBK.sortNotes(course.notes.filter(n => n.team === currentTeam)).reverse();
     const mehrere = new Set(course.notes.map(n => n.von).filter(Boolean)).size > 1;
     const dates = [...new Set([selDate, ...notes.map(n => n.datum)])].sort().reverse();
@@ -591,7 +600,7 @@
       if (job.aid) await S.KV.del('lastAudio');
       closeSheet(); banner('');
       toast('✓ Gespeichert');
-      renderToday(); if (currentTeam && !$('#v-team').classList.contains('hidden')) renderTeamNotes();
+      renderToday(); if (currentTeam) renderTeamNotes();
     } catch (e) { /* Meldung kam schon; Entwurf bleibt erhalten */ }
   }
 
@@ -1137,6 +1146,9 @@
     $('#zgOpen').addEventListener('click', () => go('gerueche'));
     $('#svOpen').addEventListener('click', () => go('schritte'));
     $('#trDone').addEventListener('click', () => { SP.flush(); go('zgteam'); SP.renderTeam(); });
+    $('#notesOpen').addEventListener('click', () => { renderTeamNotes(); go('notizen'); });
+    $('#recsOpen').addEventListener('click', () => { go('aufnahmen'); renderRecordings($('#teamRecs'), r => r.team === currentTeam); });
+    document.querySelectorAll('[data-akte]').forEach(b => b.addEventListener('click', () => go('team')));
     $('#zgBack').addEventListener('click', () => { SP.flush(); go('team'); SP.renderTeam(); });
     $('#zgLink').addEventListener('click', e => { if (e.target.closest('#zgOpenTeam')) { go('zgteam'); SP.renderTeam(); } });
     SP.bind();
