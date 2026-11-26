@@ -108,8 +108,13 @@
       stream.getTracks().forEach(t => t.stop());
       const blob = new Blob(chunks, { type: rec.mimeType || type || 'audio/webm' });
       noteTime = nowTime();
-      await S.KV.set('lastAudio', { blob, datum: $('#noteDate').value, uhrzeit: noteTime });
-      processAudio(blob);
+      // Sofort sichern: erst auf dem Gerät, dann (sobald Netz da ist) in Google Drive – noch vor der KI-Verarbeitung.
+      const item = { aid: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), courseId: activeId, datum: $('#noteDate').value || today(), uhrzeit: noteTime,
+        mime: blob.type || 'audio/webm', blob, transcript: null, created: Date.now() };
+      await S.Outbox.put(item);
+      await S.KV.set('lastAudio', { blob, aid: item.aid, datum: item.datum, uhrzeit: noteTime });
+      syncOutbox();
+      processAudio(blob, item.aid);
     };
     rec.start(1000);
     recStart = Date.now();
@@ -124,16 +129,87 @@
     if (wakeLock) { wakeLock.release().catch(() => {}); wakeLock = null; }
     if (rec && rec.state !== 'inactive') rec.stop();
   }
-  async function processAudio(blob) {
+  async function processAudio(blob, aid) {
     try {
       busy('Spracherkennung läuft …');
       const hint = 'Hundetraining. Teams: ' + course.teams.map(t => t.teilnehmer + ' mit ' + t.hund).join(', ') + '.';
       const text = await S.transcribe(blob, { key: settings.openaiKey, model: settings.sttModel, hint });
       busy();
+      if (aid && text) await keepTranscript(aid, text);
       $('#transcript').value = text;
       showStep('text');
       if (text) await doAssign();
     } catch (e) { busy(); toast('Spracherkennung fehlgeschlagen: ' + e.message + ' – die Aufnahme ist gesichert.', 7000); show('#lastAudioBtn', true); }
+  }
+
+  // ---------------- Sicherung der Aufnahmen (Warteschlange → Google Drive) ----------------
+  async function keepTranscript(aid, text) {
+    const it = await S.Outbox.get(aid);
+    if (it) { it.transcript = text; await S.Outbox.put(it); }
+    else await S.Outbox.put({ aid, courseId: activeId, datum: $('#noteDate').value || today(), uhrzeit: noteTime, mime: '', blob: null, audioId: 'vorhanden', transcript: text, created: Date.now() });
+    syncOutbox();
+  }
+  let syncing = false;
+  async function syncOutbox() {
+    if (syncing) return;
+    syncing = true;
+    let changed = false;
+    try {
+      for (const it of await S.Outbox.all()) {
+        if (!S.Drive.connected() || !navigator.onLine) break;
+        try {
+          if (it.blob && !it.audioId) { it.audioId = await S.Drive.saveRecording(it, 'aufnahme'); it.blob = null; await S.Outbox.put(it); changed = true; }
+          if (it.transcript && !it.textId) { it.textId = await S.Drive.saveRecording(it, 'rohtext'); await S.Outbox.put(it); changed = true; }
+          // Fertig, wenn Audio und Rohtext in Drive liegen. Ohne Rohtext (Spracherkennung fehlgeschlagen) bleibt der Eintrag 30 Tage stehen.
+          if (it.audioId && (it.textId || Date.now() - it.created > 30 * 86400000)) await S.Outbox.del(it.aid);
+        } catch (e) { console.warn('Sicherung später erneut', e); if (e.needsLogin) break; }
+      }
+    } finally { syncing = false; }
+    if (changed) recCache = null;
+    updateSyncInfo();
+  }
+  async function updateSyncInfo() {
+    const n = (await S.Outbox.all()).filter(it => it.blob || (it.transcript && !it.textId)).length;
+    $('#syncInfo').textContent = n ? '⏳ ' + n + (n > 1 ? ' Aufnahmen warten' : ' Aufnahme wartet') + ' auf die Sicherung in Google Drive (bleibt bis dahin auf dem Handy).' : '';
+    show('#syncInfo', !!n);
+  }
+
+  // ---------------- Aufnahmen anzeigen und abspielen ----------------
+  let recCache = null;
+  async function recordings() {
+    if (recCache && recCache.id === activeId) return recCache.list;
+    const list = await S.Drive.listRecordings(activeId);
+    (await S.Outbox.all()).filter(it => it.courseId === activeId && it.blob).forEach(it => list.unshift({ aid: it.aid, datum: it.datum, uhrzeit: it.uhrzeit, local: it }));
+    recCache = { id: activeId, list };
+    return list;
+  }
+  async function renderRecordings(el, datum) {
+    if (!activeId) { el.innerHTML = ''; return; }
+    el.innerHTML = '<p class="muted small">Lade Aufnahmen …</p>';
+    let list;
+    try { list = (await recordings()).filter(r => !datum || r.datum === datum); } catch (e) { el.innerHTML = '<p class="muted small">Aufnahmen konnten nicht geladen werden (' + esc(e.message) + ').</p>'; return; }
+    el.innerHTML = list.length ? list.map(r =>
+      '<div class="rec-item" data-aid="' + esc(r.aid) + '"><div class="row"><span>' + (datum ? '' : esc(WBK.isoToDe(r.datum)) + ', ') + esc(r.uhrzeit) + ' Uhr' +
+      (r.local ? ' <span class="muted small">(noch nicht in Drive)</span>' : '') + '</span>' +
+      (r.audioId || r.local ? '<button class="secondary small-btn" data-play>▶ Anhören</button>' : '') + '</div>' +
+      (r.textId ? '<details data-text><summary class="small">Rohtext anzeigen</summary><div class="rohtext small">…</div></details>' : '') + '</div>').join('')
+      : '<p class="muted small">' + (datum ? 'Keine Aufnahmen an diesem Tag.' : 'Noch keine Aufnahmen.') + '</p>';
+    el.onclick = async e => {
+      const b = e.target.closest('[data-play]'); if (!b) return;
+      const r = list.find(x => x.aid === b.closest('.rec-item').dataset.aid);
+      try {
+        b.disabled = true; b.textContent = 'Lade …';
+        const blob = r.local ? r.local.blob : await S.Drive.loadBlob(r.audioId);
+        const a = document.createElement('audio'); a.controls = true; a.src = URL.createObjectURL(blob);
+        b.replaceWith(a); a.play().catch(() => {});
+      } catch (err) { b.disabled = false; b.textContent = '▶ Anhören'; toast(err.message, 5000); }
+    };
+    el.querySelectorAll('details[data-text]').forEach(d => d.addEventListener('toggle', async () => {
+      const box = d.querySelector('.rohtext'); if (!d.open || box.dataset.loaded) return;
+      const r = list.find(x => x.aid === d.closest('.rec-item').dataset.aid);
+      try { const t = await (await S.Drive.loadBlob(r.textId)).text(); box.textContent = t.replace(/^\ufeff?[^\n]*\n[^\n]*\n\s*/, ''); box.dataset.loaded = '1'; }
+      catch (err) { box.textContent = err.message; }
+    }));
   }
 
   // ---------------- Zuordnung & Vorschau ----------------
@@ -209,7 +285,8 @@
       return '<div class="card"><h4>' + esc(name) + '</h4>' + (mine.length
         ? '<ul>' + mine.map(n => '<li><span class="tag">' + esc(n.kategorie) + '</span> ' + esc(n.text) + ' <span class="muted small">' + esc(n.uhrzeit) + '</span></li>').join('') + '</ul>'
         : '<p class="muted small">Noch keine Notiz an diesem Tag.</p>') + '</div>';
-    }).join('');
+    }).join('') + '<div class="card"><h4>🎙️ Aufnahmen an diesem Tag</h4><div id="dayRecs"></div></div>';
+    renderRecordings($('#dayRecs'), d);
   }
   function shiftDay(n) { $('#dayDate').value = WBK.addDays($('#dayDate').value || today(), n); renderDay(); }
 
@@ -221,7 +298,8 @@
       ? courses.map(f => '<label class="card course-item"><input type="radio" name="course" value="' + esc(f.id) + '"' + (f.id === activeId ? ' checked' : '') + '><span>' + esc(f.name.replace(/\.xlsx$/, '')) + '<br><span class="muted small">geändert ' + new Date(f.modifiedTime).toLocaleString('de-DE') + '</span></span></label>').join('')
       : '<p class="muted">Noch keine Lehrgänge. Lege den ersten an.</p>';
     const cur = courses.find(f => f.id === activeId);
-    if (cur && cur.webViewLink) { $('#driveLink').href = cur.webViewLink; show('#driveLink', true); }
+    if (cur) S.Drive.withFolders(cur.id, f => f).then(f => { $('#driveLink').href = 'https://drive.google.com/drive/folders/' + f.folder; show('#driveLink', true); }).catch(() => {});
+    $('#allRecs').open = false;
   }
   function teamRow(t) {
     t = t || {};
@@ -248,15 +326,16 @@
     localStorage.setItem('baumprojekt.trainer', meta.trainer);
     try {
       if (editing) {
+        const oldTitel = course.meta.titel;
         await withStore('Speichere …', () => modifyCourse(c => {
           // Umbenannte Teams auch in vorhandenen Notizen umbenennen (gleiche Position in der Liste)
           c.teams.forEach((old, i) => { if (teams[i] && old.name !== teams[i].name) c.notes.forEach(n => { if (n.team === old.name) n.team = teams[i].name; }); });
           c.meta = meta; c.teams = teams;
         }));
+        if (oldTitel !== meta.titel) await S.Drive.rename(activeId, meta.titel).catch(e => toast('Ordner konnte nicht umbenannt werden: ' + e.message, 5000));
       } else {
         const c = { meta, teams, notes: [], gesamt: {} };
-        const name = 'Lehrgang ' + meta.titel.replace(/[\\/:*?"<>|]/g, '-') + '.xlsx';
-        const id = await withStore('Lege Datei an …', async () => store().create(name, await WBK.toBuffer(c)));
+        const id = await withStore('Lege Lehrgang an …', async () => store().create(meta.titel, await WBK.toBuffer(c)));
         setActive(id); course = c; await S.KV.set('course:' + id, c);
       }
       show('#courseForm', false); renderHeader(); refreshCourses(); toast('✓ Gespeichert');
@@ -309,11 +388,20 @@
 
   // ---------------- Anmeldung ----------------
   function lock(on) { document.body.classList.toggle('locked', on); }
+  // Lehrgänge aus dem alten Aufbau (Datei direkt in „Baumprojekt Lehrgänge“) in eigene Ordner verschieben
+  async function migrate() {
+    try {
+      const root = await S.Drive.folderId();
+      for (const f of await S.Drive.list()) if ((f.parents || []).includes(root)) await S.Drive.courseFolders(f.id);
+    } catch (e) { console.warn('Umzug in Lehrgangsordner später erneut', e); }
+  }
   async function afterLogin() {
     try { await S.Drive.me(); } catch (e) { if (e.needsLogin) { lock(true); return; } }
     lock(false); banner('');
     await loadActive();
     await restoreDraft();
+    migrate();
+    syncOutbox();
     if (!settings.openaiKey) banner('<span>Fast fertig: Für die Spracherkennung brauchst du einmalig einen OpenAI-Schlüssel. Die Anleitung führt dich durch.</span><button>Zur Anleitung</button>', () => { banner(''); go('einst'); });
     else if (!course) { go('lehrgang'); }
   }
@@ -343,7 +431,7 @@
     $('#noteDate').addEventListener('change', updateDayLabel);
     $('#recBtn').addEventListener('click', () => (rec && rec.state === 'recording' ? stopRec() : startRec()));
     $('#typeBtn').addEventListener('click', () => { if (!course) { toast('Bitte zuerst einen Lehrgang wählen.'); return go('lehrgang'); } noteTime = nowTime(); showStep('text'); $('#transcript').focus(); });
-    $('#lastAudioBtn').addEventListener('click', async () => { const a = await S.KV.get('lastAudio'); if (a) { noteTime = a.uhrzeit; $('#noteDate').value = a.datum; processAudio(a.blob); } });
+    $('#lastAudioBtn').addEventListener('click', async () => { const a = await S.KV.get('lastAudio'); if (a) { noteTime = a.uhrzeit; $('#noteDate').value = a.datum; processAudio(a.blob, a.aid); } });
     $('#discardText').addEventListener('click', () => { $('#transcript').value = ''; showStep('record'); });
     $('#assignBtn').addEventListener('click', doAssign);
     renderStil();
@@ -369,7 +457,13 @@
     $('#logoutBtn').addEventListener('click', logout);
     $('#switchBtn').addEventListener('click', () => { logout(); login(true); });
     $('#loginBtn').addEventListener('click', () => login(false));
+    $('#allRecs').addEventListener('toggle', () => { if ($('#allRecs').open) renderRecordings($('#allRecList')); });
+    window.addEventListener('online', syncOutbox);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) syncOutbox(); });
+    setInterval(syncOutbox, 120000);
     $('#wipeBtn').addEventListener('click', async () => {
+      const offen = (await S.Outbox.all()).filter(it => it.blob || (it.transcript && !it.textId)).length;
+      if (offen && !confirm('Achtung: ' + offen + ' Aufnahme(n) sind noch nicht in Google Drive gesichert und gehen beim Löschen verloren. Trotzdem löschen?')) return;
       if (!confirm('Wirklich alle Baumprojekt-Daten auf diesem Gerät löschen? Die Dateien in Google Drive bleiben erhalten.')) return;
       Object.keys(localStorage).filter(k => k.startsWith('baumprojekt.')).forEach(k => localStorage.removeItem(k)); indexedDB.deleteDatabase('baumprojekt'); location.reload();
     });
@@ -381,6 +475,7 @@
     // Login-Knopf freigeben, sobald die Google-Bibliothek geladen ist
     const wait = setInterval(() => { if (S.Drive.ready()) { clearInterval(wait); $('#loginBtn').disabled = false; } }, 200);
     if (S.Drive.restore()) await afterLogin(); else lock(true);
+    updateSyncInfo();
   }
   init();
 })();

@@ -68,3 +68,9 @@ body:not(.locked) #login{display:none}
 .chips{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0}
 .chips button{width:auto;margin:0;padding:6px 12px;border-radius:999px;border:1px solid #cfd5dc;background:#fff;color:var(--text);font-size:.95em}
 .chips button.on{background:var(--blue);border-color:var(--blue);color:#fff}
+.sync-info{background:var(--warn);border-radius:8px;padding:8px 10px;margin:10px 0 0}
+.rec-item{border-top:1px solid #e3e7eb;padding:8px 0}.rec-item:first-child{border-top:0}
+.rec-item .row{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.rec-item audio{width:100%;margin-top:6px}
+.small-btn{padding:6px 10px;font-size:14px}
+.rohtext{white-space:pre-wrap;background:#f5f7f9;border-radius:8px;padding:8px;margin-top:4px}
