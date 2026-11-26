@@ -311,6 +311,21 @@
     const schritte = () => { const c = ctx.course(); return (MIT_SCHRITTEN && c && c.spuer && c.spuer.schritte) || []; };
     const punkte = n => schritte().length ? '<span class="zg-dots" aria-label="Schritt ' + n + ' von ' + schritte().length + '">' + schritte().map((_, i) => '<i' + (i < n ? ' class="on"' : '') + '></i>').join('') + '</span>' : '';
     const schrittText = n => schritte().length && n ? 'Schritt ' + n + (schritte()[n - 1] && schritte()[n - 1].name !== 'Schritt ' + n ? ' · ' + schritte()[n - 1].name : '') : '';
+    // Donut: Anteil jedes Stoffs an allen Belohnungen, feste Farbe je Stoff (Reihenfolge im Lehrgang)
+    const FARBEN = 8;
+    const farbe = s => { const i = stoffe().indexOf(s); return i >= 0 && i < FARBEN ? 'var(--zg' + (i + 1) + ')' : 'var(--zg-x)'; };
+    const balken = (team, s) => { const m = Math.max(1, ...stoffe().map(x => gesamt(team, x))); return Math.round(gesamt(team, s) / m * 100); };
+    function donut(team) {
+      if (!stoffe().length) return '';
+      const werte = stoffe().map(s => [s, gesamt(team, s)]), sum = werte.reduce((a, w) => a + w[1], 0);
+      const r = 62, U = 2 * Math.PI * r, luecke = werte.filter(w => w[1]).length > 1 ? 2.5 : 0;
+      let off = 0, ringe = '';
+      if (sum) werte.forEach(([s, v]) => { if (!v) return; const l = U * v / sum; ringe += '<circle r="' + r + '" cx="80" cy="80" fill="none" stroke="' + farbe(s) + '" stroke-width="18" stroke-dasharray="' + Math.max(l - luecke, 0.5).toFixed(1) + ' ' + U.toFixed(1) + '" stroke-dashoffset="' + (-off).toFixed(1) + '" transform="rotate(-90 80 80)"><title>' + esc(s) + ': ' + v + '</title></circle>'; off += l; });
+      const sumH = stoffe().reduce((a, s) => a + heute(team, s), 0);
+      return '<div class="zg-donut"><svg viewBox="0 0 160 160" role="img" aria-label="' + sum + ' Belohnungen gesamt"><circle r="' + r + '" cx="80" cy="80" fill="none" stroke="var(--fill)" stroke-width="18"/>' + ringe +
+        '<text x="80" y="82" text-anchor="middle" class="zg-donut-n">' + sum + '</text><text x="80" y="103" text-anchor="middle" class="zg-donut-l">Belohnungen</text></svg>' +
+        '<div class="zg-donut-h">' + (ctx.selDate() === ctx.today() ? 'heute' : WBK.isoToDe(ctx.selDate()).slice(0, 6)) + ' +' + sumH + '</div></div>';
+    }
     function renderTeam() {
       const box = $('#zgBox'), link = $('#zgLink'); if (!box) return;
       const team = ctx.currentTeam();
@@ -321,8 +336,8 @@
       $('#zgSub').textContent = teamTitel(team);
       $('#zgBackTx').textContent = (ctx.teamByName(team) || {}).teilnehmer || team;
       const heuteTxt = ctx.selDate() === ctx.today() ? 'heute' : WBK.isoToDe(ctx.selDate()).slice(0, 6);
-      box.innerHTML = '<div class="section-h zg-sh">Belohnungen gesamt' + (stoffe().length ? '<button type="button" class="text-btn" id="zgTraining">Trainingsmodus</button>' : '') + '</div><div class="group" id="zgRows">' +
-        (stoffe().map(s => { const n = schritt(team, s); return '<div class="cell zg-row" data-stoff="' + esc(s) + '"><button type="button" class="cell-tx zg-detail" data-detail><b>' + esc(s) + '</b><span>' + punkte(n) + esc([schrittText(n), heuteTxt + ' ' + heute(team, s)].filter(Boolean).join(' · ')) + '</span></button>' +
+      box.innerHTML = donut(team) + '<div class="section-h zg-sh">Belohnungen gesamt' + (stoffe().length ? '<button type="button" class="text-btn" id="zgTraining">Trainingsmodus</button>' : '') + '</div><div class="group" id="zgRows">' +
+        (stoffe().map(s => { const n = schritt(team, s); return '<div class="cell zg-row" data-stoff="' + esc(s) + '"><button type="button" class="cell-tx zg-detail" data-detail><b><i class="zg-sw" style="background:' + farbe(s) + '"></i>' + esc(s) + '</b><span class="zg-bar"><i style="width:' + balken(team, s) + '%;background:' + farbe(s) + '"></i></span><span>' + punkte(n) + esc([schrittText(n), heuteTxt + ' ' + heute(team, s)].filter(Boolean).join(' · ')) + '</span></button>' +
           '<button type="button" class="zg-n" data-num aria-label="Zahl eingeben">' + gesamt(team, s) + '</button><button type="button" class="zg-plus" data-plus aria-label="Eine Belohnung an ' + esc(s) + '">+1</button></div>'; }).join('') ||
           '<div class="empty">Noch keine Zielgerüche. Unter Lehrgänge → „Aktuellen Lehrgang bearbeiten“ auswählen.</div>') +
         (stoffe().length && schritte().length ? '<button type="button" class="cell link-cell" id="zgAlle">Schritt für alle Gerüche setzen</button>' : '') + '</div>' +

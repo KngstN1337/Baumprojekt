@@ -127,3 +127,13 @@ body:has(#v-training:not(.hidden)) .tabs{display:none}
 #swList .cell{gap:12px}#swList input[type=radio]{accent-color:var(--tint);width:20px;height:20px;margin:0;flex:0 0 auto}
 .type-btn{display:block;margin:6px auto 0;font-size:15px}
 #zgLink:empty{display:none}.akte-links>#zgLink:empty+.cell::before{display:none}
+
+/* Zielgerüche: Donut + Farbbalken (Farben = validierte Kategorie-Palette, eigene Stufen für Dunkel) */
+:root{--zg1:#257de0;--zg2:#f47230;--zg3:#00b894;--zg4:#f2a600;--zg5:#ee7fac;--zg6:#008a17;--zg7:#6a4ce2;--zg8:#ec4647;--zg-x:#8e8e93}
+@media (prefers-color-scheme:dark){:root{--zg1:#338ced;--zg2:#e76624;--zg3:#00a888;--zg4:#d28e05;--zg5:#e24d8b;--zg6:#0aac23;--zg7:#9887ef;--zg8:#eb6263}}
+.zg-donut{display:flex;flex-direction:column;align-items:center;padding:4px 0 22px}.zg-donut svg{width:170px;height:170px}
+.zg-donut-n{font-size:34px;font-weight:700;fill:var(--label);font-variant-numeric:tabular-nums}.zg-donut-l{font-size:13px;fill:var(--sec)}
+.zg-donut-h{font-size:15px;color:var(--sec);margin-top:6px;font-variant-numeric:tabular-nums}
+.zg-sw{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:7px;vertical-align:0}
+.zg-row .cell-tx{flex:1;min-width:0}
+.cell-tx .zg-bar,.zg-bar{display:block;height:8px;border-radius:4px;background:var(--fill);overflow:hidden;margin:7px 0 4px}.zg-bar i{display:block;height:100%;border-radius:4px;transition:width .3s}
