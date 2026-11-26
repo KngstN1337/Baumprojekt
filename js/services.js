@@ -40,9 +40,6 @@
       '- Ordnen: Zusammengehöriges zusammenführen, logische Reihenfolge (Beobachtung, Erklärung, Folgerung, Beispiel).',
       '- Wiederholungen zusammenfassen, Füllwörter und abgebrochene Ansätze weglassen. Ganze Sätze, sachlicher, seriöser Fachstil.',
       '- Sinnabschnitte mit Leerzeile. Keine Überschriften, keine Aufzählungszeichen.'] },
-    { id: 'stichpunkte', name: 'Stichpunkte', text: 'Nur die Kernaussagen als kurze Liste.', regeln: [
-      '- Jede Zeile ein Stichpunkt, beginnend mit „• “. Kurz und knapp, gern ohne ganze Sätze. Keine Überschriften, keine Leerzeilen.',
-      '- Jede inhaltliche Aussage kommt vor, Wiederholungen nur einmal. Reihenfolge wie gesprochen.'] },
     { id: 'beamtendeutsch', name: 'Beamtendeutsch', text: 'Seriös, sachlich und unpersönlich („Es wurde festgestellt …“), z. B. für Amt, Gericht oder Versicherung.', regeln: [
       '- Formuliere wie in einem amtlichen Bericht oder Gutachten, das einer Behörde (z. B. Veterinär- oder Ordnungsamt) vorgelegt wird.',
       '- Unpersönlich formulieren: keine Ich-Form und den Trainer nie in der dritten Person nennen (nicht „Der Ausbilder …“, „Der Trainer …“).',
@@ -63,6 +60,10 @@
   const glossarListe = g => (g || []).map(x => x.begriff + (x.falsch ? ' (oft erkannt als: ' + x.falsch + ')' : '')).join('\n') || '(leer)';
   const glossarHinweis = g => (g || []).map(x => x.begriff).join(', ');
   const stilVon = id => STILE.find(s => s.id === id) || STILE[0];
+  // Ansagewort „nächster Punkt“: teilt ein Transkript in mehrere Stichpunkte (eigene Notizen).
+  // Robust gegen „Nächster Punkt.“, „nächster Punkt,“, „Nächster-Punkt“ und „naechster Punkt“; das Ansagewort selbst fällt weg.
+  const ANSAGE = /(?<![\p{L}\p{N}])n(?:ä|ae)chster[\s\-]+punkt(?![\p{L}\p{N}])[\s.,;:!?…]*/giu;
+  const splitPunkte = t => String(t || '').split(ANSAGE).map(p => p.replace(/^[\s.,;:!?…\-]+/, '').replace(/[\s,;:\-]+$/, '').trim()).filter(Boolean);
 
   async function assign(transcript, teams, opts) {
     const stil = stilVon(opts.stil);
@@ -488,5 +489,5 @@
     });
   }
 
-  global.BaumprojektServices = { glossarHinweis, pick, transcribe, assign, formulate, STILE, Drive, KV, Outbox, KATEGORIEN, XLSX_MIME };
+  global.BaumprojektServices = { glossarHinweis, splitPunkte, pick, transcribe, assign, formulate, STILE, Drive, KV, Outbox, KATEGORIEN, XLSX_MIME };
 })(window);

@@ -18,6 +18,8 @@
   // ---------------- Zustand ----------------
   const settings = Object.assign({ openaiKey: '', sttModel: CFG.sttModel || 'gpt-4o-transcribe', llmModel: CFG.llmModel || 'gpt-4.1-mini', stil: 'fliesstext', glossar: [], ausgeblendet: [] },
     JSON.parse(localStorage.getItem('baumprojekt.settings') || '{}'));
+  // Den Stil „Stichpunkte“ gibt es nicht mehr (dafür das Ansagewort „nächster Punkt“) → Fließtext
+  if (!S.STILE.some(s => s.id === settings.stil)) { settings.stil = 'fliesstext'; localStorage.setItem('baumprojekt.settings', JSON.stringify(settings)); }
   const clientId = () => CFG.googleClientId || '';
   const store = () => S.Drive;
   let courses = [];
@@ -317,9 +319,9 @@
     if (!$('#sheetBusy').classList.contains('hidden')) return false;
     if (!$('#sheetErrBtns').classList.contains('hidden')) { closeSheet(); restoreDraft(); return true; }
     if ($('#sheetEdit').classList.contains('hidden')) return false;
-    const text = $('#noteText').value.trim();
+    const teile = noteTexts().map(t => t.trim()).filter(Boolean), text = teile.join('\n\n');
     if (job && job.editOf) {
-      if (text !== job.editOf.text.trim() && !confirm('Änderungen verwerfen?\n\nDie Notiz bleibt so, wie sie vorher war.')) return false;
+      if ((text !== job.editOf.text.trim() || teile.length > 1) && !confirm('Änderungen verwerfen?\n\nDie Notiz bleibt so, wie sie vorher war.')) return false;
       closeSheet(); return true;
     }
     if (text && !confirm('Notiz verwerfen? Die Aufnahme selbst bleibt in Google Drive gesichert.')) return false;
@@ -359,7 +361,8 @@
     renderStil();
     // Text schon da: gleich im neuen Stil neu formulieren
     if (job && !$('#sheetEdit').classList.contains('hidden')) {
-      const quelle = job.transcript || $('#noteText').value.trim();
+      saveDraft();
+      const quelle = quelleVon(job);
       if (quelle) formulate(quelle);
     }
   }
@@ -406,7 +409,7 @@
         mime: blob.type || 'audio/webm', blob, transcript: null, created: Date.now() };
       job.aid = item.aid;
       await S.Outbox.put(item);
-      await S.KV.set('lastAudio', { blob, aid: item.aid, datum: item.datum, uhrzeit: job.uhrzeit, team: job.team, append: !!job.append, prev: job.append ? (job.transcript || job.text || '') : '' });
+      await S.KV.set('lastAudio', { blob, aid: item.aid, datum: item.datum, uhrzeit: job.uhrzeit, team: job.team, append: !!job.append, prev: job.append ? quelleVon(job) : '' });
       syncOutbox();
       processAudio(blob);
     };
@@ -478,30 +481,44 @@
       const hint = ('Hundetraining. Teams: ' + course.teams.map(t => t.teilnehmer + ' mit ' + t.hund).join(', ') + '.' + (fach ? ' Fachbegriffe: ' + fach + '.' : '')).slice(0, 2000);
       const text = await S.transcribe(blob, { key: openaiKey(), model: settings.sttModel, hint });
       if (job.aid && text) await keepTranscript(job.aid, text);
-      const vorher = job.append ? (job.transcript || job.text || '').trim() : '';
+      const vorher = job.append ? quelleVon(job).trim() : '';
       job.append = false;
-      if (!text) { if (!vorher) job.text = ''; fillEdit(); sheetState('edit'); toast('Es wurde nichts verstanden.' + (vorher ? '' : ' Du kannst den Text eintippen.'), 5000); return; }
+      if (!text) { if (!vorher) { job.text = ''; job.texte = null; } fillEdit(); sheetState('edit'); toast('Es wurde nichts verstanden.' + (vorher ? '' : ' Du kannst den Text eintippen.'), 5000); return; }
       job.transcript = vorher ? vorher + '\n\n' + text : text;
       await formulate(job.transcript);
     } catch (e) { sheetState('err', 'Spracherkennung fehlgeschlagen: ' + e.message + '. Die Aufnahme ist gesichert.'); }
   }
+  // Text zum (Neu-)Formulieren: Rohtext der Aufnahme, sonst die Stichpunkte mit Ansagewort dazwischen
+  const quelleVon = j => j.transcript || (j.texte && j.texte.length > 1 ? j.texte.join('\nNächster Punkt.\n') : j.text || '');
   async function formulate(quelle) {
+    // „nächster Punkt“ trennt die Aufnahme in mehrere Stichpunkte; jeder wird einzeln formuliert und als eigene Notiz gespeichert
+    const teile = S.splitPunkte(quelle);
+    const stilName = STIL_KURZ[settings.stil] || (S.STILE.find(s => s.id === settings.stil) || S.STILE[0]).name;
     try {
-      sheetState('busy', 'Formuliere im Stil „' + (STIL_KURZ[settings.stil] || (S.STILE.find(s => s.id === settings.stil) || S.STILE[0]).name) + '“ …');
+      sheetState('busy', (teile.length > 1 ? 'Formuliere ' + teile.length + ' Stichpunkte' : 'Formuliere') + ' im Stil „' + stilName + '“ …');
       const tm = job.team === ALLE ? null : teamByName(job.team);
-      const r = await S.formulate(quelle, tm, { key: openaiKey(), model: settings.llmModel, stil: settings.stil, glossar: glossarAktiv() });
-      job.text = r.text; job.unklar = r.unklar;
+      const rs = await Promise.all(teile.map(t => S.formulate(t, tm, { key: openaiKey(), model: settings.llmModel, stil: settings.stil, glossar: glossarAktiv() })));
+      const texte = rs.map(r => r.text.trim());
+      job.texte = texte.length > 1 ? texte : null; job.text = texte.join('\n\n');
+      job.unklar = [].concat(...rs.map(r => r.unklar || []));
       fillEdit(); sheetState('edit'); saveDraft();
     } catch (e) {
       // Ohne KI weiter: Rohtext zum Bearbeiten anbieten
-      job.text = job.text || quelle; fillEdit(); sheetState('edit'); saveDraft();
+      if (!job.text) { job.texte = teile.length > 1 ? teile : null; job.text = teile.join('\n\n'); }
+      fillEdit(); sheetState('edit'); saveDraft();
       toast('Formulieren fehlgeschlagen: ' + e.message, 6000);
     }
   }
+  // Ein Textfeld je Stichpunkt; bei nur einem sieht alles aus wie bisher
   function fillEdit() {
-    $('#noteText').value = job.text || '';
+    const texte = job.texte && job.texte.length > 1 ? job.texte : [job.text || ''];
+    const n = texte.length;
+    $('#noteParts').innerHTML = (n > 1 ? '<p class="parts-hint">' + n + ' Stichpunkte, jeder wird als eigene Notiz gespeichert. Ein leeres Feld entfällt.</p>' : '') +
+      texte.map((t, i) => (n > 1 ? '<div class="part-label">Stichpunkt ' + (i + 1) + '</div>' : '') +
+        '<textarea class="note-ta"' + (i === 0 ? ' id="noteText"' : '') + ' rows="' + (n > 1 ? 3 : 7) + '" placeholder="' + (n > 1 ? 'Stichpunkt ' + (i + 1) : 'Notiz eintippen …') + '">' + esc(t) + '</textarea>').join('');
     renderUnklar();
   }
+  const noteTexts = () => Array.from(document.querySelectorAll('#noteParts .note-ta')).map(t => t.value);
 
   // ---------------- „Meinst du …?“ – unsichere Wörter klären (wie im Fidus-K9-Lexikon) ----------------
   const reEsc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -509,7 +526,7 @@
   const wortMuster = w => new RegExp('(?<![\\p{L}\\p{N}])' + reEsc(w.trim()).replace(/\s+/g, '\\s+') + '(?![\\p{L}\\p{N}])', 'giu');
   const wortKern = w => String(w || '').replace(/^[\s„“"'‚‘(]+|[\s„“"'‚‘).,;:!?]+$/g, '');
   function renderUnklar() {
-    const box = $('#unklarBox'), text = $('#noteText').value;
+    const box = $('#unklarBox'), text = noteTexts().join('\n');
     const liste = ((job && job.unklar) || []).map((u, i) => ({ u, i })).filter(x => wortMuster(x.u.wort).test(text));
     box.innerHTML = liste.map(x => '<button type="button" class="chip" data-unklar="' + x.i + '">' + (x.u.vorschlag ? 'Meinst du „' + esc(x.u.vorschlag) + '“?' : 'Stimmt „' + esc(x.u.wort) + '“?') + '<small>erkannt: ' + esc(x.u.wort) + '</small></button>').join('');
     show(box, liste.length > 0);
@@ -539,9 +556,8 @@
     upd();
   }
   function korrigieren(u, richtig, insGlossar) {
-    const ta = $('#noteText');
     let ersetzt = 0;
-    if (richtig) ta.value = ta.value.replace(wortMuster(u.wort), () => { ersetzt++; return richtig; });
+    if (richtig) document.querySelectorAll('#noteParts .note-ta').forEach(ta => { ta.value = ta.value.replace(wortMuster(u.wort), () => { ersetzt++; return richtig; }); });
     job.unklar = job.unklar.filter(x => x !== u);
     saveDraft(); renderUnklar();
     const kern = wortKern(u.wort);
@@ -624,7 +640,7 @@
   })();
   function openModal(html) { $('#modalCard').innerHTML = html; document.body.classList.add('modal-open'); }
   function closeModal() { document.body.classList.remove('modal-open'); $('#modal').oninput = $('#modal').onchange = null; }
-  function saveDraft() { if (job) { job.text = $('#noteText').value; S.KV.set('draft2', Object.assign({ courseId: activeId }, job)); } }
+  function saveDraft() { if (job && $('#noteText')) { const t = noteTexts(); job.texte = t.length > 1 ? t : null; job.text = t.join('\n\n'); } if (job) { S.KV.set('draft2', Object.assign({ courseId: activeId }, job)); } }
   // Eigenes Glossar im Lehrgang ablegen, damit der zweite Trainer es mitbenutzt (eigene Zeilen werden ersetzt)
   function glossarInKurs(c) {
     const me = myName() || 'Trainer';
@@ -632,17 +648,17 @@
   }
   async function saveNote() {
     saveDraft();
-    const text = job.text.trim();
-    if (!text) { toast('Kein Text vorhanden.'); return; }
-    if (job.editOf) return saveEdit(text);
+    const texte = noteTexts().map(t => t.trim()).filter(Boolean);
+    if (!texte.length) { toast('Kein Text vorhanden.'); return; }
+    if (job.editOf) return saveEdit(texte[0], texte.slice(1));
     const teams = job.team === ALLE ? course.teams.map(t => t.name) : [job.team];
-    const neu = teams.map(team => ({ datum: job.datum, uhrzeit: job.uhrzeit, team, text, quelle: job.transcript ? 'Sprachnotiz' : 'Eingetippt', von: myName() }));
+    const neu = [].concat(...teams.map(team => texte.map(text => ({ datum: job.datum, uhrzeit: job.uhrzeit, team, text, quelle: job.transcript ? 'Sprachnotiz' : 'Eingetippt', von: myName() }))));
     const drin = (c, n) => c.notes.some(m => m.datum === n.datum && m.uhrzeit === n.uhrzeit && m.team === n.team && m.text === n.text.trim());
     try {
       await withStore('Speichere im Lehrgang …', () => modifyCourse(c => { c.notes.push(...neu.filter(n => !drin(c, n))); glossarInKurs(c); }, c => neu.every(n => drin(c, n))));
       if (job.aid) await S.KV.del('lastAudio');
       closeSheet(); banner('');
-      toast('✓ Gespeichert');
+      toast(texte.length > 1 ? '✓ ' + texte.length + ' Notizen gespeichert' : '✓ Gespeichert');
       renderToday(); if (currentTeam) renderTeamNotes();
     } catch (e) { /* Meldung kam schon; Entwurf bleibt erhalten */ }
   }
@@ -655,18 +671,24 @@
     job = { team: n.team, datum: n.datum, uhrzeit: n.uhrzeit, transcript: '', text: n.text, editOf: { datum: n.datum, uhrzeit: n.uhrzeit, team: n.team, text: n.text, von: n.von || '' } };
     fillEdit(); openSheet(n.team, 'edit');
   }
-  async function saveEdit(text) {
+  // extra: weitere Stichpunkte („nächster Punkt“ beim Weiter-Aufnehmen) werden zusätzliche Notizen
+  async function saveEdit(text, extra) {
     const alt = job.editOf;
-    if (text === alt.text.trim()) { closeSheet(); return; }
+    extra = extra || [];
+    if (text === alt.text.trim() && !extra.length) { closeSheet(); return; }
+    const zusatz = extra.map(t => ({ datum: alt.datum, uhrzeit: alt.uhrzeit, team: alt.team, text: t, quelle: 'Sprachnotiz', von: myName() }));
+    const drin = (c, z) => c.notes.some(m => m.datum === z.datum && m.uhrzeit === z.uhrzeit && m.team === z.team && m.text === z.text);
     let gefunden = true;
     try {
       await withStore('Speichere Änderung …', () => modifyCourse(c => {
         const n = c.notes.find(m => gleich(m, alt));
         if (n) { n.text = text; n.quelle = (n.quelle || 'Sprachnotiz').replace(/ \(bearbeitet\)$/, '') + ' (bearbeitet)'; gefunden = true; }
         else if (!c.notes.some(m => m.datum === alt.datum && m.uhrzeit === alt.uhrzeit && m.team === alt.team && m.text === text)) { gefunden = false; c.notes.push({ datum: alt.datum, uhrzeit: alt.uhrzeit, team: alt.team, text, quelle: 'Bearbeitet', von: myName() }); }
-      }, c => c.notes.some(m => m.datum === alt.datum && m.team === alt.team && m.text === text)));
+        c.notes.push(...zusatz.filter(z => !drin(c, z)));
+      }, c => c.notes.some(m => m.datum === alt.datum && m.team === alt.team && m.text === text) && zusatz.every(z => drin(c, z))));
       closeSheet();
-      toast(gefunden ? '✓ Änderung gespeichert' : 'Die Notiz wurde inzwischen woanders geändert. Deine Fassung ist zusätzlich gespeichert.', gefunden ? 3000 : 6000);
+      if (job.aid) await S.KV.del('lastAudio');
+      toast(gefunden ? (zusatz.length ? '✓ Gespeichert, ' + (zusatz.length + 1) + ' Notizen' : '✓ Änderung gespeichert') : 'Die Notiz wurde inzwischen woanders geändert. Deine Fassung ist zusätzlich gespeichert.', gefunden ? 3000 : 6000);
       renderToday(); if (currentTeam) renderTeamNotes();
     } catch (e) { /* gemeldet, Entwurf bleibt */ }
   }
@@ -1148,7 +1170,7 @@
   async function restoreDraft() {
     S.KV.del('draft'); // Entwurf aus der alten Version (KI-Verteilung) wird nicht mehr verwendet
     const d = await S.KV.get('draft2');
-    if (d && d.courseId === activeId && course && (d.text || d.transcript) && (d.team === ALLE || teamByName(d.team))) {
+    if (d && d.courseId === activeId && course && (d.text || d.transcript || (d.texte && d.texte.length)) && (d.team === ALLE || teamByName(d.team))) {
       job = d; job.append = false; selDate = d.datum; renderToday();
       fillEdit(); openSheet(d.team, 'edit'); toast('Nicht gespeicherte Notiz wiederhergestellt.', 4000);
       return;
@@ -1184,7 +1206,7 @@
     $('#deleteNote').addEventListener('click', () => deleteNote(job && job.editOf, true));
     initSwipe($('#teamNotes'), editNote, (act, i) => { if (act === 'edit') editNote(i); else deleteNote(course.notes[i]); });
     $('#discardNote').addEventListener('click', () => requestDismiss(true));
-    $('#noteText').addEventListener('input', () => { saveDraft(); renderUnklar(); });
+    $('#noteParts').addEventListener('input', () => { saveDraft(); renderUnklar(); });
     $('#unklarBox').addEventListener('click', e => { const b = e.target.closest('[data-unklar]'); if (b) openMeinst(Number(b.dataset.unklar)); });
     $('#glossList').addEventListener('click', e => { const b = e.target.closest('[data-gl]'); if (b) openBegriff(Number(b.dataset.gl)); });
     $('#glossOpen').addEventListener('click', () => go('glossar'));
