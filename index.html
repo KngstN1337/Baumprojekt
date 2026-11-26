@@ -35,6 +35,11 @@
         <label>Tag <input type="date" id="noteDate"></label>
         <span id="noteDayLabel" class="muted"></span>
       </div>
+      <div class="stil-wahl">
+        <div class="small muted">Schreibstil</div>
+        <div id="stilChips" class="chips" role="radiogroup" aria-label="Schreibstil"></div>
+        <div id="stilText" class="small muted"></div>
+      </div>
 
       <div id="step-record" class="card center">
         <button id="recBtn" class="rec" aria-label="Aufnahme starten"><span></span></button>
@@ -125,6 +130,7 @@
       <details class="card"><summary>Notizen einsprechen</summary>
         <ol>
           <li>Unter 🎙️ Notiz den Tag prüfen (vorausgewählt ist heute; jeder Tag des Lehrgangs geht, auch nachträglich).</li>
+          <li>Schreibstil wählen: <b>Fließtext</b> (dein Wortlaut, nur korrigiert), <b>Buchtext</b> (sauber ausformuliert in Ich-Form), <b>Stichpunkte</b> (nur die Kernaussagen) oder <b>Beamtendeutsch</b> (sachlich und neutral, tauglich für Behörden). Die App merkt sich deine Wahl. Tippst du in der Vorschau einen anderen Stil an, formuliert sie die Notiz sofort neu.</li>
           <li>Roten Knopf tippen und frei sprechen. Nochmal tippen zum Beenden.</li>
           <li>Die App zeigt dann eine <b>Vorschau</b>: jeder Abschnitt mit Team, Kategorie und Text. Hier kannst du alles korrigieren, Abschnitte löschen oder ergänzen.</li>
           <li>Gelb markiert = die App wusste nicht, zu welchem Team das gehört. Bitte ein Team auswählen oder löschen.</li>

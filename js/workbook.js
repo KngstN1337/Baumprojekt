@@ -106,7 +106,7 @@
       row.getCell(1).value = name;
       row.getCell(1).font = { bold: true };
       days.forEach((d, i) => {
-        const txt = notes.filter(n => n.team === name && n.datum === d).map(n => '• ' + n.text).join('\n');
+        const txt = notes.filter(n => n.team === name && n.datum === d).map(n => (/^\s*•/.test(n.text) ? '' : '• ') + n.text).join('\n');
         if (txt) row.getCell(i + 2).value = txt;
         maxLines = Math.max(maxLines, Math.ceil(txt.length / 42) + (txt.match(/\n/g) || []).length);
       });

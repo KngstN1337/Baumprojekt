@@ -63,3 +63,8 @@ body:not(.locked) #login{display:none}
 .guide ol{padding-left:20px;margin:8px 0 0}.guide li{margin:8px 0;font-size:15px}
 .guide a{color:var(--blue);font-weight:600}
 #keyStatus{margin:-4px 0 8px;min-height:1em}
+
+.stil-wahl{margin:8px 0 12px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0}
+.chips button{width:auto;margin:0;padding:6px 12px;border-radius:999px;border:1px solid #cfd5dc;background:#fff;color:var(--text);font-size:.95em}
+.chips button.on{background:var(--blue);border-color:var(--blue);color:#fff}
