@@ -4,141 +4,105 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Baumprojekt – Lehrgangsnotizen</title>
-  <meta name="theme-color" content="#1F4E79">
+  <meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="color-scheme" content="light dark">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/icon-192.png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/style.css?v=5">
+  <link rel="stylesheet" href="css/style.css?v=6">
 </head>
 <body class="locked">
   <section id="login" class="login">
-    <img src="icons/icon-192.png" alt="" width="96" height="96">
+    <img src="icons/icon-192.png" alt="" width="88" height="88">
     <h1>Baumprojekt</h1>
-    <p>Lehrgangsnotizen per Sprache – direkt in die Excel-Datei in deinem Google Drive.</p>
-    <button id="loginBtn" disabled>Mit Google anmelden</button>
+    <p>Lehrgangsnotizen per Sprache, direkt in die Excel-Datei in deinem Google Drive.</p>
+    <button id="loginBtn" class="btn-filled" disabled>Mit Google anmelden</button>
     <div id="loginMsg" class="small"></div>
     <p class="small muted">Nur für freigeschaltete Google-Konten. Deine Daten bleiben in deinem eigenen Google Drive.</p>
   </section>
 
   <div id="app">
-  <header>
-    <div class="brand">Baumprojekt</div>
-    <button id="courseBtn" class="course-btn" data-go="lehrgang">Kein Lehrgang gewählt</button>
-  </header>
-
   <div id="banner" class="banner hidden"></div>
 
   <main>
-    <!-- Notiz aufnehmen -->
-    <section id="v-notiz" class="view">
-      <div class="row">
-        <label>Tag <input type="date" id="noteDate"></label>
-        <span id="noteDayLabel" class="muted"></span>
-      </div>
-      <div class="stil-wahl">
-        <div class="small muted">Schreibstil</div>
-        <div id="stilChips" class="chips" role="radiogroup" aria-label="Schreibstil"></div>
-        <div id="stilText" class="small muted"></div>
-      </div>
-
-      <div id="step-record" class="card center">
-        <button id="recBtn" class="rec" aria-label="Aufnahme starten"><span></span></button>
-        <div id="recTime" class="rec-time">Tippen zum Aufnehmen</div>
-        <p class="muted small">Einfach frei sprechen und Namen nennen, z. B. „Bei Anna und Balu …, Kira hat heute …“</p>
-        <button id="typeBtn" class="link">oder Text eintippen</button>
-        <button id="lastAudioBtn" class="link hidden">Letzte Aufnahme erneut verarbeiten</button>
-        <p id="syncInfo" class="small sync-info hidden"></p>
-      </div>
-
-      <div id="step-text" class="card hidden">
-        <h3>Text</h3>
-        <textarea id="transcript" rows="8" placeholder="Notiz eintippen oder Transkript prüfen …"></textarea>
-        <div class="actions">
-          <button id="discardText" class="secondary">Verwerfen</button>
-          <button id="assignBtn">Den Teams zuordnen</button>
-        </div>
-      </div>
-
-      <div id="step-preview" class="hidden">
-        <h3>Vorschau – bitte prüfen</h3>
-        <div id="segments"></div>
-        <button id="addSeg" class="link">+ Abschnitt hinzufügen</button>
-        <div class="actions sticky">
-          <button id="backToText" class="secondary">Zurück</button>
-          <button id="saveBtn">Im Lehrgang speichern</button>
-        </div>
-      </div>
+    <!-- Heute: Tag wählen, Team antippen, sprechen -->
+    <section id="v-heute" class="view">
+      <div class="navbar"><span></span><button class="nav-btn" data-go="lehrgang">Lehrgang</button></div>
+      <h1 class="large-title" id="dayTitle">Heute</h1>
+      <button class="subtitle" id="courseBtn" data-go="lehrgang">Kein Lehrgang gewählt</button>
+      <div class="days" id="days"></div>
+      <div class="section-h" id="teamsHead">Teams</div>
+      <div class="group" id="teamList"></div>
+      <div class="section-h">Für alle Teams</div>
+      <div class="group"><div class="cell" data-team="*"><div class="avatar all">★</div><div class="cell-tx"><b>Notiz für alle Teams</b><span>wird bei jedem Team eingetragen</span></div><div class="cell-st" data-st></div><button class="mic" aria-label="Aufnahme für alle Teams"><svg><use href="#i-mic"/></svg></button></div></div>
+      <p id="syncInfo" class="sync-info hidden"></p>
     </section>
 
-    <!-- Tagesansicht -->
-    <section id="v-tag" class="view hidden">
-      <div class="daynav">
-        <button id="dayPrev" class="secondary">‹</button>
-        <input type="date" id="dayDate">
-        <button id="dayNext" class="secondary">›</button>
-      </div>
-      <div id="dayLabel" class="muted center"></div>
-      <div id="dayList"></div>
-      <button id="dayAdd">Notiz für diesen Tag aufnehmen</button>
+    <!-- Team: Notizen und frühere Aufnahmen -->
+    <section id="v-team" class="view hidden">
+      <div class="navbar"><button class="nav-btn back" id="teamBack"><svg class="chev-l"><use href="#i-back"/></svg>Heute</button><span></span><button class="nav-btn" id="typeBtn">Eintippen</button></div>
+      <div class="hero"><div class="avatar big" id="teamAvatar"></div><h2 id="teamName"></h2><span id="teamDog"></span></div>
+      <div id="teamNotes"></div>
+      <div class="section-h">Aufnahmen</div>
+      <div class="group" id="teamRecs"></div>
+      <div class="cta-wrap"><button class="btn-filled cta" id="teamRec"><svg><use href="#i-mic"/></svg>Aufnehmen</button></div>
     </section>
 
     <!-- Lehrgänge -->
     <section id="v-lehrgang" class="view hidden">
-      <div id="courseList"></div>
-      <div class="actions">
-        <button id="newCourseBtn">+ Neuer Lehrgang</button>
-        <button id="editCourseBtn" class="secondary">Aktuellen bearbeiten</button>
+      <div class="navbar"><span></span><button class="nav-btn" id="newCourseBtn">Neu</button></div>
+      <h1 class="large-title">Lehrgänge</h1>
+      <div class="group" id="courseList"></div>
+      <div class="group">
+        <button class="cell link-cell" id="editCourseBtn">Aktuellen Lehrgang bearbeiten</button>
+        <button class="cell link-cell" id="downloadBtn">Excel herunterladen</button>
+        <a class="cell link-cell hidden" id="driveLink" target="_blank" rel="noopener">Ordner in Google Drive öffnen</a>
       </div>
-      <div class="actions">
-        <button id="downloadBtn" class="secondary">Excel herunterladen</button>
-        <a id="driveLink" class="button secondary hidden" target="_blank" rel="noopener">Ordner in Google Drive öffnen</a>
-      </div>
-      <details id="allRecs" class="card"><summary>🎙️ Alle Aufnahmen dieses Lehrgangs</summary><div id="allRecList"></div></details>
+      <details id="allRecs" class="group disclosure"><summary class="cell">Alle Aufnahmen dieses Lehrgangs</summary><div id="allRecList"></div></details>
 
-      <form id="courseForm" class="card hidden">
-        <h3 id="courseFormTitle">Neuer Lehrgang</h3>
-        <label>Name des Lehrgangs <input name="titel" required placeholder="z. B. Begleithunde Frühjahr 2027"></label>
-        <label>Trainer/in <input name="trainer"></label>
-        <label>Ort <input name="ort"></label>
-        <label>Erster Tag <input type="date" name="start" required></label>
-        <fieldset class="seg">
-          <legend>Dauer</legend>
-          <label><input type="radio" name="wochen" value="4" checked> 4 Wochen</label>
-          <label><input type="radio" name="wochen" value="10"> 10 Wochen</label>
-        </fieldset>
-        <h4>Teams</h4>
-        <div id="teamRows"></div>
-        <button type="button" id="addTeam" class="link">+ Team hinzufügen</button>
-        <div class="actions">
-          <button type="button" id="cancelCourse" class="secondary">Abbrechen</button>
-          <button type="submit">Speichern</button>
+      <form id="courseForm" class="hidden">
+        <div class="section-h" id="courseFormTitle">Neuer Lehrgang</div>
+        <div class="group form">
+          <label class="field"><span>Name</span><input name="titel" required placeholder="z. B. Begleithunde Frühjahr 2027"></label>
+          <label class="field"><span>Trainer/in</span><input name="trainer"></label>
+          <label class="field"><span>Ort</span><input name="ort"></label>
+          <label class="field"><span>Erster Tag</span><input type="date" name="start" required></label>
+          <div class="field"><span>Dauer</span><div class="segmented small-seg"><label><input type="radio" name="wochen" value="4" checked><i>4 Wochen</i></label><label><input type="radio" name="wochen" value="10"><i>10 Wochen</i></label></div></div>
         </div>
+        <div class="section-h">Teams</div>
+        <div class="group form" id="teamRows"></div>
+        <button type="button" id="addTeam" class="text-btn">+ Team hinzufügen</button>
+        <div class="actions"><button type="button" id="cancelCourse" class="btn-gray">Abbrechen</button><button type="submit" class="btn-filled">Speichern</button></div>
       </form>
     </section>
 
     <!-- Hilfe -->
     <section id="v-hilfe" class="view hidden help">
+      <div class="navbar"></div>
+      <h1 class="large-title">Hilfe</h1>
       <div class="card">
-        <h3>So funktioniert Baumprojekt</h3>
-        <p>Baumprojekt ist eine App auf deinem Handy. Du sprichst nach dem Training einfach drauflos, was dir bei den Teams aufgefallen ist. Die App schreibt das auf, sortiert es den richtigen Teams zu und trägt es in die Excel-Datei des Lehrgangs ein. Die Excel-Datei musst du dafür nicht öffnen – die App legt sie selbst in deinem Google Drive an und füllt sie.</p>
+        <p>Baumprojekt ist eine App auf deinem Handy. Du wählst den Tag, tippst bei einem Team auf das Mikrofon und sprichst, was dir aufgefallen ist. Die App schreibt es auf und trägt es in die Excel-Datei des Lehrgangs ein. Die Excel-Datei musst du dafür nicht öffnen: Die App legt sie selbst in deinem Google Drive an und füllt sie.</p>
       </div>
       <details class="card" open><summary>Erste Schritte</summary>
         <ol>
-          <li><b>Auf den Startbildschirm legen:</b> Im Browser-Menü „Zum Startbildschirm hinzufügen“ (iPhone: Teilen-Symbol ↑). Dann startet die App wie jede andere.</li>
-          <li><b>OpenAI-Schlüssel eintragen</b> unter ⚙️ Einstellungen. Der Schlüssel sorgt für Spracherkennung und Zuordnung. Dort steht unter „So bekommst du den Schlüssel“ eine Schritt-für-Schritt-Anleitung.</li>
-          <li><b>Lehrgang anlegen</b> unter 📁 Lehrgang → „+ Neuer Lehrgang“: Name, erster Tag, 4 oder 10 Wochen und die Teams (Teilnehmer/in und Hund).</li>
+          <li><b>Auf den Startbildschirm legen:</b> Im Browser-Menü „Zum Home-Bildschirm“ wählen (iPhone: Teilen-Symbol). Dann startet die App wie jede andere.</li>
+          <li><b>OpenAI-Schlüssel eintragen</b> unter Einstellungen. Der Schlüssel sorgt für die Spracherkennung. Dort steht unter „So bekommst du den Schlüssel“ eine Schritt-für-Schritt-Anleitung.</li>
+          <li><b>Lehrgang anlegen</b> unter Lehrgänge → „Neu“: Name, erster Tag, 4 oder 10 Wochen und die Teams (Teilnehmer/in und Hund).</li>
         </ol>
       </details>
       <details class="card"><summary>Notizen einsprechen</summary>
         <ol>
-          <li>Unter 🎙️ Notiz den Tag prüfen (vorausgewählt ist heute; jeder Tag des Lehrgangs geht, auch nachträglich).</li>
-          <li>Schreibstil wählen: <b>Fließtext</b> (dein Wortlaut, nur korrigiert), <b>Buchtext</b> (sauber ausformuliert in Ich-Form), <b>Stichpunkte</b> (nur die Kernaussagen) oder <b>Beamtendeutsch</b> (sachlich und neutral, tauglich für Behörden). Die App merkt sich deine Wahl. Tippst du in der Vorschau einen anderen Stil an, formuliert sie die Notiz sofort neu.</li>
-          <li>Roten Knopf tippen und frei sprechen. Nochmal tippen zum Beenden.</li>
-          <li>Die App zeigt dann eine <b>Vorschau</b>: jeder Abschnitt mit Team, Kategorie und Text. Hier kannst du alles korrigieren, Abschnitte löschen oder ergänzen.</li>
-          <li>Gelb markiert = die App wusste nicht, zu welchem Team das gehört. Bitte ein Team auswählen oder löschen.</li>
-          <li>„Im Lehrgang speichern“ – fertig.</li>
+          <li>Unter <b>Heute</b> oben den Tag antippen. Vorausgewählt ist heute; jeder Tag des Lehrgangs geht, auch nachträglich. Ein Punkt unter dem Tag heißt: Dort gibt es schon Notizen.</li>
+          <li>Beim Team auf das <b>Mikrofon</b> tippen und frei sprechen. Die Aufnahme startet sofort.</li>
+          <li>Im Aufnahme-Fenster kannst du den Schreibstil wählen: <b>Fließtext</b> (dein Wortlaut, nur korrigiert), <b>Buchtext</b> (sauber ausformuliert in Ich-Form), <b>Stichpunkte</b> (nur die Kernaussagen) oder <b>Amtlich</b> (Beamtendeutsch: sachlich und neutral, tauglich für Behörden). Die App merkt sich deine Wahl.</li>
+          <li>Auf den roten Knopf tippen, um zu beenden. Kurz danach siehst du den Text. Du kannst ihn noch ändern oder einen anderen Stil antippen, dann formuliert die App ihn neu.</li>
+          <li>„Speichern“ tippen, fertig. Beim Team erscheint ein grüner Haken.</li>
         </ol>
-        <p><b>Tipps:</b> Nenne Person oder Hund, bevor du etwas zu ihnen sagst („Bei Anna und Balu …“, „Kira hat heute …“). Hausaufgaben am besten ausdrücklich sagen („Hausaufgabe für Rocky: …“). Was für alle gilt („Alle Hunde haben heute …“), wird bei jedem Team eingetragen. Statt zu sprechen kannst du auch „oder Text eintippen“ nutzen.</p>
+        <p><b>Für alle Teams:</b> Was alle betrifft („Alle Hunde haben heute …“), sprichst du unten bei „Notiz für alle Teams“ ein. Es wird bei jedem Team eingetragen.</p>
+        <p><b>Lieber tippen?</b> Team antippen, dann oben rechts „Eintippen“.</p>
       </details>
       <details class="card"><summary>Wo ist meine Excel-Datei?</summary>
         <p>In deinem Google Drive im Ordner <b>„Baumprojekt Lehrgänge“</b>. Darin hat jeder Lehrgang einen eigenen Ordner mit seinem Namen:</p>
@@ -147,16 +111,16 @@
           <li><b>Aufnahmen</b> – jede Sprachaufnahme als Audiodatei und dazu der Rohtext (was die Spracherkennung verstanden hat, unverändert).</li>
           <li><b>Sicherungen</b> – vor jedem Speichern legt die App eine Kopie des bisherigen Stands der Excel-Datei ab. Die letzten 14 Tage bleiben alle Kopien, ältere eine pro Tag.</li>
         </ul>
-        <p>Unter 📁 Lehrgang kannst du die Excel herunterladen oder den Ordner in Google Drive öffnen.</p>
+        <p>Unter Lehrgänge kannst du die Excel herunterladen oder den Ordner in Google Drive öffnen.</p>
         <p>Die Datei hat drei Blätter: <b>Übersicht</b> (Teams untereinander, jeder Tag eine Spalte), <b>Notizen (Rohdaten)</b> (jede Notiz eine Zeile) und <b>Teams</b>.</p>
         <p><b>Am Windows-PC:</b> Mit dem Programm „Google Drive für Desktop“ erscheint dein Drive als Laufwerk (z. B. G:). Dort die Datei direkt mit Excel öffnen.</p>
       </details>
       <details class="card"><summary>Aufnahmen nachhören</summary>
-        <p>Jede Aufnahme wird sofort nach dem Beenden gesichert: zuerst auf dem Handy, dann in Google Drive – noch bevor die KI sie verarbeitet. Ohne Netz bleibt sie auf dem Handy und wird automatisch nachgeladen, sobald wieder Netz da ist. Solange steht unter dem Aufnahmeknopf ein Hinweis „⏳ … wartet auf die Sicherung“.</p>
-        <p>Unter 📅 Tag siehst du unten die Aufnahmen dieses Tages, unter 📁 Lehrgang alle Aufnahmen. „▶ Anhören“ spielt sie ab, „Rohtext anzeigen“ zeigt, was die Spracherkennung verstanden hat.</p>
+        <p>Jede Aufnahme wird sofort nach dem Beenden gesichert: zuerst auf dem Handy, dann in Google Drive – noch bevor die KI sie verarbeitet. Ohne Netz bleibt sie auf dem Handy und wird automatisch nachgeladen, sobald wieder Netz da ist. Solange steht unter Heute ein Hinweis „… wartet auf die Sicherung“.</p>
+        <p>Tippst du unter Heute auf ein Team, siehst du alle seine Notizen und Aufnahmen. Unter Lehrgänge findest du alle Aufnahmen des Lehrgangs. „▶ Anhören“ spielt sie ab, „Rohtext anzeigen“ zeigt, was die Spracherkennung verstanden hat.</p>
       </details>
       <details class="card"><summary>Etwas nachträglich ändern</summary>
-        <p>Den Tag kannst du unter 📅 Tag ansehen. Ändern oder löschen geht in Excel, und zwar im Blatt <b>Notizen (Rohdaten)</b>. Die Übersicht baut die App beim nächsten Speichern daraus neu. Die Spalte „Gesamteindruck“ in der Übersicht kannst du direkt beschreiben, sie bleibt erhalten.</p>
+        <p>Alle Notizen eines Teams siehst du, wenn du unter Heute auf das Team tippst. Ändern oder löschen geht in Excel, und zwar im Blatt <b>Notizen (Rohdaten)</b>. Die Übersicht baut die App beim nächsten Speichern daraus neu. Die Spalte „Gesamteindruck“ in der Übersicht kannst du direkt beschreiben, sie bleibt erhalten.</p>
         <p>Wichtig: Die Datei nicht am PC geöffnet lassen, während du am Handy speicherst.</p>
       </details>
       <details class="card"><summary>Abmelden, neues Handy, Browserdaten gelöscht</summary>
@@ -174,13 +138,15 @@
 
     <!-- Einstellungen -->
     <section id="v-einst" class="view hidden">
+      <div class="navbar"></div>
+      <h1 class="large-title">Einstellungen</h1>
       <form id="settingsForm" class="card">
         <h3>Google-Konto</h3>
         <div id="driveStatus" class="small"></div>
         <p class="small muted">Die Lehrgänge liegen im Ordner „Baumprojekt Lehrgänge“ in deinem Google Drive. Die App sieht nur diesen Ordner.</p>
-        <div class="actions"><button type="button" id="logoutBtn" class="secondary">Abmelden</button><button type="button" id="switchBtn" class="secondary">Konto wechseln</button></div>
+        <div class="actions"><button type="button" id="logoutBtn" class="btn-gray">Abmelden</button><button type="button" id="switchBtn" class="btn-gray">Konto wechseln</button></div>
         <h3>OpenAI</h3>
-        <p class="small">Die App braucht einen eigenen OpenAI-Schlüssel für Spracherkennung und Zuordnung. Den bekommst du einmalig bei OpenAI.</p>
+        <p class="small">Die App braucht einen eigenen OpenAI-Schlüssel für Spracherkennung und Formulierung. Den bekommst du einmalig bei OpenAI.</p>
         <details id="keyGuide" class="guide"><summary>So bekommst du den Schlüssel (ca. 5 Minuten)</summary>
           <ol>
             <li>Öffne <a href="https://platform.openai.com/signup" target="_blank" rel="noopener">platform.openai.com</a> und melde dich an oder lege ein Konto an. Das geht auch mit deinem Google-Konto. (Ein ChatGPT-Abo ist dafür nicht nötig und reicht auch nicht.)</li>
@@ -195,10 +161,10 @@
         <p class="small muted">🔒 Der Schlüssel wird in deinem eigenen Google Drive gespeichert (Datei „Baumprojekt-Einstellungen“ im Ordner „Baumprojekt Lehrgänge“) und direkt an OpenAI geschickt. Niemand sonst sieht ihn. Du trägst ihn nur einmal ein: Auf anderen Geräten, im Browser am PC oder nach dem Löschen der Browserdaten ist er nach der Google-Anmeldung automatisch wieder da. Bitte die Datei nicht weitergeben.</p>
         <details><summary class="small">Modelle</summary>
           <label>Spracherkennung <input name="sttModel"></label>
-          <label>Zuordnung <input name="llmModel"></label>
+          <label>Formulierung <input name="llmModel"></label>
         </details>
-        <div class="actions"><button type="submit">Speichern &amp; prüfen</button></div>
-        <button type="button" id="checkKeyBtn" class="link">Schlüssel erneut prüfen</button>
+        <div class="actions"><button type="submit" class="btn-filled">Speichern &amp; prüfen</button></div>
+        <button type="button" id="checkKeyBtn" class="text-btn">Schlüssel erneut prüfen</button>
       </form>
       <div class="card">
         <button id="wipeBtn" class="danger">Alle Baumprojekt-Daten auf diesem Gerät löschen</button>
@@ -209,22 +175,52 @@
   </main>
 
   <nav class="tabs">
-    <button data-go="notiz" class="active">🎙️<span>Notiz</span></button>
-    <button data-go="tag">📅<span>Tag</span></button>
-    <button data-go="lehrgang">📁<span>Lehrgang</span></button>
-    <button data-go="hilfe">❓<span>Hilfe</span></button>
-    <button data-go="einst">⚙️<span>Einstellungen</span></button>
+    <button data-go="heute" class="active"><svg><use href="#i-cal"/></svg><span>Heute</span></button>
+    <button data-go="lehrgang"><svg><use href="#i-folder"/></svg><span>Lehrgänge</span></button>
+    <button data-go="hilfe"><svg><use href="#i-help"/></svg><span>Hilfe</span></button>
+    <button data-go="einst"><svg><use href="#i-gear"/></svg><span>Einstellungen</span></button>
   </nav>
   </div>
+
+  <!-- Aufnahme-Fenster -->
+  <div id="dim" class="dim"></div>
+  <div id="sheet" class="sheet" role="dialog" aria-modal="true">
+    <div class="grab"></div>
+    <h3 id="sheetTitle"></h3><p class="sheet-sub" id="sheetSub"></p>
+    <div id="sheetRec">
+      <div class="rec-time" id="recTime">0:00</div>
+      <canvas id="wave" class="wave" width="600" height="112"></canvas>
+    </div>
+    <div id="sheetBusy" class="sheet-busy hidden"><div class="spinner"></div><span id="sheetBusyText">Spracherkennung läuft …</span></div>
+    <div id="sheetEdit" class="hidden">
+      <div class="kat-row"><select id="noteKat"></select></div>
+      <textarea id="noteText" rows="7" placeholder="Notiz eintippen …"></textarea>
+    </div>
+    <div class="segmented" id="stilSeg" role="radiogroup" aria-label="Schreibstil"></div>
+    <div id="sheetRecBtns" class="center"><button class="stop" id="stopBtn" aria-label="Aufnahme beenden"><i></i></button><p class="sheet-sub">Tippen zum Beenden</p><button class="text-btn" id="cancelRec">Abbrechen</button></div>
+    <div id="sheetEditBtns" class="actions hidden"><button class="btn-gray" id="discardNote">Verwerfen</button><button class="btn-filled" id="saveNote">Speichern</button></div>
+    <div id="sheetErrBtns" class="actions hidden"><button class="btn-gray" id="errClose">Später</button><button class="btn-filled" id="retryBtn">Erneut versuchen</button></div>
+  </div>
+
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="i-mic" viewBox="0 0 24 24"><path d="M12 15a4 4 0 0 0 4-4V5a4 4 0 0 0-8 0v6a4 4 0 0 0 4 4zm7-4a1 1 0 1 0-2 0 5 5 0 0 1-10 0 1 1 0 1 0-2 0 7 7 0 0 0 6 6.93V20H8.5a1 1 0 1 0 0 2h7a1 1 0 1 0 0-2H13v-2.07A7 7 0 0 0 19 11z"/></symbol>
+    <symbol id="i-back" viewBox="0 0 12 20"><path d="M10 2 2 10l8 8" stroke="currentColor" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4.5v15l13-7.5z"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M9.5 17.2 4.3 12l1.4-1.4 3.8 3.8 8.8-8.8 1.4 1.4z"/></symbol>
+    <symbol id="i-cal" viewBox="0 0 24 24"><path d="M7 2v2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2V2h-2v2H9V2zM5 9h14v11H5zm2 2v3h3v-3z"/></symbol>
+    <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 6a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
+    <symbol id="i-help" viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 16h-2v-2h2zm2.1-7.7-.9.9c-.7.7-1.2 1.3-1.2 2.8h-2v-.5c0-1.1.5-2.1 1.2-2.8l1.2-1.3c.4-.3.6-.8.6-1.4a2 2 0 0 0-4 0H8a4 4 0 0 1 8 0c0 .9-.4 1.7-.9 2.3z"/></symbol>
+    <symbol id="i-gear" viewBox="0 0 24 24"><path d="M19.4 13a7.5 7.5 0 0 0 0-2l2.1-1.6-2-3.5-2.5 1a7 7 0 0 0-1.7-1L15 3h-4l-.4 2.7a7 7 0 0 0-1.7 1l-2.5-1-2 3.5L6.6 11a7.5 7.5 0 0 0 0 2l-2.1 1.6 2 3.5 2.5-1a7 7 0 0 0 1.7 1L11 21h4l.4-2.7a7 7 0 0 0 1.7-1l2.5 1 2-3.5zM12 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z"/></symbol>
+  </svg>
 
   <div id="busy" class="busy hidden"><div class="spinner"></div><div id="busyText">Bitte warten …</div></div>
   <div id="toast" class="toast hidden"></div>
 
-  <script src="config.js?v=5"></script>
+  <script src="config.js?v=6"></script>
   <script src="vendor/exceljs.min.js"></script>
-  <script src="js/workbook.js?v=5"></script>
-  <script src="js/services.js?v=5"></script>
-  <script src="js/app.js?v=5"></script>
+  <script src="js/workbook.js?v=6"></script>
+  <script src="js/services.js?v=6"></script>
+  <script src="js/app.js?v=6"></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 </body>
 </html>

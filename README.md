@@ -1,13 +1,16 @@
 # Baumprojekt – Prototyp Lehrgangsnotizen
 
 ## Was die App macht
-1. Trainer wählt den Tag (Standard: heute, jeder Tag des Lehrgangs ist wählbar, auch nachträglich).
-2. Roter Knopf: frei sprechen, z. B. „Kira war heute super beim Rückruf. Bei Anna und Balu …“.
-3. OpenAI erkennt die Sprache und teilt den Text auf die Teams auf (mit Kategorie, z. B. Rückruf, Hausaufgabe).
-4. Vorschau: Team, Kategorie und Text lassen sich korrigieren, Abschnitte löschen oder ergänzen. Nicht erkannte Abschnitte sind gelb markiert und müssen einem Team zugeordnet werden.
-5. Speichern: Die Notizen landen in der Excel-Datei des Lehrgangs in Google Drive.
+1. **Heute:** Trainer wählt oben in der Tageleiste den Tag (Standard: heute, jeder Tag des Lehrgangs ist wählbar, auch nachträglich).
+2. Beim Team auf das Mikrofon tippen: Die Aufnahme startet sofort in einem Fenster von unten (Zeit, Tonwelle, Schreibstil).
+3. OpenAI erkennt die Sprache und formuliert den Text im gewählten Stil für genau dieses Team (mit Kategorie, z. B. Rückruf, Hausaufgabe). Eine KI-Verteilung auf Teams gibt es nicht mehr.
+4. Text und Kategorie lassen sich prüfen und ändern, ein anderer Stil formuliert neu.
+5. Speichern: Die Notiz landet in der Excel-Datei des Lehrgangs in Google Drive. „Notiz für alle Teams“ trägt sie bei jedem Team ein.
 
-Weitere Ansichten: **Tag** zeigt pro Tag alle Teams mit ihren Notizen. **Lehrgang** legt Lehrgänge an (Name, Trainer, Ort, erster Tag, 4 oder 10 Wochen, Teams) und lädt die Excel-Datei herunter.
+Weitere Ansichten: Ein Tipp auf den Namen zeigt das **Team** mit allen Notizen und Aufnahmen (oben rechts auch „Eintippen“). **Lehrgänge** legt Lehrgänge an (Name, Trainer, Ort, erster Tag, 4 oder 10 Wochen, Teams) und lädt die Excel-Datei herunter. Gestaltung im iOS-Stil, folgt automatisch dem hellen oder dunklen Modus des Handys.
+
+### Anmeldung ohne neuen Tab (optional)
+Standardmäßig öffnet Google die Anmeldung in einem Popup, das je nach Handy wie ein neuer Tab aussieht. Mit `loginRedirect: true` in `config.js` wechselt die App stattdessen kurz zu Google und kommt zurück. Dafür muss in der Google Cloud Console beim OAuth-Client unter „Autorisierte Weiterleitungs-URIs“ `https://kngstn1337.github.io/Baumprojekt/` eingetragen sein.
 
 Wenn etwas schiefgeht (kein Netz, Google abgemeldet), bleiben Aufnahme und Vorschau auf dem Handy gespeichert und können später erneut verarbeitet bzw. gespeichert werden.
 

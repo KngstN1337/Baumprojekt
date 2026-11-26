@@ -101,11 +101,36 @@
     connected() { return !!this.token && Date.now() < this.expires - 60000; },
     // Anmeldung der letzten Stunde wiederherstellen (überlebt Neuladen der Seite)
     restore() {
+      this.fromRedirect();
       try { const t = JSON.parse(localStorage.getItem('baumprojekt.token') || 'null'); if (t && t.expires > Date.now() + 60000) { this.token = t.token; this.expires = t.expires; } } catch (e) { /* ignore */ }
       return this.connected();
     },
+    // Anmeldung ohne Popup: Die Seite wechselt zu Google und kommt danach zurück (bleibt so in der App, kein neuer Tab).
+    // Voraussetzung: Die Adresse der App ist in der Google Cloud Console als „Autorisierte Weiterleitungs-URI“ eingetragen.
+    redirectUri() { return location.origin + location.pathname; },
+    connectRedirect(clientId, chooseAccount) {
+      const state = Math.random().toString(36).slice(2) + Date.now().toString(36);
+      localStorage.setItem('baumprojekt.oauthState', state);
+      const p = new URLSearchParams({ client_id: clientId, redirect_uri: this.redirectUri(), response_type: 'token', scope: 'https://www.googleapis.com/auth/drive.file', include_granted_scopes: 'true', state });
+      if (chooseAccount) p.set('prompt', 'select_account');
+      location.assign('https://accounts.google.com/o/oauth2/v2/auth?' + p);
+      return new Promise(() => {}); // Seite wird verlassen
+    },
+    loginError: '',
+    fromRedirect() {
+      if (!/[#&](access_token|error)=/.test(location.hash)) return;
+      const p = new URLSearchParams(location.hash.slice(1));
+      history.replaceState(null, '', location.pathname + location.search);
+      const expected = localStorage.getItem('baumprojekt.oauthState'); localStorage.removeItem('baumprojekt.oauthState');
+      if (!expected || p.get('state') !== expected) { this.loginError = 'Anmeldung konnte nicht bestätigt werden. Bitte erneut anmelden.'; return; }
+      if (p.get('error')) { this.loginError = p.get('error') === 'access_denied' ? 'Zugriff verweigert. Dieses Google-Konto ist nicht freigeschaltet.' : 'Google: ' + p.get('error'); return; }
+      if (!/drive\.file/.test(p.get('scope') || '')) { this.loginError = 'Bitte bei der Google-Anmeldung den Zugriff auf Google Drive erlauben (Häkchen setzen).'; return; }
+      this.token = p.get('access_token'); this.expires = Date.now() + (Number(p.get('expires_in')) || 3600) * 1000;
+      localStorage.setItem('baumprojekt.token', JSON.stringify({ token: this.token, expires: this.expires }));
+    },
     // Muss direkt aus einem Klick heraus aufgerufen werden (Popup)
     connect(clientId, chooseAccount) {
+      if ((global.BAUMPROJEKT_CONFIG || {}).loginRedirect && clientId) return this.connectRedirect(clientId, chooseAccount);
       return new Promise((resolve, reject) => {
         if (!this.ready()) return reject(new Error('Google-Anmeldung lädt noch. Bitte kurz warten und erneut tippen.'));
         if (!clientId) return reject(new Error('Keine Google-Client-ID eingerichtet.'));
@@ -272,11 +297,12 @@
     async putRecording(r, kind, f) {
       const base = r.datum + ' ' + r.uhrzeit.replace(':', '-') + ' (' + r.aid.slice(-4) + ')';
       const props = { bpTyp: kind, kurs: r.courseId, aid: r.aid, datum: r.datum, uhrzeit: r.uhrzeit };
+      if (r.team) props.team = r.team.slice(0, 50);
       if (kind === 'aufnahme') {
         const ext = /mp4|m4a|aac/.test(r.mime) ? 'm4a' : /ogg/.test(r.mime) ? 'ogg' : 'webm';
         return this.upload({ name: base + ' Aufnahme.' + ext, mimeType: r.mime.split(';')[0], parents: [f.aufnahmen], appProperties: props }, r.blob, r.mime);
       }
-      const txt = 'Rohtext der Aufnahme vom ' + r.datum.split('-').reverse().join('.') + ', ' + r.uhrzeit + ' Uhr\r\n(unverändertes Ergebnis der Spracherkennung)\r\n\r\n' + r.transcript + '\r\n';
+      const txt = (r.team ? 'Team: ' + r.team + '\r\n' : '') + 'Rohtext der Aufnahme vom ' + r.datum.split('-').reverse().join('.') + ', ' + r.uhrzeit + ' Uhr\r\n(unverändertes Ergebnis der Spracherkennung)\r\n\r\n' + r.transcript + '\r\n';
       return this.upload({ name: base + ' Rohtext.txt', mimeType: 'text/plain', parents: [f.aufnahmen], appProperties: props }, new Blob(['﻿' + txt]), 'text/plain; charset=UTF-8');
     },
     async listRecordings(courseId) {
@@ -285,7 +311,7 @@
       files.forEach(f => {
         const p = f.appProperties || {};
         if (p.bpTyp !== 'aufnahme' && p.bpTyp !== 'rohtext') return;
-        const r = by[p.aid] || (by[p.aid] = { aid: p.aid, datum: p.datum, uhrzeit: p.uhrzeit });
+        const r = by[p.aid] || (by[p.aid] = { aid: p.aid, datum: p.datum, uhrzeit: p.uhrzeit, team: p.team || '' });
         if (p.bpTyp === 'aufnahme') r.audioId = f.id; else r.textId = f.id;
       });
       return Object.values(by).sort((a, b) => (b.datum + b.uhrzeit).localeCompare(a.datum + a.uhrzeit));
@@ -326,5 +352,31 @@
     del: k => tx('outbox', 'readwrite', s => s.delete(k))
   };
 
-  global.BaumprojektServices = { transcribe, assign, STILE, Drive, KV, Outbox, KATEGORIEN, XLSX_MIME };
+
+  // Eine Aufnahme zu EINEM bekannten Team im gewählten Stil formulieren und einer Kategorie zuordnen.
+  async function formulate(transcript, team, opts) {
+    const stil = stilVon(opts.stil);
+    const alle = !team;
+    const system =
+      'Du bist Assistent eines Hundetrainers. Er hat eine Notiz ' + (alle ? 'für ALLE Teams seines Lehrgangs' : 'zu genau einem Team (Teilnehmer/in mit Hund)') + ' eingesprochen. ' +
+      'Schreibe daraus den Notiztext und wähle die passendste Kategorie. Hausaufgaben oder Übungsaufträge für zu Hause bekommen die Kategorie "Hausaufgabe".\n\n' +
+      (alle ? '' : 'Team: Teilnehmer/in ' + (team.teilnehmer || '?') + ', Hund ' + (team.hund || '?') + (team.rasse ? ' (' + team.rasse + ')' : '') + '\n\n') +
+      'Regeln für text (Schreibstil „' + stil.name + '“):\n' + stil.regeln.join('\n') + '\n' + GEMEINSAM;
+    const schema = { type: 'object', additionalProperties: false, required: ['kategorie', 'text'],
+      properties: { kategorie: { type: 'string', enum: KATEGORIEN }, text: { type: 'string' } } };
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + opts.key, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: opts.model || 'gpt-4.1-mini',
+        messages: [{ role: 'system', content: system }, { role: 'user', content: 'Transkript:\n' + transcript }],
+        response_format: { type: 'json_schema', json_schema: { name: 'notiz', strict: true, schema } }
+      })
+    });
+    if (!res.ok) throw await oaiError(res);
+    const j = await res.json();
+    const content = j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content;
+    return JSON.parse(content || '{"kategorie":"Sonstiges","text":""}');
+  }
+  global.BaumprojektServices = { transcribe, assign, formulate, STILE, Drive, KV, Outbox, KATEGORIEN, XLSX_MIME };
 })(window);
