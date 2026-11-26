@@ -9,6 +9,7 @@
   const SHEET_NOT = 'Notizen (Rohdaten)';
   const SHEET_TEAMS = 'Teams';
   const SHEET_META = '_baumprojekt';
+  const SHEET_GLOSSAR = '_glossar';
   const WD = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
   const BLUE = 'FF1F4E79';
   const thin = { style: 'thin', color: { argb: 'FFBFBFBF' } };
@@ -157,6 +158,11 @@
     [['format', 'baumprojekt-1'], ['titel', m.titel || ''], ['trainer', m.trainer || ''], ['ort', m.ort || ''], ['start', m.start], ['wochen', Number(m.wochen) || 4]]
       .forEach((kv, i) => { wm.getRow(i + 1).values = kv; });
 
+    // Verstecktes Glossar des Lehrgangs: Fachbegriffe beider Trainer (je Zeile Begriff | oft erkannt als | von)
+    const wg = wb.addWorksheet(SHEET_GLOSSAR, { state: 'hidden' });
+    wg.getRow(1).values = ['Begriff', 'Oft erkannt als', 'Von'];
+    (course.glossar || []).forEach((g, i) => { wg.getRow(i + 2).values = [g.begriff, g.falsch || '', g.von || '']; });
+
     return wb;
   }
 
@@ -166,7 +172,7 @@
   async function parse(buffer) {
     const wb = new ExcelJS.Workbook();
     await wb.xlsx.load(buffer);
-    const course = { meta: {}, teams: [], notes: [], gesamt: {} };
+    const course = { meta: {}, teams: [], notes: [], gesamt: {}, glossar: [] };
 
     const wm = wb.getWorksheet(SHEET_META);
     if (wm) wm.eachRow(r => { const k = String(cellText(r.getCell(1).value) || ''); if (k) course.meta[k] = cellText(r.getCell(2).value); });
@@ -179,6 +185,13 @@
       const t = { name: String(cellText(r.getCell(1).value) || '').trim(), teilnehmer: String(cellText(r.getCell(2).value) || '').trim(), hund: String(cellText(r.getCell(3).value) || '').trim(), rasse: String(cellText(r.getCell(4).value) || '').trim(), bemerkung: String(cellText(r.getCell(5).value) || '').trim() };
       t.name = teamName(t);
       if (t.name) course.teams.push(t);
+    });
+
+    const wg = wb.getWorksheet(SHEET_GLOSSAR);
+    if (wg) wg.eachRow((r, i) => {
+      if (i === 1) return;
+      const g = { begriff: String(cellText(r.getCell(1).value) || '').trim(), falsch: String(cellText(r.getCell(2).value) || '').trim(), von: String(cellText(r.getCell(3).value) || '').trim() };
+      if (g.begriff) course.glossar.push(g);
     });
 
     const wn = wb.getWorksheet(SHEET_NOT);
