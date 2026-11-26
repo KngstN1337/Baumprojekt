@@ -58,6 +58,8 @@ Systemschrift (auf dem iPhone SF Pro). Größen: Großer Titel 34 px fett · Tex
 | `.banner`, `toast()`, `busy()` | Hinweise oben, kurze Meldung unten, Warte-Anzeige. |
 | `.tabs` | Tab-Leiste unten. Höchstens 5 Einträge. |
 
+Unterseiten bekommen oben links einen Zurück-Knopf `.nav-btn.back` in der `.navbar`. Dann funktioniert automatisch auch das Zurückwischen vom linken Bildschirmrand (`initEdgeBack` in app.js). Hauptseiten der Tabs haben keinen.
+
 ## Icons
 Alle Icons sind SVG-Symbole am Ende von `index.html` (`<symbol id="i-…">`) und werden mit `<svg><use href="#i-name"/></svg>` eingebunden. Sie übernehmen die Textfarbe. Neue Icons im gleichen Stil (gefüllt, 24×24) dort ergänzen.
 
