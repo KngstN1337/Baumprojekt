@@ -1,6 +1,6 @@
 {
-  "name": "Baumi – Lehrgangsnotizen",
-  "short_name": "Baumi",
+  "name": "Baumprojekt – Lehrgangsnotizen",
+  "short_name": "Baumprojekt",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

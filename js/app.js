@@ -1,20 +1,20 @@
 (function () {
   'use strict';
-  const WBK = window.BaumiWorkbook;
-  const S = window.BaumiServices;
-  const CFG = window.BAUMI_CONFIG || {};
+  const WBK = window.BaumprojektWorkbook;
+  const S = window.BaumprojektServices;
+  const CFG = window.BAUMPROJEKT_CONFIG || {};
   const $ = s => document.querySelector(s);
   const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const today = () => WBK.dateToIso(new Date());
   const nowTime = () => { const d = new Date(); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); };
 
   // ---------------- Zustand ----------------
-  const settings = Object.assign({ mode: 'drive', clientId: '', openaiKey: '', sttModel: CFG.sttModel || 'gpt-4o-transcribe', llmModel: CFG.llmModel || 'gpt-4.1-mini' },
-    JSON.parse(localStorage.getItem('baumi.settings') || '{}'));
-  const clientId = () => settings.clientId || CFG.googleClientId || '';
-  const store = () => (settings.mode === 'local' ? S.Local : S.Drive);
+  const settings = Object.assign({ openaiKey: '', sttModel: CFG.sttModel || 'gpt-4o-transcribe', llmModel: CFG.llmModel || 'gpt-4.1-mini' },
+    JSON.parse(localStorage.getItem('baumprojekt.settings') || '{}'));
+  const clientId = () => CFG.googleClientId || '';
+  const store = () => S.Drive;
   let courses = [];
-  let activeId = localStorage.getItem('baumi.active.' + settings.mode) || '';
+  let activeId = localStorage.getItem('baumprojekt.active') || '';
   let course = null; // geparster aktiver Lehrgang
   let segments = [];
   let noteTime = nowTime();
@@ -51,8 +51,12 @@
   }
 
   // ---------------- Lehrgang laden ----------------
-  function setActive(id) { activeId = id; localStorage.setItem('baumi.active.' + settings.mode, id || ''); }
+  function setActive(id) { activeId = id; localStorage.setItem('baumprojekt.active', id || ''); }
   async function loadActive() {
+    if (!activeId) {
+      // z. B. nach gelöschten Browserdaten oder auf neuem Handy: Lehrgänge kommen aus Google Drive
+      try { const list = await store().list(); if (list.length) setActive(list[0].id); } catch (e) { /* Anmeldung fehlt */ }
+    }
     if (!activeId) { course = null; renderHeader(); return; }
     const cached = await S.KV.get('course:' + activeId);
     if (cached) { course = cached; renderHeader(); }
@@ -60,7 +64,10 @@
       const buf = await store().load(activeId);
       course = await WBK.parse(buf);
       await S.KV.set('course:' + activeId, course);
-    } catch (e) { if (!e.needsLogin && !cached) toast(e.message, 5000); }
+    } catch (e) {
+      if (/404/.test(e.message)) { setActive(''); course = null; return loadActive(); }
+      if (!e.needsLogin && !cached) toast(e.message, 5000);
+    }
     renderHeader();
   }
   function renderHeader() {
@@ -214,7 +221,7 @@
     f.reset();
     $('#courseFormTitle').textContent = edit ? 'Lehrgang bearbeiten' : 'Neuer Lehrgang';
     const c = edit ? course : { meta: { start: today(), wochen: 4 }, teams: [{}, {}, {}, {}, {}] };
-    f.titel.value = c.meta.titel || ''; f.trainer.value = c.meta.trainer || localStorage.getItem('baumi.trainer') || ''; f.ort.value = c.meta.ort || '';
+    f.titel.value = c.meta.titel || ''; f.trainer.value = c.meta.trainer || localStorage.getItem('baumprojekt.trainer') || ''; f.ort.value = c.meta.ort || '';
     f.start.value = c.meta.start; f.querySelector('input[name=wochen][value="' + (c.meta.wochen == 10 ? 10 : 4) + '"]').checked = true;
     $('#teamRows').innerHTML = c.teams.map(teamRow).join('');
     show(f, true); f.scrollIntoView({ behavior: 'smooth' });
@@ -226,7 +233,7 @@
     const teams = [...document.querySelectorAll('.team-row')].map(r => { const t = {}; r.querySelectorAll('[data-k]').forEach(i => { t[i.dataset.k] = i.value.trim(); }); return t; })
       .filter(t => t.teilnehmer || t.hund).map(t => ({ ...t, name: WBK.teamName(t) }));
     if (!teams.length) { toast('Bitte mindestens ein Team eintragen.'); return; }
-    localStorage.setItem('baumi.trainer', meta.trainer);
+    localStorage.setItem('baumprojekt.trainer', meta.trainer);
     try {
       if (editing) {
         await withStore('Speichere …', () => modifyCourse(c => {
@@ -257,25 +264,41 @@
   // ---------------- Einstellungen ----------------
   function fillSettings() {
     const f = $('#settingsForm');
-    f.querySelector('input[name=mode][value=' + settings.mode + ']').checked = true;
-    f.clientId.value = settings.clientId; f.clientId.placeholder = CFG.googleClientId || '…apps.googleusercontent.com';
     f.openaiKey.value = settings.openaiKey; f.sttModel.value = settings.sttModel; f.llmModel.value = settings.llmModel;
-    show('#driveBox', settings.mode === 'drive'); updateDriveStatus();
+    updateDriveStatus();
   }
   function updateDriveStatus() {
-    $('#driveStatus').textContent = S.Drive.connected() ? '✓ Verbunden' : (clientId() ? 'Nicht verbunden' : '⚠ Noch keine Google-Client-ID eingerichtet – siehe Anleitung. Zum Testen „Nur auf diesem Gerät“ wählen.');
+    const u = S.Drive.user;
+    $('#driveStatus').textContent = S.Drive.connected() ? '✓ Angemeldet' + (u ? ' als ' + (u.emailAddress || u.displayName) : '') : 'Nicht angemeldet';
   }
   function saveSettings(ev) {
     if (ev) ev.preventDefault();
     const f = $('#settingsForm');
-    const oldMode = settings.mode;
-    settings.mode = f.querySelector('input[name=mode]:checked').value;
-    settings.clientId = f.clientId.value.trim(); settings.openaiKey = f.openaiKey.value.trim();
+    settings.openaiKey = f.openaiKey.value.trim();
     settings.sttModel = f.sttModel.value.trim() || CFG.sttModel; settings.llmModel = f.llmModel.value.trim() || CFG.llmModel;
-    localStorage.setItem('baumi.settings', JSON.stringify(settings));
-    if (settings.openaiKey && (settings.mode === 'local' || clientId())) banner('');
-    if (oldMode !== settings.mode) { activeId = localStorage.getItem('baumi.active.' + settings.mode) || ''; course = null; loadActive(); }
+    localStorage.setItem('baumprojekt.settings', JSON.stringify(settings));
+    if (settings.openaiKey) banner('');
     toast('✓ Einstellungen gespeichert');
+  }
+
+  // ---------------- Anmeldung ----------------
+  function lock(on) { document.body.classList.toggle('locked', on); }
+  async function afterLogin() {
+    try { await S.Drive.me(); } catch (e) { if (e.needsLogin) { lock(true); return; } }
+    lock(false); banner('');
+    await loadActive();
+    await restoreDraft();
+    if (!settings.openaiKey) banner('<span>Bitte einmal den OpenAI-Schlüssel eintragen.</span><button>Einstellungen</button>', () => { banner(''); go('einst'); });
+    else if (!course) { go('lehrgang'); }
+  }
+  async function login(chooseAccount) {
+    $('#loginMsg').textContent = '';
+    try { await S.Drive.connect(clientId(), chooseAccount); await afterLogin(); }
+    catch (e) { $('#loginMsg').textContent = e.message; }
+  }
+  function logout() {
+    S.Drive.logout(); course = null; setActive('');
+    lock(true); go('notiz');
   }
 
   // ---------------- Start ----------------
@@ -315,30 +338,21 @@
     $('#courseForm').addEventListener('submit', submitCourse);
     $('#downloadBtn').addEventListener('click', download);
     $('#settingsForm').addEventListener('submit', saveSettings);
-    $('#settingsForm').addEventListener('change', e => { if (e.target.name === 'mode') show('#driveBox', e.target.value === 'drive'); });
-    $('#connectBtn').addEventListener('click', async () => {
-      saveSettings();
-      try { await S.Drive.connect(clientId()); banner(''); updateDriveStatus(); toast('✓ Mit Google Drive verbunden'); loadActive(); } catch (e) { toast(e.message, 6000); }
-    });
-    $('#disconnectBtn').addEventListener('click', () => { S.Drive.disconnect(); updateDriveStatus(); });
+    $('#logoutBtn').addEventListener('click', logout);
+    $('#switchBtn').addEventListener('click', () => { logout(); login(true); });
+    $('#loginBtn').addEventListener('click', () => login(false));
     $('#wipeBtn').addEventListener('click', async () => {
-      if (!confirm('Wirklich alle Baumi-Daten auf diesem Gerät löschen?')) return;
-      localStorage.clear(); indexedDB.deleteDatabase('baumi'); location.reload();
+      if (!confirm('Wirklich alle Baumprojekt-Daten auf diesem Gerät löschen? Die Dateien in Google Drive bleiben erhalten.')) return;
+      Object.keys(localStorage).filter(k => k.startsWith('baumprojekt.')).forEach(k => localStorage.removeItem(k)); indexedDB.deleteDatabase('baumprojekt'); location.reload();
     });
   }
 
   async function init() {
     bind();
     if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => {});
-    if (!settings.openaiKey || (settings.mode === 'drive' && !clientId())) {
-      banner('<span>Willkommen! Bitte zuerst die Einstellungen ausfüllen.</span><button>Einstellungen</button>', () => { banner(''); go('einst'); });
-    } else if (settings.mode === 'drive' && activeId) {
-      banner('<span>Für das Speichern einmal mit Google verbinden.</span><button>Verbinden</button>', async () => {
-        try { await S.Drive.connect(clientId()); banner(''); await loadActive(); } catch (e) { toast(e.message, 6000); }
-      });
-    }
-    await loadActive();
-    await restoreDraft();
+    // Login-Knopf freigeben, sobald die Google-Bibliothek geladen ist
+    const wait = setInterval(() => { if (S.Drive.ready()) { clearInterval(wait); $('#loginBtn').disabled = false; } }, 200);
+    if (S.Drive.restore()) await afterLogin(); else lock(true);
   }
   init();
 })();

@@ -1,4 +1,4 @@
-// Baumi – Excel-Datei je Lehrgang (Format der ersten Vorlage: Übersicht, Notizen (Rohdaten), Teams)
+// Baumprojekt – Excel-Datei je Lehrgang (Format der ersten Vorlage: Übersicht, Notizen (Rohdaten), Teams)
 // Datenquelle ist das Blatt "Notizen (Rohdaten)". Die Übersicht wird daraus bei jedem Speichern neu
 // aufgebaut; die Spalte "Gesamteindruck" bleibt dabei erhalten.
 (function (global) {
@@ -8,7 +8,7 @@
   const SHEET_UEB = 'Übersicht';
   const SHEET_NOT = 'Notizen (Rohdaten)';
   const SHEET_TEAMS = 'Teams';
-  const SHEET_META = '_baumi';
+  const SHEET_META = '_baumprojekt';
   const WD = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
   const BLUE = 'FF1F4E79';
   const thin = { style: 'thin', color: { argb: 'FFBFBFBF' } };
@@ -73,7 +73,7 @@
   // ---------- Schreiben ----------
   function build(course) {
     const wb = new ExcelJS.Workbook();
-    wb.creator = 'Baumi';
+    wb.creator = 'Baumprojekt';
     const m = course.meta;
     const teams = course.teams.map(t => ({ ...t, name: teamName(t) }));
     const days = courseDays(course);
@@ -151,7 +151,7 @@
 
     // Versteckte Einstellungen
     const wm = wb.addWorksheet(SHEET_META, { state: 'hidden' });
-    [['format', 'baumi-1'], ['titel', m.titel || ''], ['trainer', m.trainer || ''], ['ort', m.ort || ''], ['start', m.start], ['wochen', Number(m.wochen) || 4]]
+    [['format', 'baumprojekt-1'], ['titel', m.titel || ''], ['trainer', m.trainer || ''], ['ort', m.ort || ''], ['start', m.start], ['wochen', Number(m.wochen) || 4]]
       .forEach((kv, i) => { wm.getRow(i + 1).values = kv; });
 
     return wb;
@@ -202,5 +202,5 @@
   }
 
   const api = { build, toBuffer, parse, teamName, courseDays, sortNotes, isoToDe, dateToIso, addDays, dayIndex, weekday };
-  if (typeof module !== 'undefined' && module.exports) module.exports = api; else global.BaumiWorkbook = api;
+  if (typeof module !== 'undefined' && module.exports) module.exports = api; else global.BaumprojektWorkbook = api;
 })(typeof window !== 'undefined' ? window : globalThis);

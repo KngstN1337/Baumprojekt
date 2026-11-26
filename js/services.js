@@ -1,4 +1,4 @@
-// Baumi – Dienste: OpenAI (Transkription + Zuordnung), Google Drive, lokaler Speicher.
+// Baumprojekt – Dienste: OpenAI (Transkription + Zuordnung), Google Drive, lokaler Speicher.
 // Alles läuft im Browser des Nutzers. Es gibt keinen eigenen Server.
 (function (global) {
   'use strict';
@@ -63,65 +63,77 @@
     return JSON.parse(content || '{"abschnitte":[]}').abschnitte;
   }
 
-  // ---------------- Google Drive (Scope drive.file: nur von Baumi angelegte Dateien) ----------------
+  // ---------------- Google Drive (Scope drive.file: nur von Baumprojekt angelegte Dateien) ----------------
   const Drive = {
-    token: null, expires: 0, client: null, clientId: null,
+    token: null, expires: 0, client: null, clientId: null, user: null,
     ready() { return !!(global.google && google.accounts && google.accounts.oauth2); },
     connected() { return !!this.token && Date.now() < this.expires - 60000; },
+    // Anmeldung der letzten Stunde wiederherstellen (überlebt Neuladen der Seite)
+    restore() {
+      try { const t = JSON.parse(localStorage.getItem('baumprojekt.token') || 'null'); if (t && t.expires > Date.now() + 60000) { this.token = t.token; this.expires = t.expires; } } catch (e) { /* ignore */ }
+      return this.connected();
+    },
     // Muss direkt aus einem Klick heraus aufgerufen werden (Popup)
-    connect(clientId, silent) {
+    connect(clientId, chooseAccount) {
       return new Promise((resolve, reject) => {
-        if (!this.ready()) return reject(new Error('Google-Anmeldung noch nicht geladen. Internetverbindung prüfen.'));
-        if (!clientId) return reject(new Error('Keine Google-Client-ID eingerichtet (siehe Einstellungen).'));
+        if (!this.ready()) return reject(new Error('Google-Anmeldung lädt noch. Bitte kurz warten und erneut tippen.'));
+        if (!clientId) return reject(new Error('Keine Google-Client-ID eingerichtet.'));
         if (!this.client || this.clientId !== clientId) {
           this.clientId = clientId;
           this.client = google.accounts.oauth2.initTokenClient({ client_id: clientId, scope: 'https://www.googleapis.com/auth/drive.file', callback: () => {} });
         }
         this.client.callback = r => {
-          if (r.error) return reject(new Error('Google: ' + r.error));
+          if (r.error) return reject(new Error(r.error === 'access_denied' ? 'Zugriff verweigert. Dieses Google-Konto ist nicht freigeschaltet.' : 'Google: ' + r.error));
+          if (!google.accounts.oauth2.hasGrantedAllScopes(r, 'https://www.googleapis.com/auth/drive.file')) return reject(new Error('Bitte bei der Google-Anmeldung den Zugriff auf Google Drive erlauben (Häkchen setzen).'));
           this.token = r.access_token; this.expires = Date.now() + (Number(r.expires_in) || 3600) * 1000;
-          localStorage.setItem('baumi.driveConnectedOnce', '1');
+          localStorage.setItem('baumprojekt.token', JSON.stringify({ token: this.token, expires: this.expires }));
           resolve();
         };
-        this.client.error_callback = e => reject(new Error('Google-Anmeldung abgebrochen (' + (e && e.type) + ')'));
-        this.client.requestAccessToken({ prompt: silent ? '' : (localStorage.getItem('baumi.driveConnectedOnce') ? '' : 'consent') });
+        this.client.error_callback = e => reject(new Error(e && e.type === 'popup_closed' ? 'Anmeldefenster geschlossen.' : 'Google-Anmeldung fehlgeschlagen (' + (e && e.type) + ')'));
+        this.client.requestAccessToken({ prompt: chooseAccount ? 'select_account' : '' });
       });
     },
-    disconnect() { if (this.token && this.ready()) google.accounts.oauth2.revoke(this.token, () => {}); this.token = null; this.expires = 0; localStorage.removeItem('baumi.driveConnectedOnce'); },
+    // Abmelden: nur auf diesem Gerät. Die Freigabe bei Google bleibt, damit nach dem nächsten Login alle Dateien wieder da sind.
+    logout() { this.token = null; this.expires = 0; this.user = null; localStorage.removeItem('baumprojekt.token'); localStorage.removeItem('baumprojekt.folderId'); },
+    async me() {
+      const r = await this.req('https://www.googleapis.com/drive/v3/about?fields=user(displayName,emailAddress)');
+      this.user = (await r.json()).user || null;
+      return this.user;
+    },
     async req(url, init = {}) {
       if (!this.connected()) throw Object.assign(new Error('Bitte mit Google verbinden.'), { needsLogin: true });
       init.headers = Object.assign({ Authorization: 'Bearer ' + this.token }, init.headers || {});
       const res = await fetch(url, init);
-      if (res.status === 401) { this.token = null; throw Object.assign(new Error('Google-Anmeldung abgelaufen. Bitte neu verbinden.'), { needsLogin: true }); }
+      if (res.status === 401) { this.logout(); throw Object.assign(new Error('Google-Anmeldung abgelaufen. Bitte neu verbinden.'), { needsLogin: true }); }
       if (!res.ok) { let t = ''; try { t = (await res.json()).error.message; } catch (e) { /* ignore */ } throw new Error('Google Drive: ' + res.status + ' ' + t); }
       return res;
     },
     async folderId() {
-      const cached = localStorage.getItem('baumi.folderId');
+      const cached = localStorage.getItem('baumprojekt.folderId');
       if (cached) {
         try { const r = await this.req('https://www.googleapis.com/drive/v3/files/' + cached + '?fields=id,trashed'); const j = await r.json(); if (!j.trashed) return cached; } catch (e) { if (e.needsLogin) throw e; }
       }
-      const q = encodeURIComponent("mimeType='application/vnd.google-apps.folder' and name='Baumi Lehrgänge' and trashed=false");
+      const q = encodeURIComponent("mimeType='application/vnd.google-apps.folder' and name='Baumprojekt Lehrgänge' and trashed=false");
       const r = await this.req('https://www.googleapis.com/drive/v3/files?q=' + q + '&fields=files(id)');
       const j = await r.json();
       let id = j.files && j.files[0] && j.files[0].id;
       if (!id) {
-        const c = await this.req('https://www.googleapis.com/drive/v3/files?fields=id', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'Baumi Lehrgänge', mimeType: 'application/vnd.google-apps.folder' }) });
+        const c = await this.req('https://www.googleapis.com/drive/v3/files?fields=id', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'Baumprojekt Lehrgänge', mimeType: 'application/vnd.google-apps.folder' }) });
         id = (await c.json()).id;
       }
-      localStorage.setItem('baumi.folderId', id);
+      localStorage.setItem('baumprojekt.folderId', id);
       return id;
     },
     async list() {
-      const q = encodeURIComponent("appProperties has { key='baumi' and value='1' } and trashed=false");
+      const q = encodeURIComponent("appProperties has { key='baumprojekt' and value='1' } and trashed=false");
       const r = await this.req('https://www.googleapis.com/drive/v3/files?q=' + q + '&orderBy=modifiedTime desc&fields=files(id,name,modifiedTime,webViewLink)');
       return (await r.json()).files || [];
     },
     async load(id) { const r = await this.req('https://www.googleapis.com/drive/v3/files/' + id + '?alt=media'); return r.arrayBuffer(); },
     async create(name, buf) {
       const parent = await this.folderId();
-      const meta = { name, mimeType: XLSX_MIME, parents: [parent], appProperties: { baumi: '1' } };
-      const boundary = 'baumi' + Math.random().toString(36).slice(2);
+      const meta = { name, mimeType: XLSX_MIME, parents: [parent], appProperties: { baumprojekt: '1' } };
+      const boundary = 'baumprojekt' + Math.random().toString(36).slice(2);
       const body = new Blob(['--' + boundary + '\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n' + JSON.stringify(meta) + '\r\n--' + boundary + '\r\nContent-Type: ' + XLSX_MIME + '\r\n\r\n', buf, '\r\n--' + boundary + '--']);
       const r = await this.req('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name', { method: 'POST', headers: { 'Content-Type': 'multipart/related; boundary=' + boundary }, body });
       return (await r.json()).id;
@@ -132,7 +144,7 @@
   // ---------------- Lokaler Speicher (IndexedDB) – Testmodus ohne Google und Ablage für Aufnahmen ----------------
   function idb() {
     return new Promise((resolve, reject) => {
-      const r = indexedDB.open('baumi', 1);
+      const r = indexedDB.open('baumprojekt', 1);
       r.onupgradeneeded = () => { r.result.createObjectStore('files', { keyPath: 'id' }); r.result.createObjectStore('kv'); };
       r.onsuccess = () => resolve(r.result); r.onerror = () => reject(r.error);
     });
@@ -150,12 +162,6 @@
     set: (k, v) => tx('kv', 'readwrite', s => s.put(v, k)),
     del: k => tx('kv', 'readwrite', s => s.delete(k))
   };
-  const Local = {
-    async list() { const all = (await tx('files', 'readonly', s => s.getAll())) || []; return all.map(f => ({ id: f.id, name: f.name, modifiedTime: f.modified })).sort((a, b) => b.modifiedTime.localeCompare(a.modifiedTime)); },
-    async load(id) { const f = await tx('files', 'readonly', s => s.get(id)); if (!f) throw new Error('Datei nicht gefunden'); return f.buf; },
-    async create(name, buf) { const id = 'local-' + Date.now(); await tx('files', 'readwrite', s => s.put({ id, name, buf, modified: new Date().toISOString() })); return id; },
-    async save(id, buf) { const f = await tx('files', 'readonly', s => s.get(id)); await tx('files', 'readwrite', s => s.put({ ...f, buf, modified: new Date().toISOString() })); }
-  };
 
-  global.BaumiServices = { transcribe, assign, Drive, Local, KV, KATEGORIEN, XLSX_MIME };
+  global.BaumprojektServices = { transcribe, assign, Drive, KV, KATEGORIEN, XLSX_MIME };
 })(window);
