@@ -42,11 +42,12 @@
   function show(el, on) { (typeof el === 'string' ? $(el) : el).classList.toggle('hidden', !on); }
   function go(view) {
     document.querySelectorAll('.view').forEach(v => show(v, v.id === 'v-' + view));
-    const tab = view === 'team' ? 'heute' : view;
+    const tab = view === 'team' ? 'heute' : view === 'glossar' ? 'einst' : view;
     document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('active', b.dataset.go === tab));
     if (view === 'heute') renderToday();
     if (view === 'lehrgang') refreshCourses();
     if (view === 'einst') fillSettings();
+    if (view === 'glossar') renderGlossar();
     window.scrollTo(0, 0);
   }
   function banner(html, onClick) {
@@ -481,7 +482,10 @@
   }
   function renderGlossar() {
     const zeile = (g, attr) => '<button type="button" class="cell" ' + attr + '><div class="cell-tx wrap"><b>' + esc(g.begriff) + '</b>' + (g.falsch ? '<span>oft erkannt als: ' + esc(g.falsch) + '</span>' : '') + '</div><svg class="chev"><use href="#i-chev"/></svg></button>';
-    $('#glossList').innerHTML = settings.glossar.map((g, i) => zeile(g, 'data-gl="' + i + '"')).join('') + '<button type="button" class="cell link-cell" data-gl="neu">Begriff hinzufügen</button>';
+    const n = settings.glossar.length;
+    $('#glossCount').textContent = n === 1 ? '1 Begriff' : n + ' Begriffe';
+    $('#glossH').textContent = 'Meine Begriffe (' + n + ')';
+    $('#glossList').innerHTML = settings.glossar.map((g, i) => zeile(g, 'data-gl="' + i + '"')).join('') || '<div class="empty">Noch keine Begriffe.</div>';
     const f = fremdGlossar();
     show('#glossFremdBox', f.length > 0);
     $('#glossFremd').innerHTML = f.map((g, i) => zeile(Object.assign({}, g, { falsch: (g.falsch ? g.falsch + ' · ' : '') + 'von ' + (g.von || 'Kollege') }), 'data-glf="' + i + '"')).join('');
@@ -506,6 +510,18 @@
       saveGlossar(); closeModal(); toast('✓ Glossar gespeichert');
     });
     if (i >= 0) $('#gDel').addEventListener('click', () => { if (!confirm('„' + alt.begriff + '“ aus dem Glossar löschen?')) return; settings.glossar.splice(i, 1); saveGlossar(); closeModal(); });
+  }
+  // Oben auf der Glossar-Seite: hinzufügen, Felder leeren, gleich das nächste Wort eintippen (Tastatur bleibt offen)
+  function glossarHinzufuegen(ev) {
+    ev.preventDefault();
+    const b = $('#gaB').value.trim(), f = $('#gaF').value.trim().replace(/\s*,\s*/g, ', ').replace(/^,\s*|,\s*$/g, '');
+    if (!b) { $('#gaB').focus(); return; }
+    const d = settings.glossar.find(x => lc(x.begriff) === lc(b));
+    if (d) { if (f) d.falsch = [d.falsch, f].filter(Boolean).join(', '); }
+    else settings.glossar.push({ begriff: b, falsch: f });
+    saveGlossar();
+    $('#gaB').value = ''; $('#gaF').value = ''; $('#gaB').focus();
+    toast('✓ „' + b + '“ ' + (d ? 'ergänzt' : 'hinzugefügt'), 1500);
   }
   function openModal(html) { $('#modalCard').innerHTML = html; document.body.classList.add('modal-open'); }
   function closeModal() { document.body.classList.remove('modal-open'); $('#modal').oninput = $('#modal').onchange = null; }
@@ -1061,7 +1077,12 @@
     $('#discardNote').addEventListener('click', () => requestDismiss(true));
     $('#noteText').addEventListener('input', () => { saveDraft(); renderUnklar(); });
     $('#unklarBox').addEventListener('click', e => { const b = e.target.closest('[data-unklar]'); if (b) openMeinst(Number(b.dataset.unklar)); });
-    $('#glossList').addEventListener('click', e => { const b = e.target.closest('[data-gl]'); if (b) openBegriff(b.dataset.gl === 'neu' ? -1 : Number(b.dataset.gl)); });
+    $('#glossList').addEventListener('click', e => { const b = e.target.closest('[data-gl]'); if (b) openBegriff(Number(b.dataset.gl)); });
+    $('#glossOpen').addEventListener('click', () => go('glossar'));
+    $('#glossBack').addEventListener('click', () => go('einst'));
+    $('#glossAdd').addEventListener('submit', glossarHinzufuegen);
+    $('#gaOk').addEventListener('mousedown', e => e.preventDefault()); // Tastatur bleibt offen
+    $('#gaB').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); if ($('#gaB').value.trim()) $('#gaF').focus(); } });
     $('#glossFremd').addEventListener('click', e => { const b = e.target.closest('[data-glf]'); if (b) openBegriff(-1, fremdGlossar()[Number(b.dataset.glf)]); });
     $('#modal').addEventListener('click', e => { if (e.target.id === 'modal' || e.target.closest('[data-m=close]')) closeModal(); });
     $('#retryBtn').addEventListener('click', async () => { const a = await S.KV.get('lastAudio'); if (a) { if (a.append) { job.append = true; job.transcript = a.prev; } processAudio(a.blob); } else closeSheet(); });
