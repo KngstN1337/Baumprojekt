@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Baumi – Lehrgangsnotizen</title>
+  <meta name="theme-color" content="#1F4E79">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header>
+    <div class="brand">Baumi</div>
+    <button id="courseBtn" class="course-btn" data-go="lehrgang">Kein Lehrgang gewählt</button>
+  </header>
+
+  <div id="banner" class="banner hidden"></div>
+
+  <main>
+    <!-- Notiz aufnehmen -->
+    <section id="v-notiz" class="view">
+      <div class="row">
+        <label>Tag <input type="date" id="noteDate"></label>
+        <span id="noteDayLabel" class="muted"></span>
+      </div>
+
+      <div id="step-record" class="card center">
+        <button id="recBtn" class="rec" aria-label="Aufnahme starten"><span></span></button>
+        <div id="recTime" class="rec-time">Tippen zum Aufnehmen</div>
+        <p class="muted small">Einfach frei sprechen und Namen nennen, z. B. „Bei Anna und Balu …, Kira hat heute …“</p>
+        <button id="typeBtn" class="link">oder Text eintippen</button>
+        <button id="lastAudioBtn" class="link hidden">Letzte Aufnahme erneut verarbeiten</button>
+      </div>
+
+      <div id="step-text" class="card hidden">
+        <h3>Text</h3>
+        <textarea id="transcript" rows="8" placeholder="Notiz eintippen oder Transkript prüfen …"></textarea>
+        <div class="actions">
+          <button id="discardText" class="secondary">Verwerfen</button>
+          <button id="assignBtn">Den Teams zuordnen</button>
+        </div>
+      </div>
+
+      <div id="step-preview" class="hidden">
+        <h3>Vorschau – bitte prüfen</h3>
+        <div id="segments"></div>
+        <button id="addSeg" class="link">+ Abschnitt hinzufügen</button>
+        <div class="actions sticky">
+          <button id="backToText" class="secondary">Zurück</button>
+          <button id="saveBtn">Im Lehrgang speichern</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Tagesansicht -->
+    <section id="v-tag" class="view hidden">
+      <div class="daynav">
+        <button id="dayPrev" class="secondary">‹</button>
+        <input type="date" id="dayDate">
+        <button id="dayNext" class="secondary">›</button>
+      </div>
+      <div id="dayLabel" class="muted center"></div>
+      <div id="dayList"></div>
+      <button id="dayAdd">Notiz für diesen Tag aufnehmen</button>
+    </section>
+
+    <!-- Lehrgänge -->
+    <section id="v-lehrgang" class="view hidden">
+      <div id="courseList"></div>
+      <div class="actions">
+        <button id="newCourseBtn">+ Neuer Lehrgang</button>
+        <button id="editCourseBtn" class="secondary">Aktuellen bearbeiten</button>
+      </div>
+      <div class="actions">
+        <button id="downloadBtn" class="secondary">Excel herunterladen</button>
+        <a id="driveLink" class="button secondary hidden" target="_blank" rel="noopener">In Google Drive öffnen</a>
+      </div>
+
+      <form id="courseForm" class="card hidden">
+        <h3 id="courseFormTitle">Neuer Lehrgang</h3>
+        <label>Name des Lehrgangs <input name="titel" required placeholder="z. B. Begleithunde Frühjahr 2027"></label>
+        <label>Trainer/in <input name="trainer"></label>
+        <label>Ort <input name="ort"></label>
+        <label>Erster Tag <input type="date" name="start" required></label>
+        <fieldset class="seg">
+          <legend>Dauer</legend>
+          <label><input type="radio" name="wochen" value="4" checked> 4 Wochen</label>
+          <label><input type="radio" name="wochen" value="10"> 10 Wochen</label>
+        </fieldset>
+        <h4>Teams</h4>
+        <div id="teamRows"></div>
+        <button type="button" id="addTeam" class="link">+ Team hinzufügen</button>
+        <div class="actions">
+          <button type="button" id="cancelCourse" class="secondary">Abbrechen</button>
+          <button type="submit">Speichern</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- Einstellungen -->
+    <section id="v-einst" class="view hidden">
+      <form id="settingsForm" class="card">
+        <h3>Speicherort</h3>
+        <label class="inline"><input type="radio" name="mode" value="drive"> Google Drive (empfohlen)</label>
+        <label class="inline"><input type="radio" name="mode" value="local"> Nur auf diesem Gerät (zum Ausprobieren)</label>
+        <div id="driveBox">
+          <p class="small muted">Baumi legt die Dateien im Ordner „Baumi Lehrgänge“ in deinem eigenen Google Drive an und sieht nur diese Dateien.</p>
+          <div class="actions"><button type="button" id="connectBtn">Mit Google verbinden</button><button type="button" id="disconnectBtn" class="secondary">Trennen</button></div>
+          <div id="driveStatus" class="small"></div>
+          <details><summary class="small">Erweitert</summary>
+            <label>Google-Client-ID <input name="clientId" placeholder="…apps.googleusercontent.com"></label>
+          </details>
+        </div>
+        <h3>OpenAI</h3>
+        <label>API-Schlüssel <input name="openaiKey" type="password" autocomplete="off" placeholder="sk-…"></label>
+        <p class="small muted">Der Schlüssel bleibt nur auf diesem Gerät gespeichert und wird direkt an OpenAI geschickt.</p>
+        <details><summary class="small">Modelle</summary>
+          <label>Spracherkennung <input name="sttModel"></label>
+          <label>Zuordnung <input name="llmModel"></label>
+        </details>
+        <div class="actions"><button type="submit">Speichern</button></div>
+      </form>
+      <div class="card">
+        <button id="wipeBtn" class="danger">Alle Baumi-Daten auf diesem Gerät löschen</button>
+        <p class="small muted">Löscht Schlüssel, Einstellungen und lokale Testdateien. Dateien in Google Drive bleiben erhalten.</p>
+      </div>
+    </section>
+  </main>
+
+  <nav class="tabs">
+    <button data-go="notiz" class="active">🎙️<span>Notiz</span></button>
+    <button data-go="tag">📅<span>Tag</span></button>
+    <button data-go="lehrgang">📁<span>Lehrgang</span></button>
+    <button data-go="einst">⚙️<span>Einstellungen</span></button>
+  </nav>
+
+  <div id="busy" class="busy hidden"><div class="spinner"></div><div id="busyText">Bitte warten …</div></div>
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="config.js"></script>
+  <script src="vendor/exceljs.min.js"></script>
+  <script src="js/workbook.js"></script>
+  <script src="js/services.js"></script>
+  <script src="js/app.js"></script>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+</body>
+</html>
