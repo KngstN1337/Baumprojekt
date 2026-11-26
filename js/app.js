@@ -26,6 +26,11 @@
   let selDate = today();
   let currentTeam = null; // geöffnete Team-Seite
   let editing = false;
+  let info = null; // Drive-Angaben zum aktiven Lehrgang (geteilt?, Besitzer, freigegebener Schlüssel)
+  let lastRev = '';
+  const myName = () => (S.Drive.user && (S.Drive.user.displayName || S.Drive.user.emailAddress)) || '';
+  // Geteilter Lehrgang mit freigegebenem Schlüssel des Einladenden → dieser, sonst der eigene
+  const openaiKey = () => (info && info.id === activeId && !info.ownedByMe && info.sharedKey) || settings.openaiKey;
 
   // ---------------- UI-Helfer ----------------
   function toast(msg, ms) { const t = $('#toast'); t.textContent = msg; t.classList.remove('hidden'); clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.add('hidden'), ms || 3000); }
@@ -73,9 +78,11 @@
     const cached = await S.KV.get('course:' + activeId);
     if (cached) { course = cached; clampDate(); renderToday(); }
     try {
+      const rev = await store().revision(activeId);
       const buf = await store().load(activeId);
-      course = await WBK.parse(buf);
+      course = await WBK.parse(buf); lastRev = rev;
       await S.KV.set('course:' + activeId, course);
+      await loadInfo();
     } catch (e) {
       if (/404/.test(e.message)) { setActive(''); course = null; return loadActive(); }
       if (!e.needsLogin && !cached) toast(e.message, 5000);
@@ -89,14 +96,35 @@
     if (i < 1) selDate = course.meta.start; else if (i > max) selDate = WBK.addDays(course.meta.start, max - 1);
   }
 
-  // Lesen – ändern – zurückschreiben. So bleiben Änderungen, die am PC in Excel gemacht wurden, erhalten.
-  async function modifyCourse(fn) {
-    const buf = await store().load(activeId);
-    const c = await WBK.parse(buf);
-    fn(c);
-    await store().save(activeId, await WBK.toBuffer(c));
-    course = c;
-    await S.KV.set('course:' + activeId, c);
+  async function loadInfo() {
+    try { info = await S.Drive.info(activeId); } catch (e) { return; }
+    renderShare(); renderToday();
+  }
+  // Neuen Stand des Lehrgangs holen, wenn ein anderer Trainer (oder der PC) etwas gespeichert hat
+  async function refreshIfChanged() {
+    if (!activeId || !S.Drive.connected() || document.body.classList.contains('sheet-open')) return;
+    try { if ((await store().revision(activeId)) !== lastRev) await loadActive(); } catch (e) { /* später */ }
+  }
+
+  // Lesen – ändern – zurückschreiben. So bleiben Änderungen, die am PC in Excel oder vom zweiten Trainer gemacht wurden, erhalten.
+  // fn muss mehrfach aufrufbar sein: Hat in der Zwischenzeit jemand anderes gespeichert, wird neu eingelesen und wiederholt.
+  // check prüft nach dem Speichern, ob die Änderung wirklich in der Datei steht.
+  async function modifyCourse(fn, check) {
+    for (let i = 0; i < 5; i++) {
+      const rev = await store().revision(activeId);
+      const c = await WBK.parse(await store().load(activeId));
+      fn(c);
+      try { await store().save(activeId, await WBK.toBuffer(c), rev); }
+      catch (e) { if (e.conflict) { await new Promise(r => setTimeout(r, 800 + Math.random() * 1500)); continue; } throw e; }
+      if (check) {
+        const now = await WBK.parse(await store().load(activeId));
+        if (!check(now)) { await new Promise(r => setTimeout(r, 800 + Math.random() * 1500)); continue; }
+      }
+      course = c; lastRev = await store().revision(activeId).catch(() => '');
+      await S.KV.set('course:' + activeId, c);
+      return;
+    }
+    throw new Error('Speichern gerade nicht möglich, weil die Datei ständig geändert wird. Die Notiz bleibt erhalten, bitte gleich nochmal tippen.');
   }
 
   // ---------------- Heute: Tag wählen, Teams ----------------
@@ -150,12 +178,13 @@
   }
   function renderTeamNotes() {
     const notes = WBK.sortNotes(course.notes.filter(n => n.team === currentTeam)).reverse();
+    const mehrere = new Set(course.notes.map(n => n.von).filter(Boolean)).size > 1;
     const dates = [...new Set([selDate, ...notes.map(n => n.datum)])].sort().reverse();
     $('#teamNotes').innerHTML = dates.map(d => {
       const mine = notes.filter(n => n.datum === d);
       if (!mine.length && d !== selDate) return '';
       return '<div class="section-h">' + esc(longDate(d)) + (d === today() ? ' · Heute' : '') + '</div><div class="group">' + (mine.length
-        ? mine.map(n => '<div class="note"><div class="note-m"><span>' + esc(n.uhrzeit) + ' Uhr</span><span class="tag">' + esc(n.kategorie) + '</span></div><div class="note-t">' + esc(n.text) + '</div></div>').join('')
+        ? mine.map(n => '<div class="note"><div class="note-m"><span>' + esc(n.uhrzeit) + ' Uhr' + (mehrere && n.von ? ' · ' + esc(n.von) : '') + '</span><span class="tag">' + esc(n.kategorie) + '</span></div><div class="note-t">' + esc(n.text) + '</div></div>').join('')
         : '<div class="empty">Noch keine Notiz an diesem Tag.</div>') + '</div>';
     }).join('');
   }
@@ -195,7 +224,7 @@
   }
   function needSetup() {
     if (!course) { toast('Bitte zuerst einen Lehrgang anlegen oder wählen.'); go('lehrgang'); return true; }
-    if (!settings.openaiKey) { toast('Bitte zuerst den OpenAI-Schlüssel eintragen.', 5000); go('einst'); return true; }
+    if (!openaiKey()) { toast('Bitte zuerst den OpenAI-Schlüssel eintragen.', 5000); go('einst'); return true; }
     return false;
   }
   function typeNote(teamName) {
@@ -226,7 +255,7 @@
       job.uhrzeit = nowTime();
       // Sofort sichern: erst auf dem Gerät, dann (sobald Netz da ist) in Google Drive – noch vor der KI-Verarbeitung.
       const teamName = job.team === ALLE ? 'Alle Teams' : job.team;
-      const item = { aid: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), courseId: activeId, datum: job.datum, uhrzeit: job.uhrzeit, team: teamName,
+      const item = { aid: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), courseId: activeId, datum: job.datum, uhrzeit: job.uhrzeit, team: teamName, von: myName(),
         mime: blob.type || 'audio/webm', blob, transcript: null, created: Date.now() };
       job.aid = item.aid;
       await S.Outbox.put(item);
@@ -274,7 +303,7 @@
     try {
       sheetState('busy', 'Spracherkennung läuft …');
       const hint = 'Hundetraining. Teams: ' + course.teams.map(t => t.teilnehmer + ' mit ' + t.hund).join(', ') + '.';
-      const text = await S.transcribe(blob, { key: settings.openaiKey, model: settings.sttModel, hint });
+      const text = await S.transcribe(blob, { key: openaiKey(), model: settings.sttModel, hint });
       if (job.aid && text) await keepTranscript(job.aid, text);
       job.transcript = text;
       if (!text) { job.text = ''; fillEdit(); sheetState('edit'); toast('Es wurde nichts verstanden. Du kannst den Text eintippen.', 5000); return; }
@@ -285,7 +314,7 @@
     try {
       sheetState('busy', 'Formuliere im Stil „' + (STIL_KURZ[settings.stil] || (S.STILE.find(s => s.id === settings.stil) || S.STILE[0]).name) + '“ …');
       const tm = job.team === ALLE ? null : teamByName(job.team);
-      const r = await S.formulate(quelle, tm, { key: settings.openaiKey, model: settings.llmModel, stil: settings.stil });
+      const r = await S.formulate(quelle, tm, { key: openaiKey(), model: settings.llmModel, stil: settings.stil });
       job.text = r.text; job.kategorie = r.kategorie;
       fillEdit(); sheetState('edit'); saveDraft();
     } catch (e) {
@@ -304,9 +333,10 @@
     const text = job.text.trim();
     if (!text) { toast('Kein Text vorhanden.'); return; }
     const teams = job.team === ALLE ? course.teams.map(t => t.name) : [job.team];
-    const neu = teams.map(team => ({ datum: job.datum, uhrzeit: job.uhrzeit, team, kategorie: job.kategorie, text, quelle: job.transcript ? 'Sprachnotiz' : 'Eingetippt' }));
+    const neu = teams.map(team => ({ datum: job.datum, uhrzeit: job.uhrzeit, team, kategorie: job.kategorie, text, quelle: job.transcript ? 'Sprachnotiz' : 'Eingetippt', von: myName() }));
+    const drin = (c, n) => c.notes.some(m => m.datum === n.datum && m.uhrzeit === n.uhrzeit && m.team === n.team && m.text === n.text.trim());
     try {
-      await withStore('Speichere im Lehrgang …', () => modifyCourse(c => { c.notes.push(...neu); }));
+      await withStore('Speichere im Lehrgang …', () => modifyCourse(c => { c.notes.push(...neu.filter(n => !drin(c, n))); }, c => neu.every(n => drin(c, n))));
       if (job.aid) await S.KV.del('lastAudio');
       closeSheet(); banner('');
       toast('✓ Gespeichert');
@@ -350,7 +380,7 @@
   async function recordings() {
     if (recCache && recCache.id === activeId) return recCache.list;
     const list = await S.Drive.listRecordings(activeId);
-    (await S.Outbox.all()).filter(it => it.courseId === activeId && it.blob).forEach(it => list.unshift({ aid: it.aid, datum: it.datum, uhrzeit: it.uhrzeit, team: it.team || '', local: it }));
+    (await S.Outbox.all()).filter(it => it.courseId === activeId && it.blob).forEach(it => list.unshift({ aid: it.aid, datum: it.datum, uhrzeit: it.uhrzeit, team: it.team || '', von: it.von || '', local: it }));
     recCache = { id: activeId, list };
     return list;
   }
@@ -361,7 +391,7 @@
     try { list = (await recordings()).filter(r => !filter || filter(r)); } catch (e) { el.innerHTML = '<div class="empty">Aufnahmen konnten nicht geladen werden (' + esc(e.message) + ').</div>'; return; }
     el.innerHTML = list.length ? list.map(r =>
       '<div class="cell rec-cell" data-aid="' + esc(r.aid) + '">' + (r.audioId || r.local ? '<button class="play" data-play aria-label="Anhören">' + svg('i-play') + '</button>' : '') +
-      '<div class="cell-tx"><b>' + esc(longDate(r.datum)) + '</b><span>' + esc(r.uhrzeit) + ' Uhr' + (filter && r.team ? '' : r.team ? ' · ' + esc(r.team) : '') + (r.local ? ' · noch nicht in Drive' : '') + '</span></div>' +
+      '<div class="cell-tx"><b>' + esc(longDate(r.datum)) + '</b><span>' + esc(r.uhrzeit) + ' Uhr' + (filter && r.team ? '' : r.team ? ' · ' + esc(r.team) : '') + (r.von && r.von !== myName() ? ' · ' + esc(r.von) : '') + (r.local ? ' · noch nicht in Drive' : '') + '</span></div>' +
       (r.textId ? '<button class="text-btn" data-text>Rohtext</button>' : '') + '</div>').join('')
       : '<div class="empty">Noch keine Aufnahmen.</div>';
     el.onclick = async e => {
@@ -391,11 +421,90 @@
     $('#driveLink').classList.add('hidden');
     try { courses = await withStore('Lade Lehrgänge …', () => store().list()); } catch (e) { courses = []; }
     $('#courseList').innerHTML = courses.length
-      ? courses.map(f => '<label class="cell"><input type="radio" name="course" value="' + esc(f.id) + '"' + (f.id === activeId ? ' checked' : '') + '><div class="cell-tx"><b>' + esc(f.name.replace(/\.xlsx$/, '').replace(/^Lehrgang /, '')) + '</b><span>geändert ' + new Date(f.modifiedTime).toLocaleString('de-DE', { dateStyle: 'medium', timeStyle: 'short' }) + '</span></div></label>').join('')
+      ? courses.map(f => '<label class="cell"><input type="radio" name="course" value="' + esc(f.id) + '"' + (f.id === activeId ? ' checked' : '') + '><div class="cell-tx"><b>' + esc(f.name.replace(/\.xlsx$/, '').replace(/^Lehrgang /, '')) + '</b><span>' + (f.ownedByMe === false ? 'geteilt von ' + esc(((f.owners || [])[0] || {}).displayName || 'Kollege') + ' · ' : '') + 'geändert ' + new Date(f.modifiedTime).toLocaleString('de-DE', { dateStyle: 'medium', timeStyle: 'short' }) + '</span></div></label>').join('')
       : '<div class="empty">Noch keine Lehrgänge. Tippe oben rechts auf „Neu“.</div>';
     const cur = courses.find(f => f.id === activeId);
     if (cur) S.Drive.withFolders(cur.id, f => f).then(f => { $('#driveLink').href = 'https://drive.google.com/drive/folders/' + f.folder; show('#driveLink', true); }).catch(() => {});
     $('#allRecs').open = false;
+    renderShare();
+  }
+
+  // ---------------- Gemeinsame Lehrgänge (zweiter Trainer) ----------------
+  async function renderShare() {
+    const box = $('#shareBox');
+    if (!box) return;
+    if (!activeId || !info || info.id !== activeId) { box.innerHTML = ''; show('#shareSec', false); return; }
+    show('#shareSec', true);
+    if (!info.ownedByMe) {
+      const owner = (info.owners || [])[0] || {};
+      box.innerHTML = '<div class="cell"><div class="cell-tx wrap"><b>Geteilt von ' + esc(owner.displayName || owner.emailAddress || 'einem Kollegen') + '</b><span>' +
+        (info.sharedKey ? 'Für die Spracherkennung wird der OpenAI-Schlüssel von ' + esc(info.sharedKeyBy || owner.displayName || 'deinem Kollegen') + ' genutzt.' : 'Für die Spracherkennung wird dein eigener OpenAI-Schlüssel genutzt.') + '</span></div></div>';
+      return;
+    }
+    let list = [];
+    try { const f = await S.Drive.withFolders(activeId, x => x); list = await S.Drive.shares(f.folder); } catch (e) { /* offline */ }
+    box.innerHTML = list.map(p => '<div class="cell"><div class="cell-tx"><b>' + esc(p.displayName || p.emailAddress) + '</b><span>' + esc(p.emailAddress || '') + ' · kann einsprechen</span></div><button class="text-btn" data-unshare="' + esc(p.id) + '">Entfernen</button></div>').join('') +
+      '<button class="cell link-cell" id="inviteBtn">Trainer einladen</button>' +
+      '<label class="cell"><div class="cell-tx wrap"><b>Meinen OpenAI-Schlüssel mitbenutzen lassen</b><span>Eingeladene Trainer sprechen dann über deinen Schlüssel ein (Kosten bei dir). Sonst braucht jeder einen eigenen.</span></div><input type="checkbox" class="switch" id="shareKey"' + (info.sharedKey ? ' checked' : '') + '></label>';
+  }
+  async function invite() {
+    const email = (prompt('E-Mail-Adresse (Google-Konto) des Trainers, der mit einsprechen soll:') || '').trim();
+    if (!email) return;
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return toast('Das ist keine gültige E-Mail-Adresse.');
+    const titel = (course && course.meta.titel) || '';
+    try {
+      await withStore('Lade ein …', async () => {
+        const f = await S.Drive.withFolders(activeId, x => x);
+        const link = location.origin + location.pathname + '?lehrgang=' + encodeURIComponent(f.folder);
+        await S.Drive.share(f.folder, email, myName() + ' hat dich zum Lehrgang „' + titel + '“ in Baumprojekt eingeladen. So machst du mit: ' + link + ' öffnen, mit diesem Google-Konto anmelden und „Hinzufügen“ tippen.');
+      });
+      toast('✓ Eingeladen. ' + email + ' bekommt eine E-Mail von Google. Wichtig: Das Konto muss für Baumprojekt freigeschaltet sein.', 7000);
+      await loadInfo();
+    } catch (e) { /* gemeldet */ }
+  }
+  async function unshare(permId) {
+    if (!confirm('Diesen Trainer aus dem Lehrgang entfernen? Er kann dann nichts mehr sehen oder einsprechen. Seine bisherigen Notizen bleiben.')) return;
+    try { await withStore('Entferne …', async () => { const f = await S.Drive.withFolders(activeId, x => x); await S.Drive.unshare(f.folder, permId); }); renderShare(); } catch (e) { /* gemeldet */ }
+  }
+  async function toggleShareKey(on) {
+    if (on && !settings.openaiKey) { toast('Bitte zuerst unter Einstellungen deinen OpenAI-Schlüssel eintragen.', 5000); renderShare(); return; }
+    if (on && !confirm('Eingeladene Trainer können dann über deinen OpenAI-Schlüssel einsprechen, die Kosten laufen über dein Konto. Einverstanden?')) { renderShare(); return; }
+    try { await withStore('Speichere …', () => S.Drive.setSharedKey(activeId, on ? settings.openaiKey : null, myName())); toast(on ? '✓ Schlüssel für diesen Lehrgang freigegeben' : '✓ Freigabe des Schlüssels beendet'); }
+    catch (e) { /* gemeldet */ }
+    await loadInfo();
+  }
+  // Eingeladener Trainer: geteilten Lehrgang auswählen. Wegen des eingeschränkten Google-Zugriffs (drive.file)
+  // muss er Datei und Ordner einmal selbst in der Google-Auswahl antippen, dann darf die App damit arbeiten.
+  async function addShared(folderId) {
+    if (!S.Drive.connected()) return toast('Bitte zuerst anmelden.');
+    let parent = folderId || '';
+    for (let runde = 0; runde < 3; runde++) {
+      if (runde || parent) toast(parent ? 'Bitte im nächsten Fenster alles markieren (Excel-Datei, Aufnahmen, Sicherungen) und auf „Auswählen“ tippen.' : 'Bitte den Lehrgangsordner auswählen.', 8000);
+      let docs;
+      try { docs = await S.pick({ token: S.Drive.token, apiKey: CFG.googleApiKey, appId: clientId().split('-')[0], parent, origin: location.origin }); }
+      catch (e) { toast(e.message, 6000); return; }
+      if (!docs) return;
+      let id = null;
+      try {
+        busy('Prüfe Freigabe …');
+        for (const d of docs) {
+          if (d.mimeType === S.XLSX_MIME && !id) id = d.id;
+          if (d.mimeType === 'application/vnd.google-apps.folder' && !/^(Aufnahmen|Sicherungen)$/.test(d.name) && !parent) parent = d.id;
+        }
+        if (!id && parent) id = await S.Drive.courseIn(parent);
+        if (id) {
+          localStorage.removeItem('baumprojekt.folders.' + id);
+          await S.Drive.courseFolders(id); // prüft Zugriff auf Aufnahmen und Sicherungen
+          busy();
+          localStorage.removeItem('baumprojekt.invite');
+          setActive(id); selDate = today(); await loadActive(); refreshCourses();
+          toast('✓ Geteilter Lehrgang hinzugefügt. Ihr könnt jetzt beide einsprechen.', 5000);
+          return;
+        }
+      } catch (e) { if (!e.noAccess) { busy(); toast(e.message, 6000); return; } }
+      busy();
+    }
+    toast('Der Lehrgang konnte nicht vollständig freigegeben werden. Bitte nochmal versuchen und im Ordner alles markieren.', 8000);
   }
   function teamRow(t) {
     t = t || {};
@@ -537,7 +646,11 @@
     await restoreDraft();
     migrate();
     syncOutbox();
-    if (!settings.openaiKey) banner('<span>Fast fertig: Für die Spracherkennung brauchst du einmalig einen OpenAI-Schlüssel.</span><button>Zur Anleitung</button>', () => { banner(''); go('einst'); });
+    if (localStorage.getItem('baumprojekt.invite')) {
+      banner('<span>Ein Lehrgang wurde mit dir geteilt.</span><button>Hinzufügen</button>', () => { banner(''); go('lehrgang'); addShared(localStorage.getItem('baumprojekt.invite')); });
+      return;
+    }
+    if (!openaiKey()) banner('<span>Fast fertig: Für die Spracherkennung brauchst du einmalig einen OpenAI-Schlüssel.</span><button>Zur Anleitung</button>', () => { banner(''); go('einst'); });
     else if (!course) { go('lehrgang'); }
   }
   async function login(chooseAccount) {
@@ -546,7 +659,7 @@
     catch (e) { $('#loginMsg').textContent = e.message; }
   }
   function logout() {
-    S.Drive.logout(); course = null; setActive('');
+    S.Drive.logout(); course = null; info = null; setActive('');
     lock(true); go('heute');
   }
 
@@ -589,6 +702,9 @@
     $('#stilSeg').addEventListener('click', e => { const b = e.target.closest('[data-stil]'); if (b) chooseStil(b.dataset.stil); });
     $('#courseList').addEventListener('change', async e => { if (e.target.name === 'course') { setActive(e.target.value); selDate = today(); await withStore('Lade Lehrgang …', loadActive).catch(() => {}); refreshCourses(); } });
     $('#newCourseBtn').addEventListener('click', () => openCourseForm(false));
+    $('#addSharedBtn').addEventListener('click', () => addShared(localStorage.getItem('baumprojekt.invite') || ''));
+    $('#shareBox').addEventListener('click', e => { if (e.target.id === 'inviteBtn') invite(); const u = e.target.closest('[data-unshare]'); if (u) unshare(u.dataset.unshare); });
+    $('#shareBox').addEventListener('change', e => { if (e.target.id === 'shareKey') toggleShareKey(e.target.checked); });
     $('#editCourseBtn').addEventListener('click', () => (course ? openCourseForm(true) : toast('Kein Lehrgang gewählt.')));
     $('#addTeam').addEventListener('click', () => $('#teamRows').insertAdjacentHTML('beforeend', teamRow()));
     $('#teamRows').addEventListener('click', e => { if (e.target.hasAttribute('data-rm')) e.target.closest('.team-row').remove(); });
@@ -602,8 +718,10 @@
     $('#loginBtn').addEventListener('click', () => login(false));
     $('#allRecs').addEventListener('toggle', () => { if ($('#allRecs').open) renderRecordings($('#allRecList')); });
     window.addEventListener('online', syncOutbox);
-    document.addEventListener('visibilitychange', () => { if (!document.hidden) { syncOutbox(); if (course && !document.body.classList.contains('sheet-open')) renderToday(); } });
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) { syncOutbox(); refreshIfChanged(); if (course && !document.body.classList.contains('sheet-open')) renderToday(); } });
     setInterval(syncOutbox, 120000);
+    // Geteilter Lehrgang: Notizen des Kollegen regelmäßig nachladen
+    setInterval(() => { if (!document.hidden && info && info.shared) refreshIfChanged(); }, 60000);
     $('#wipeBtn').addEventListener('click', async () => {
       const offen = (await S.Outbox.all()).filter(it => it.blob || (it.transcript && !it.textId)).length;
       if (offen && !confirm('Achtung: ' + offen + ' Aufnahme(n) sind noch nicht in Google Drive gesichert und gehen beim Löschen verloren. Trotzdem löschen?')) return;
@@ -613,6 +731,9 @@
   }
 
   async function init() {
+    // Einladungslink (…?lehrgang=<Ordner>) merken, auch über die Google-Anmeldung hinweg
+    const inv = new URLSearchParams(location.search).get('lehrgang');
+    if (inv) { localStorage.setItem('baumprojekt.invite', inv); history.replaceState(null, '', location.pathname + location.hash); }
     bind();
     if ('serviceWorker' in navigator && location.protocol !== 'file:') {
       const hadController = !!navigator.serviceWorker.controller;

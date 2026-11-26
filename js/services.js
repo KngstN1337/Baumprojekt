@@ -185,7 +185,7 @@
     //                                                      / Sicherungen (Stand der Excel vor jedem Speichern)
     async list() {
       const q = encodeURIComponent("appProperties has { key='baumprojekt' and value='1' } and trashed=false");
-      const r = await this.req('https://www.googleapis.com/drive/v3/files?q=' + q + '&orderBy=modifiedTime desc&fields=files(id,name,modifiedTime,webViewLink,parents)');
+      const r = await this.req('https://www.googleapis.com/drive/v3/files?q=' + q + '&orderBy=modifiedTime desc&fields=files(id,name,modifiedTime,webViewLink,parents,ownedByMe,owners(displayName,emailAddress))');
       return (await r.json()).files || [];
     },
     // Einstellungen (OpenAI-Schlüssel, Modelle) als kleine Datei im eigenen Drive – damit sie auf allen Geräten da sind
@@ -240,8 +240,20 @@
       const key = 'baumprojekt.folders.' + id;
       try { const c = JSON.parse(localStorage.getItem(key) || 'null'); if (c) return c; } catch (e) { /* ignore */ }
       const root = await this.folderId();
-      const f = await (await this.req('https://www.googleapis.com/drive/v3/files/' + id + '?fields=name,parents')).json();
+      const f = await (await this.req('https://www.googleapis.com/drive/v3/files/' + id + '?fields=name,parents,ownedByMe')).json();
       let folder = (f.parents || [])[0];
+      if (!f.ownedByMe) {
+        // Geteilter Lehrgang: nie verschieben und nichts doppelt anlegen, nur die vorhandenen Ordner des Kollegen nutzen
+        const sub = async name => {
+          const q = "mimeType='application/vnd.google-apps.folder' and name='" + name + "' and '" + folder + "' in parents and trashed=false";
+          const found = folder ? await this.query(q, 'id') : [];
+          if (!found.length) throw Object.assign(new Error('Kein Zugriff auf den Ordner „' + name + '“ des geteilten Lehrgangs. Bitte unter Lehrgänge „Geteilten Lehrgang hinzufügen“ tippen und alles im Ordner auswählen.'), { noAccess: true });
+          return found[0].id;
+        };
+        const out = { folder, aufnahmen: await sub('Aufnahmen'), sicherungen: await sub('Sicherungen'), shared: true };
+        localStorage.setItem(key, JSON.stringify(out));
+        return out;
+      }
       if (!folder || folder === root) {
         folder = await this.folder(safeName(f.name.replace(/\.xlsx$/i, '').replace(/^Lehrgang /, '')) || 'Lehrgang', root, true);
         await this.req('https://www.googleapis.com/drive/v3/files/' + id + '?addParents=' + folder + (f.parents && f.parents.length ? '&removeParents=' + f.parents.join(',') : '') + '&fields=id', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: '{}' });
@@ -265,8 +277,10 @@
       return id;
     },
     // Vor jedem Überschreiben: aktuellen Stand nach „Sicherungen“ kopieren. Klappt das nicht, wird nicht überschrieben.
-    async save(id, buf) {
+    // expectedRev: Stand beim Einlesen. Hat inzwischen jemand anderes gespeichert (zweiter Trainer), wird nicht überschrieben.
+    async save(id, buf, expectedRev) {
       await this.withFolders(id, f => this.backup(id, f));
+      if (expectedRev && (await this.revision(id)) !== expectedRev) throw Object.assign(new Error('Die Datei wurde gerade woanders geändert.'), { conflict: true });
       await this.req('https://www.googleapis.com/upload/drive/v3/files/' + id + '?uploadType=media', { method: 'PATCH', headers: { 'Content-Type': XLSX_MIME }, body: new Blob([buf], { type: XLSX_MIME }) });
       this.pruneBackups(id).catch(() => {});
     },
@@ -287,6 +301,42 @@
         await this.req('https://www.googleapis.com/drive/v3/files/' + f.id + '?fields=id', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ trashed: true }) });
       }
     },
+    async revision(id) {
+      const j = await (await this.req('https://www.googleapis.com/drive/v3/files/' + id + '?fields=headRevisionId,md5Checksum,modifiedTime')).json();
+      return (j.headRevisionId || '') + '|' + (j.md5Checksum || '') + '|' + (j.modifiedTime || '');
+    },
+    async info(id) {
+      const r = await this.req('https://www.googleapis.com/drive/v3/files/' + id + '?fields=id,name,shared,ownedByMe,owners(displayName,emailAddress),appProperties,parents');
+      const j = await r.json();
+      const p = j.appProperties || {};
+      j.sharedKey = [0, 1, 2, 3].map(i => p['bk' + i] || '').join('');
+      j.sharedKeyBy = p.bkVon || '';
+      return j;
+    },
+    // OpenAI-Schlüssel des Einladenden für den Lehrgang freigeben (oder mit key=null zurücknehmen).
+    // Er liegt als App-Eigenschaft an der Lehrgangsdatei: nicht in der Excel, nicht in Downloads, nur für Baumprojekt lesbar.
+    async setSharedKey(id, key, von) {
+      const props = { bkVon: key ? String(von || '').slice(0, 100) : null };
+      const chunks = key ? key.match(/.{1,110}/g) || [] : [];
+      if (chunks.length > 4) throw new Error('Schlüssel zu lang.');
+      [0, 1, 2, 3].forEach(i => { props['bk' + i] = chunks[i] || null; });
+      await this.req('https://www.googleapis.com/drive/v3/files/' + id + '?fields=id', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ appProperties: props }) });
+    },
+    // Freigabe des Lehrgangsordners (Excel, Aufnahmen, Sicherungen) an einen zweiten Trainer
+    async share(folderId, email, message) {
+      await this.req('https://www.googleapis.com/drive/v3/files/' + folderId + '/permissions?sendNotificationEmail=true&emailMessage=' + encodeURIComponent(message) + '&fields=id', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ role: 'writer', type: 'user', emailAddress: email }) });
+    },
+    async shares(folderId) {
+      const r = await this.req('https://www.googleapis.com/drive/v3/files/' + folderId + '/permissions?fields=permissions(id,emailAddress,displayName,role,type)');
+      return ((await r.json()).permissions || []).filter(p => p.role !== 'owner' && p.type === 'user');
+    },
+    async unshare(folderId, permId) { await this.req('https://www.googleapis.com/drive/v3/files/' + folderId + '/permissions/' + permId, { method: 'DELETE' }); },
+    // Lehrgangsdatei in einem (geteilten) Ordner finden
+    async courseIn(folderId) {
+      const f = await this.query("'" + folderId + "' in parents and appProperties has { key='baumprojekt' and value='1' } and trashed=false", 'id');
+      return f[0] ? f[0].id : null;
+    },
     async rename(id, titel) {
       const f = await this.courseFolders(id);
       const patch = (fid, name) => this.req('https://www.googleapis.com/drive/v3/files/' + fid + '?fields=id', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) });
@@ -297,12 +347,13 @@
     async putRecording(r, kind, f) {
       const base = r.datum + ' ' + r.uhrzeit.replace(':', '-') + ' (' + r.aid.slice(-4) + ')';
       const props = { bpTyp: kind, kurs: r.courseId, aid: r.aid, datum: r.datum, uhrzeit: r.uhrzeit };
+      if (r.von) props.von = r.von.slice(0, 60);
       if (r.team) props.team = r.team.slice(0, 50);
       if (kind === 'aufnahme') {
         const ext = /mp4|m4a|aac/.test(r.mime) ? 'm4a' : /ogg/.test(r.mime) ? 'ogg' : 'webm';
         return this.upload({ name: base + ' Aufnahme.' + ext, mimeType: r.mime.split(';')[0], parents: [f.aufnahmen], appProperties: props }, r.blob, r.mime);
       }
-      const txt = (r.team ? 'Team: ' + r.team + '\r\n' : '') + 'Rohtext der Aufnahme vom ' + r.datum.split('-').reverse().join('.') + ', ' + r.uhrzeit + ' Uhr\r\n(unverändertes Ergebnis der Spracherkennung)\r\n\r\n' + r.transcript + '\r\n';
+      const txt = (r.team ? 'Team: ' + r.team + '\r\n' : '') + (r.von ? 'Eingesprochen von: ' + r.von + '\r\n' : '') + 'Rohtext der Aufnahme vom ' + r.datum.split('-').reverse().join('.') + ', ' + r.uhrzeit + ' Uhr\r\n(unverändertes Ergebnis der Spracherkennung)\r\n\r\n' + r.transcript + '\r\n';
       return this.upload({ name: base + ' Rohtext.txt', mimeType: 'text/plain', parents: [f.aufnahmen], appProperties: props }, new Blob(['﻿' + txt]), 'text/plain; charset=UTF-8');
     },
     async listRecordings(courseId) {
@@ -311,7 +362,7 @@
       files.forEach(f => {
         const p = f.appProperties || {};
         if (p.bpTyp !== 'aufnahme' && p.bpTyp !== 'rohtext') return;
-        const r = by[p.aid] || (by[p.aid] = { aid: p.aid, datum: p.datum, uhrzeit: p.uhrzeit, team: p.team || '' });
+        const r = by[p.aid] || (by[p.aid] = { aid: p.aid, datum: p.datum, uhrzeit: p.uhrzeit, team: p.team || '', von: p.von || '' });
         if (p.bpTyp === 'aufnahme') r.audioId = f.id; else r.textId = f.id;
       });
       return Object.values(by).sort((a, b) => (b.datum + b.uhrzeit).localeCompare(a.datum + a.uhrzeit));
@@ -378,5 +429,26 @@
     const content = j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content;
     return JSON.parse(content || '{"kategorie":"Sonstiges","text":""}');
   }
-  global.BaumprojektServices = { transcribe, assign, formulate, STILE, Drive, KV, Outbox, KATEGORIEN, XLSX_MIME };
+  // ---------------- Google Picker: geteilten Lehrgang auswählen (nötig wegen drive.file) ----------------
+  function loadScript(src) {
+    return new Promise((resolve, reject) => { const s = document.createElement('script'); s.src = src; s.onload = resolve; s.onerror = () => reject(new Error('Google-Auswahl konnte nicht geladen werden.')); document.head.appendChild(s); });
+  }
+  let pickerReady = null;
+  async function pick(opts) {
+    if (!pickerReady) pickerReady = (global.gapi ? Promise.resolve() : loadScript('https://apis.google.com/js/api.js')).then(() => new Promise(r => gapi.load('picker', r)));
+    try { await pickerReady; } catch (e) { pickerReady = null; throw e; }
+    const P = google.picker;
+    return new Promise(resolve => {
+      const view = new P.DocsView(P.ViewId.DOCS).setIncludeFolders(true).setSelectFolderEnabled(true).setMode(P.DocsViewMode.LIST);
+      if (opts.parent) view.setParent(opts.parent); else view.setOwnedByMe(false);
+      const b = new P.PickerBuilder().addView(view).enableFeature(P.Feature.MULTISELECT_ENABLED).setOAuthToken(opts.token)
+        .setAppId(opts.appId).setLocale('de').setTitle(opts.title || 'Geteilten Lehrgang auswählen')
+        .setCallback(d => { if (d.action === P.Action.PICKED) resolve(d.docs || []); else if (d.action === P.Action.CANCEL) resolve(null); });
+      if (opts.apiKey) b.setDeveloperKey(opts.apiKey);
+      if (opts.origin) b.setOrigin(opts.origin);
+      b.build().setVisible(true);
+    });
+  }
+
+  global.BaumprojektServices = { pick, transcribe, assign, formulate, STILE, Drive, KV, Outbox, KATEGORIEN, XLSX_MIME };
 })(window);

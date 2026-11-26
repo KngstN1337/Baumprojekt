@@ -98,6 +98,9 @@
     days.forEach((_, i) => { ws.getColumn(i + 2).width = 40; });
     ws.getColumn(days.length + 2).width = 26;
 
+    // Sprechen mehrere Trainer in den Lehrgang, steht in der Übersicht hinter jeder Notiz, von wem sie ist
+    const mehrere = new Set(notes.map(n => n.von).filter(Boolean)).size > 1;
+    const vonKurz = n => (mehrere && n.von ? ' (' + n.von.trim().split(/\s+/)[0] + ')' : '');
     const allTeamNames = teams.map(t => t.name);
     notes.forEach(n => { if (n.team && !allTeamNames.includes(n.team)) allTeamNames.push(n.team); });
     allTeamNames.forEach((name, r) => {
@@ -106,7 +109,7 @@
       row.getCell(1).value = name;
       row.getCell(1).font = { bold: true };
       days.forEach((d, i) => {
-        const txt = notes.filter(n => n.team === name && n.datum === d).map(n => (/^\s*•/.test(n.text) ? '' : '• ') + n.text).join('\n');
+        const txt = notes.filter(n => n.team === name && n.datum === d).map(n => (/^\s*•/.test(n.text) ? '' : '• ') + n.text + vonKurz(n)).join('\n');
         if (txt) row.getCell(i + 2).value = txt;
         maxLines = Math.max(maxLines, Math.ceil(txt.length / 42) + (txt.match(/\n/g) || []).length);
       });
@@ -122,8 +125,8 @@
 
     // Notizen (Rohdaten)
     const wn = wb.addWorksheet(SHEET_NOT, { views: [{ state: 'frozen', ySplit: 1 }] });
-    const nh = ['Datum', 'Lehrgangstag', 'Uhrzeit', 'Team', 'Kategorie', 'Notiz', 'Quelle'];
-    const nw = [12, 13, 9, 18, 17, 70, 13];
+    const nh = ['Datum', 'Lehrgangstag', 'Uhrzeit', 'Team', 'Kategorie', 'Notiz', 'Quelle', 'Eingesprochen von'];
+    const nw = [12, 13, 9, 18, 17, 70, 13, 20];
     nh.forEach((h, i) => {
       const c = wn.getRow(1).getCell(i + 1);
       c.value = h; c.font = { bold: true, color: { argb: 'FFFFFFFF' } };
@@ -132,10 +135,10 @@
     });
     notes.forEach((n, i) => {
       const row = wn.getRow(i + 2);
-      row.values = [isoToDe(n.datum), 'Tag ' + dayIndex(m.start, n.datum), n.uhrzeit || '', n.team || '', n.kategorie || '', n.text || '', n.quelle || 'Sprachnotiz'];
+      row.values = [isoToDe(n.datum), 'Tag ' + dayIndex(m.start, n.datum), n.uhrzeit || '', n.team || '', n.kategorie || '', n.text || '', n.quelle || 'Sprachnotiz', n.von || ''];
       row.eachCell(c => { c.alignment = { wrapText: true, vertical: 'top' }; });
     });
-    wn.autoFilter = { from: 'A1', to: 'G' + Math.max(1, notes.length + 1) };
+    wn.autoFilter = { from: 'A1', to: 'H' + Math.max(1, notes.length + 1) };
 
     // Teams
     const wt = wb.addWorksheet(SHEET_TEAMS);
@@ -181,7 +184,7 @@
     const wn = wb.getWorksheet(SHEET_NOT);
     if (wn) wn.eachRow((r, i) => {
       if (i === 1) return;
-      const n = { datum: parseDateCell(r.getCell(1).value), uhrzeit: parseTimeCell(r.getCell(3).value), team: String(cellText(r.getCell(4).value) || '').trim(), kategorie: String(cellText(r.getCell(5).value) || '').trim(), text: String(cellText(r.getCell(6).value) || '').trim(), quelle: String(cellText(r.getCell(7).value) || '').trim() };
+      const n = { datum: parseDateCell(r.getCell(1).value), uhrzeit: parseTimeCell(r.getCell(3).value), team: String(cellText(r.getCell(4).value) || '').trim(), kategorie: String(cellText(r.getCell(5).value) || '').trim(), text: String(cellText(r.getCell(6).value) || '').trim(), quelle: String(cellText(r.getCell(7).value) || '').trim(), von: String(cellText(r.getCell(8).value) || '').trim() };
       if (n.datum && n.text) course.notes.push(n);
     });
 
