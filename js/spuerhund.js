@@ -180,7 +180,9 @@
         '<button type="button" class="cell link-cell" id="addStoff">Geruch hinzufügen</button>';
       $('#svSel').innerHTML = opt(schrittVorlagen(), form.sv, 'Keine Vorlage');
       $('#svName').textContent = form.svName || 'Keine Vorlage';
-      $('#svInfo').textContent = form.schritte.length ? form.schritte.map((x, i) => (i + 1) + '. ' + x.name).join('  ·  ') : 'Ohne Schritte wird nur gezählt.';
+      $('#svInfo').textContent = form.schritte.length ? form.schritte.length + (form.schritte.length === 1 ? ' Schritt' : ' Schritte') : 'Ohne Schritte wird nur gezählt';
+      $('#formSchritte').innerHTML = form.schritte.map((x, i) => '<div class="cell"><div class="avatar zg-nr">' + (i + 1) + '</div><div class="cell-tx wrap"><b>' + esc(x.name) + '</b>' + (x.beschr ? '<span>' + esc(x.beschr) + '</span>' : '') + '</div><button type="button" class="rm" data-rmsch="' + i + '" aria-label="Schritt ' + (i + 1) + ' entfernen">⊖</button></div>').join('') +
+        '<button type="button" class="cell link-cell" id="addSchritt">Schritt hinzufügen</button>';
     }
     function formChange(e) {
       if (!form) return false;
@@ -202,6 +204,9 @@
       const rm = e.target.closest('[data-rmst]');
       if (rm) { form.stoffe.splice(Number(rm.dataset.rmst), 1); renderForm(); return true; }
       if (e.target.id === 'addStoff') { stoffWaehlen(); return true; }
+      const rs = e.target.closest('[data-rmsch]');
+      if (rs) { form.schritte.splice(Number(rs.dataset.rmsch), 1); renderForm(); return true; }
+      if (e.target.id === 'addSchritt') { schrittNeu(); return true; }
       return false;
     }
     // Geruch zum Lehrgang hinzufügen: aus der Bibliothek antippen oder neu eintippen. Danach Rückfrage „Nur hier / In Vorlage“.
@@ -225,6 +230,14 @@
       $('#asOk').onclick = () => nimm($('#asNeu').value);
       $('#asNeu').onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); nimm($('#asNeu').value); } };
       if ($('#asList')) $('#asList').onclick = e => { const b = e.target.closest('[data-as]'); if (b) nimm(b.dataset.as); };
+    }
+    // Schritt nur für diesen Lehrgang hinzufügen
+    function schrittNeu() {
+      ctx.openModal('<h3>Schritt ' + (form.schritte.length + 1) + '</h3><div class="group form m-group"><label class="field"><span>Name</span><input id="snN" placeholder="z. B. Reagenzglas, Zielgeruch" autocomplete="off"></label>' +
+        '<label class="field"><span>Beschreibung</span><input id="snB" placeholder="optional" autocomplete="off"></label></div>' +
+        '<p class="modal-foot">Gilt nur für diesen Lehrgang. Vorlagen änderst du unter Einstellungen → Spürhund.</p><div class="actions"><button class="btn-gray" data-m="close">Abbrechen</button><button class="btn-filled" id="snOk">Hinzufügen</button></div>');
+      setTimeout(() => $('#snN').focus(), 60);
+      $('#snOk').onclick = () => { const n = $('#snN').value.trim(); if (!n) { $('#snN').focus(); return; } form.schritte.push({ name: n, beschr: $('#snB').value.trim() }); ctx.closeModal(); renderForm(); };
     }
     // Für submitCourse: Angaben, die in meta und course.spuer gehören
     function readForm() {
