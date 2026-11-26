@@ -835,6 +835,20 @@
     }
     toast('Der Lehrgang konnte nicht vollständig freigegeben werden. Bitte nochmal versuchen und im Ordner alles markieren.', 8000);
   }
+  // Lehrgang anlegen: Die Eingabetaste springt ins nächste Feld (Tastatur zeigt „Weiter“), im letzten Feld schließt sie die Tastatur
+  function formFelder(f) { return [...f.querySelectorAll('input:not([type=hidden]):not([type=radio]):not([type=checkbox])')].filter(el => el.offsetParent !== null && !el.disabled); }
+  function initWeiter(f) {
+    f.addEventListener('focusin', e => {
+      if (e.target.tagName !== 'INPUT') return;
+      const fs = formFelder(f); e.target.enterKeyHint = fs.indexOf(e.target) === fs.length - 1 ? 'done' : 'next';
+    });
+    f.addEventListener('keydown', e => {
+      if (e.key !== 'Enter' || e.target.tagName !== 'INPUT' || e.isComposing) return;
+      e.preventDefault();
+      const fs = formFelder(f), i = fs.indexOf(e.target);
+      if (i >= 0 && i < fs.length - 1) fs[i + 1].focus(); else e.target.blur();
+    });
+  }
   function teamRow(t) {
     t = t || {};
     return '<div class="team-row"><input placeholder="Teilnehmer/in" data-k="teilnehmer" value="' + esc(t.teilnehmer) + '"><input placeholder="Hund" data-k="hund" value="' + esc(t.hund) + '"><input placeholder="Behörde" data-k="behoerde" value="' + esc(t.behoerde) + '">' +
@@ -1054,6 +1068,7 @@
     $('#errClose').addEventListener('click', () => { closeSheet(); restoreDraft(); });
     renderStil();
     $('#stilSeg').addEventListener('click', e => { const b = e.target.closest('[data-stil]'); if (b) chooseStil(b.dataset.stil); });
+    initWeiter($('#courseForm'));
     $('#courseSelect').addEventListener('change', switchCourse);
     $('#courseSelectTop').addEventListener('change', switchCourse);
     $('#newCourseBtn').addEventListener('click', () => openCourseForm(false));

@@ -4,7 +4,8 @@
 :root{--bg:#f2f2f7;--card:#fff;--label:#000;--sec:rgba(60,60,67,.6);--ter:rgba(60,60,67,.3);--sep:rgba(60,60,67,.18);--fill:rgba(120,120,128,.12);--tint:#2c5d8a;--red:#ff3b30;--green:#34c759;--orange:#ff9500;--bar:rgba(249,249,249,.88);--sheet:#fff;--seg-on:#fff;--fill-tint:#2c5d8a;--field:#fff;color-scheme:light dark}
 @media (prefers-color-scheme:dark){:root{--bg:#000;--card:#1c1c1e;--label:#fff;--sec:rgba(235,235,245,.6);--ter:rgba(235,235,245,.3);--sep:rgba(84,84,88,.6);--fill:rgba(120,120,128,.24);--tint:#6aa5dc;--red:#ff453a;--green:#30d158;--orange:#ff9f0a;--bar:rgba(22,22,24,.88);--sheet:#1c1c1e;--seg-on:#636366;--fill-tint:#2f6ea8;--field:#2c2c2e}}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html{background:var(--bg)}
+html{background:var(--bg);touch-action:manipulation} /* kein Zoom bei Doppeltippen, Zwei-Finger-Zoom bleibt möglich */
+input,textarea,select{font-size:16px} /* ab 16px zoomt iOS beim Antippen von Eingabefeldern nicht heran */
 body{margin:0;font:17px/1.35 -apple-system,BlinkMacSystemFont,"SF Pro Text","Inter","Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--label);-webkit-font-smoothing:antialiased;letter-spacing:-.01em}
 /* Oben Abstand zur Statusleiste: iOS legt dort einen Unschärfe-Verlauf über den Inhalt, daher nichts Wichtiges direkt darunter */
 main{max-width:640px;margin:0 auto;padding:calc(env(safe-area-inset-top) + 24px) 0 calc(96px + env(safe-area-inset-bottom))}
