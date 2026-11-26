@@ -12,8 +12,8 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/icon-192.png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/design.css?v=18">
-  <link rel="stylesheet" href="css/style.css?v=18">
+  <link rel="stylesheet" href="css/design.css?v=19">
+  <link rel="stylesheet" href="css/style.css?v=19">
 </head>
 <body class="locked">
   <section id="login" class="login">
@@ -183,7 +183,27 @@
         <div class="actions"><button type="submit" class="btn-filled">Speichern &amp; prüfen</button></div>
         <button type="button" id="checkKeyBtn" class="text-btn">Schlüssel erneut prüfen</button>
       </form>
-      <div class="section-h">Glossar</div>
+      <div class="section-h">Spracherkennung</div>
+      <div class="group"><button type="button" class="cell" id="glossOpen"><div class="cell-tx"><b>Glossar</b></div><span class="cell-st muted" id="glossCount"></span><svg class="chev"><use href="#i-chev"/></svg></button></div>
+      <div class="card">
+        <button id="wipeBtn" class="danger">Alle Baumprojekt-Daten auf diesem Gerät löschen</button>
+        <p class="small muted">Löscht den OpenAI-Schlüssel, Einstellungen und nicht gespeicherte Entwürfe auf diesem Gerät. Die Dateien in Google Drive bleiben erhalten.</p>
+      </div>
+      <p id="appVersion" class="small muted center"></p>
+    </section>
+
+    <!-- Glossar (Unterseite der Einstellungen) -->
+    <section id="v-glossar" class="view hidden">
+      <div class="navbar"><button class="nav-btn back" id="glossBack"><svg class="chev-l"><use href="#i-back"/></svg>Einstellungen</button><span></span></div>
+      <h1 class="large-title">Glossar</h1>
+      <div class="section-h">Neuer Begriff</div>
+      <form id="glossAdd" class="group form" autocomplete="off">
+        <label class="field"><span>Begriff</span><input id="gaB" placeholder="z. B. Hetzarm" enterkeyhint="next" autocapitalize="sentences"></label>
+        <label class="field"><span>Erkannt als</span><input id="gaF" placeholder="optional" enterkeyhint="done"></label>
+        <button type="submit" class="cell link-cell" id="gaOk">Hinzufügen</button>
+      </form>
+      <p class="group-foot">Nach „Hinzufügen“ kannst du gleich das nächste Wort eintippen. Mehrere Fehlerkennungen mit Komma trennen, z. B. „Hetz Arm, Hetzerarm“.</p>
+      <div class="section-h" id="glossH">Meine Begriffe</div>
       <div class="group" id="glossList"></div>
       <p class="group-foot">Die Spracherkennung und die Formulierung bekommen diese Fachbegriffe bei jeder Aufnahme mit. Klärst du in einer Notiz ein „Meinst du …?“, landet die Korrektur automatisch hier. Gespeichert in deinem Google Drive; bei geteilten Lehrgängen nutzt der andere Trainer deine Begriffe mit.</p>
       <div id="glossFremdBox" class="hidden">
@@ -191,11 +211,6 @@
         <div class="group" id="glossFremd"></div>
         <p class="group-foot">Begriffe des anderen Trainers. Sie gelten in diesem Lehrgang automatisch mit. Antippen, um einen davon in dein eigenes Glossar zu übernehmen.</p>
       </div>
-      <div class="card">
-        <button id="wipeBtn" class="danger">Alle Baumprojekt-Daten auf diesem Gerät löschen</button>
-        <p class="small muted">Löscht den OpenAI-Schlüssel, Einstellungen und nicht gespeicherte Entwürfe auf diesem Gerät. Die Dateien in Google Drive bleiben erhalten.</p>
-      </div>
-      <p id="appVersion" class="small muted center"></p>
     </section>
   </main>
 
@@ -257,11 +272,11 @@
   <div id="busy" class="busy hidden"><div class="spinner"></div><div id="busyText">Bitte warten …</div></div>
   <div id="toast" class="toast hidden"></div>
 
-  <script src="config.js?v=18"></script>
+  <script src="config.js?v=19"></script>
   <script src="vendor/exceljs.min.js"></script>
-  <script src="js/workbook.js?v=18"></script>
-  <script src="js/services.js?v=18"></script>
-  <script src="js/app.js?v=18"></script>
+  <script src="js/workbook.js?v=19"></script>
+  <script src="js/services.js?v=19"></script>
+  <script src="js/app.js?v=19"></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 </body>
 </html>
