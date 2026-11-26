@@ -121,3 +121,14 @@ code{font-size:.9em}
 /* Datumsfelder: iOS richtet den Wert sonst links aus */
 .form input[type=date]{display:flex;justify-content:flex-end;-webkit-appearance:none;appearance:none;min-height:1.4em}
 .form input[type=date]::-webkit-date-and-time-value{text-align:right}
+/* Maus am PC: Antippbares zeigt beim Darüberfahren die Hand und wird leicht grau hinterlegt (nur Geräte mit Maus, Handy unverändert) */
+@media (hover:hover) and (pointer:fine){
+  .cell[data-team],button.cell,label.cell,a.cell,.cell.picker,.swipe-row,.tappable,.m-group .cell{cursor:pointer}
+  .cell[data-team]:hover,button.cell:hover,label.cell:hover,a.cell:hover,.cell.picker:hover,.tappable:hover,.m-group .cell:hover{background:var(--fill)}
+  .swipe-row:hover{background:linear-gradient(var(--fill),var(--fill)),var(--card)}
+  .day:not(.on):hover{background:var(--fill)}
+  .nav-btn:hover,.text-btn:hover,.subtitle.picker:hover,.tabs button:hover{opacity:.7}
+  .btn-filled:hover,.btn-gray:hover,.swipe-act:hover{filter:brightness(.93)}
+  .round:hover,.nav-icon:hover,.mic:hover,.play:hover{filter:brightness(.9)}
+  .segmented button:not(.on):hover,.segmented label:hover{background:var(--fill)}
+}

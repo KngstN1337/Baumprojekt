@@ -60,6 +60,8 @@ Systemschrift (auf dem iPhone SF Pro). Größen: Großer Titel 34 px fett · Tex
 
 Unterseiten bekommen oben links einen Zurück-Knopf `.nav-btn.back` in der `.navbar`. Dann funktioniert automatisch auch das Zurückwischen vom linken Bildschirmrand (`initEdgeBack` in app.js). Hauptseiten der Tabs haben keinen.
 
+Maus am PC: Antippbare Zeilen und Knöpfe bekommen über `@media (hover:hover) and (pointer:fine)` am Ende von design.css automatisch Hand-Cursor und graue Hinterlegung. Neue antippbare Zeilen als `button.cell`, `label.cell` oder mit `.tappable` bauen, dann gilt das von selbst.
+
 ## Icons
 Alle Icons sind SVG-Symbole am Ende von `index.html` (`<symbol id="i-…">`) und werden mit `<svg><use href="#i-name"/></svg>` eingebunden. Sie übernehmen die Textfarbe. Neue Icons im gleichen Stil (gefüllt, 24×24) dort ergänzen.
 
