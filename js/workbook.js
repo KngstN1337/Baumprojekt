@@ -142,8 +142,8 @@
 
     // Notizen (Rohdaten)
     const wn = wb.addWorksheet(SHEET_NOT, { views: [{ state: 'frozen', ySplit: 1 }] });
-    // Kategorien werden nicht mehr vergeben. Die Spalte bleibt nur, solange alte Notizen eine Kategorie haben (nichts geht verloren).
-    const mitKat = notes.some(n => n.kategorie);
+    // Kategorien gibt es nicht mehr: Die Spalte wird nicht mehr geschrieben (alte Werte stehen noch in den Sicherungen).
+    const mitKat = false;
     const COLS = [['Datum', 12, n => isoToDe(n.datum)], ['Lehrgangstag', 13, n => 'Tag ' + dayIndex(m.start, n.datum)], ['Uhrzeit', 9, n => n.uhrzeit || ''], ['Team', 18, n => n.team || ''],
       ...(mitKat ? [['Kategorie', 17, n => n.kategorie || '']] : []), ['Notiz', 70, n => n.text || ''], ['Quelle', 13, n => n.quelle || 'Sprachnotiz'], ['Eingesprochen von', 20, n => n.von || '']];
     COLS.forEach(([h, w], i) => {

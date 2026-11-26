@@ -200,7 +200,7 @@
       const mine = notes.filter(n => n.datum === d);
       if (!mine.length && d !== selDate) return '';
       return '<div class="section-h">' + esc(longDate(d)) + (d === today() ? ' · Heute' : '') + '</div><div class="group">' + (mine.length
-        ? mine.map(n => '<div class="note tappable" data-ni="' + course.notes.indexOf(n) + '" role="button" aria-label="Notiz bearbeiten"><div class="note-m"><span>' + esc(n.uhrzeit) + ' Uhr' + (mehrere && n.von ? ' · ' + esc(n.von) : '') + '</span>' + (n.kategorie ? '<span class="tag">' + esc(n.kategorie) + '</span>' : '') + (/am PC/.test(n.quelle || '') ? '<span class="tag">am PC</span>' : '') + '<svg class="chev"><use href="#i-chev"/></svg></div><div class="note-t">' + esc(n.text) + '</div></div>').join('')
+        ? mine.map(n => '<div class="swipe" data-ni="' + course.notes.indexOf(n) + '"><div class="swipe-acts"><button type="button" class="swipe-act" data-act="edit">' + svg('i-pencil') + 'Bearbeiten</button><button type="button" class="swipe-act del" data-act="del">' + svg('i-trash') + 'Löschen</button></div><div class="swipe-row note tappable" role="button" tabindex="0" aria-label="Notiz bearbeiten, nach links wischen für mehr"><div class="note-m"><span>' + esc(n.uhrzeit) + ' Uhr' + (mehrere && n.von ? ' · ' + esc(n.von) : '') + '</span>' + (/am PC/.test(n.quelle || '') ? '<span class="tag">am PC</span>' : '') + '<svg class="chev"><use href="#i-chev"/></svg></div><div class="note-t">' + esc(n.text) + '</div></div></div>').join('')
         : '<div class="empty">Noch keine Notiz an diesem Tag.</div>') + '</div>';
     }).join('');
   }
@@ -224,6 +224,46 @@
     sheetState(state);
   }
   function closeSheet() { document.body.classList.remove('sheet-open'); job = null; S.KV.del('draft2'); }
+  // Fenster schließen (Wischen nach unten, Tipp daneben, „Abbrechen“/„Verwerfen“). Gibt false zurück, wenn es offen bleibt.
+  // Während Aufnahme oder Spracherkennung bleibt es offen. Ungespeicherter Text wird nur nach Rückfrage verworfen.
+  function requestDismiss(knopf) {
+    if (!document.body.classList.contains('sheet-open')) return true;
+    if (rec && rec.state !== 'inactive') return false;
+    if (!$('#sheetBusy').classList.contains('hidden')) return false;
+    if (!$('#sheetErrBtns').classList.contains('hidden')) { closeSheet(); restoreDraft(); return true; }
+    if ($('#sheetEdit').classList.contains('hidden')) return false;
+    const text = $('#noteText').value.trim();
+    if (job && job.editOf) {
+      if (text !== job.editOf.text.trim() && !confirm('Änderungen verwerfen?\n\nDie Notiz bleibt so, wie sie vorher war.')) return false;
+      closeSheet(); return true;
+    }
+    if (text && !confirm('Notiz verwerfen? Die Aufnahme selbst bleibt in Google Drive gesichert.')) return false;
+    S.KV.del('lastAudio'); closeSheet(); return true;
+  }
+  // Fenster wie in iOS nach unten wegwischen (am Griff oder überall, solange der Inhalt ganz oben steht)
+  function initSheetDrag() {
+    const sh = $('#sheet'); let d = null;
+    const setY = (y, anim) => { sh.style.transition = anim ? '' : 'none'; sh.style.transform = y > 0 ? 'translateY(' + y + 'px)' : ''; };
+    sh.addEventListener('touchstart', e => {
+      if (e.touches.length !== 1) return;
+      const t = e.target, amGriff = !!t.closest('.grab-zone');
+      if (!amGriff && (t.closest('textarea,input,select,.segmented,.chips') || sh.scrollTop > 0)) return;
+      d = { y0: e.touches[0].clientY, x0: e.touches[0].clientX, y: 0, t0: Date.now(), on: false };
+    }, { passive: true });
+    sh.addEventListener('touchmove', e => {
+      if (!d) return;
+      const dy = e.touches[0].clientY - d.y0, dx = e.touches[0].clientX - d.x0;
+      if (!d.on) { if (dy < 8 || Math.abs(dx) > dy) { if (Math.abs(dx) > 8 || dy < -8) d = null; return; } d.on = true; }
+      e.preventDefault(); d.y = dy; setY(dy, false);
+    }, { passive: false });
+    const ende = () => {
+      if (!d) return; const { y, t0, on } = d; d = null; if (!on) return;
+      const schnell = y / Math.max(1, Date.now() - t0) > 0.6;
+      if ((y > sh.offsetHeight * 0.3 || (schnell && y > 40)) && requestDismiss()) { sh.style.transition = ''; requestAnimationFrame(() => { sh.style.transform = ''; }); }
+      else setY(0, true);
+    };
+    sh.addEventListener('touchend', ende); sh.addEventListener('touchcancel', ende);
+  }
   function renderStil() {
     $('#stilSeg').innerHTML = S.STILE.map(st => '<button type="button" role="radio" aria-checked="' + (st.id === settings.stil) + '" data-stil="' + st.id + '"' + (st.id === settings.stil ? ' class="on"' : '') + ' title="' + esc(st.text) + '">' + esc(STIL_KURZ[st.id] || st.name) + '</button>').join('');
   }
@@ -515,14 +555,71 @@
       renderToday(); if (currentTeam) renderTeamNotes();
     } catch (e) { /* gemeldet, Entwurf bleibt */ }
   }
-  async function deleteNote() {
-    const alt = job && job.editOf; if (!alt) return;
-    if (!confirm('Diese Notiz löschen?\n\nVor dem Löschen legt die App automatisch eine Sicherung der Excel-Datei im Ordner „Sicherungen“ an. Die Sprachaufnahme bleibt im Ordner „Aufnahmen“ erhalten.')) return;
+  // Löschen aus dem Bearbeiten-Fenster (alt = job.editOf) oder per Wischen in der Liste (alt = Notiz)
+  async function deleteNote(alt, ausSheet) {
+    if (!alt) return;
+    if (!confirm('Diese Notiz löschen?\n\nVor dem Löschen legt die App automatisch eine Sicherung der Excel-Datei im Ordner „Sicherungen“ an. Die Sprachaufnahme bleibt im Ordner „Aufnahmen“ erhalten.')) return false;
+    alt = { datum: alt.datum, uhrzeit: alt.uhrzeit, team: alt.team, text: alt.text, von: alt.von || '' };
     try {
       await withStore('Lösche Notiz …', () => modifyCourse(c => { const k = c.notes.findIndex(m => gleich(m, alt)); if (k >= 0) c.notes.splice(k, 1); }, c => !c.notes.some(m => gleich(m, alt))));
-      closeSheet(); toast('✓ Notiz gelöscht');
+      if (ausSheet) closeSheet();
+      toast('✓ Notiz gelöscht');
       renderToday(); if (currentTeam) renderTeamNotes();
     } catch (e) { /* gemeldet */ }
+  }
+
+  // ---------------- Wischen nach links (iOS-Listenaktionen) ----------------
+  // Antippen öffnet die Notiz, nach links wischen zeigt „Bearbeiten“ und „Löschen“.
+  // Eigene Zeigerereignisse statt „click“, damit Antippen auf dem iPhone zuverlässig reagiert.
+  function initSwipe(list, onTap, onAct) {
+    let g = null, open = null, wischte = 0;
+    const breite = sw => sw.querySelector('.swipe-acts').offsetWidth;
+    const setX = (sw, x, anim) => { const r = sw.querySelector('.swipe-row'); r.style.transition = anim ? '' : 'none'; r.style.transform = x ? 'translateX(' + x + 'px)' : ''; sw.classList.toggle('offen', x < 0); };
+    const zu = () => { if (open) { setX(open, 0, true); open = null; } };
+    list.addEventListener('pointerdown', e => {
+      const sw = e.target.closest('.swipe'); if (!sw || e.button > 0) return;
+      if (e.target.closest('.swipe-act')) return;
+      g = { sw, x0: e.clientX, y0: e.clientY, dx: 0, start: open === sw ? -breite(sw) : 0, mode: null, id: e.pointerId };
+    });
+    list.addEventListener('pointermove', e => {
+      if (!g || e.pointerId !== g.id) return;
+      const dx = e.clientX - g.x0, dy = e.clientY - g.y0;
+      if (!g.mode) {
+        if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+        g.mode = Math.abs(dx) > Math.abs(dy) ? 'h' : 'v';
+        if (g.mode === 'h') { if (open && open !== g.sw) zu(); try { g.sw.setPointerCapture(e.pointerId); } catch (_) {} }
+      }
+      if (g.mode !== 'h') return;
+      const w = breite(g.sw); let x = g.start + dx;
+      if (x > 0) x = 0; if (x < -w) x = -w - (-w - x) / 3; // am Ende leicht gebremst
+      g.dx = dx; g.x = x; setX(g.sw, x, false);
+    });
+    const ende = e => {
+      if (!g || e.pointerId !== g.id) return;
+      const sw = g.sw, mode = g.mode, x = g.x || 0; g = null;
+      if (mode === 'h') {
+        const w = breite(sw);
+        if (x < -w / 2) { setX(sw, -w, true); open = sw; } else { setX(sw, 0, true); if (open === sw) open = null; }
+        return;
+      }
+      if (mode) wischte = Date.now();
+    };
+    list.addEventListener('pointerup', ende);
+    list.addEventListener('pointercancel', ende);
+    // Antippen über „click“ (die Zeile hat cursor:pointer, damit iOS es meldet); nach dem Wischen kein Antippen
+    list.addEventListener('click', e => {
+      const b = e.target.closest('.swipe-act'), sw = e.target.closest('.swipe'); if (!sw) return;
+      if (b) { zu(); onAct(b.dataset.act, Number(sw.dataset.ni)); return; }
+      if (Date.now() - wischte < 400) return;
+      if (open) { zu(); return; } // erstes Antippen schließt nur die offenen Aktionen
+      onTap(Number(sw.dataset.ni));
+    });
+    list.addEventListener('keydown', e => {
+      const r = e.target.closest('.swipe-row');
+      if (r && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onTap(Number(r.closest('.swipe').dataset.ni)); }
+    });
+    document.addEventListener('pointerdown', e => { if (open && !open.contains(e.target)) zu(); }, true);
+    return { zu };
   }
 
   // ---------------- Sicherung der Aufnahmen (Warteschlange → Google Drive) ----------------
@@ -941,11 +1038,13 @@
     $('#cancelRec').addEventListener('click', () => stopRec(true));
     $('#pauseBtn').addEventListener('click', togglePause);
     $('#moreRec').addEventListener('click', () => startRec(job && job.team, true));
-    $('#dim').addEventListener('click', () => { if (rec && rec.state !== 'inactive') return; if ($('#sheetEdit').classList.contains('hidden') && $('#sheetErrBtns').classList.contains('hidden')) return; saveDraft(); document.body.classList.remove('sheet-open'); });
+    $('#dim').addEventListener('click', () => requestDismiss());
+    $('#grab').addEventListener('click', () => requestDismiss());
+    initSheetDrag();
     $('#saveNote').addEventListener('click', saveNote);
-    $('#deleteNote').addEventListener('click', deleteNote);
-    $('#teamNotes').addEventListener('click', e => { const el = e.target.closest('[data-ni]'); if (el) editNote(Number(el.dataset.ni)); });
-    $('#discardNote').addEventListener('click', () => { if (job && job.editOf) return closeSheet(); if (!$('#noteText').value.trim() || confirm('Notiz verwerfen? Die Aufnahme selbst bleibt in Google Drive gesichert.')) { S.KV.del('lastAudio'); closeSheet(); } });
+    $('#deleteNote').addEventListener('click', () => deleteNote(job && job.editOf, true));
+    initSwipe($('#teamNotes'), editNote, (act, i) => { if (act === 'edit') editNote(i); else deleteNote(course.notes[i]); });
+    $('#discardNote').addEventListener('click', () => requestDismiss(true));
     $('#noteText').addEventListener('input', () => { saveDraft(); renderUnklar(); });
     $('#unklarBox').addEventListener('click', e => { const b = e.target.closest('[data-unklar]'); if (b) openMeinst(Number(b.dataset.unklar)); });
     $('#glossList').addEventListener('click', e => { const b = e.target.closest('[data-gl]'); if (b) openBegriff(b.dataset.gl === 'neu' ? -1 : Number(b.dataset.gl)); });

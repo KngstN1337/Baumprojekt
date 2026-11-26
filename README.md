@@ -7,7 +7,7 @@
 4. Der Text lässt sich prüfen und ändern, ein anderer Stil formuliert neu.
 5. Speichern: Die Notiz landet in der Excel-Datei des Lehrgangs in Google Drive. „Notiz für alle Teams“ trägt sie bei jedem Team ein.
 
-Weitere Ansichten: Ein Tipp auf den Namen zeigt das **Team** mit allen Notizen und Aufnahmen (oben rechts auch „Eintippen“). **Lehrgänge** legt Lehrgänge an (Name, Trainer, erster Tag, 4, 10 oder individuell viele Wochen, Teams) und lädt die Excel-Datei herunter. Gestaltung im iOS-Stil, folgt automatisch dem hellen oder dunklen Modus des Handys.
+Weitere Ansichten: Ein Tipp auf den Namen zeigt das **Team** mit allen Notizen und Aufnahmen (oben rechts auch „Eintippen“). Eine Notiz antippen öffnet sie zum Bearbeiten; nach links wischen zeigt **Bearbeiten** und **Löschen** (mit Sicherheitsabfrage, vorher wird die Excel-Datei gesichert). **Lehrgänge** legt Lehrgänge an (Name, Trainer, erster Tag, 4, 10 oder individuell viele Wochen, Teams) und lädt die Excel-Datei herunter. Gestaltung im iOS-Stil, folgt automatisch dem hellen oder dunklen Modus des Handys.
 
 ### Anmeldung ohne neuen Tab (optional)
 Standardmäßig öffnet Google die Anmeldung in einem Popup, das je nach Handy wie ein neuer Tab aussieht. Mit `loginRedirect: true` in `config.js` wechselt die App stattdessen kurz zu Google und kommt zurück. Dafür muss in der Google Cloud Console beim OAuth-Client unter „Autorisierte Weiterleitungs-URIs“ `https://kngstn1337.github.io/Baumprojekt/` eingetragen sein.
@@ -31,7 +31,7 @@ Baumprojekt Lehrgänge/
 ## Excel-Datei (eine pro Lehrgang)
 Aufbau wie die erste Vorlage:
 - **Übersicht**: Zeilen = Teams, Spalten = jeder Kalendertag des Lehrgangs (4 Wochen = 28, 10 Wochen = 70 Spalten), danach „Gesamteindruck“. Erste Spalte und Kopfzeile sind fixiert.
-- **Notizen (Rohdaten)**: eine Zeile je Notiz (Datum, Lehrgangstag, Uhrzeit, Team, Notiz, Quelle, Eingesprochen von; „Kategorie“ nur noch bei alten Dateien), mit Filter.
+- **Notizen (Rohdaten)**: eine Zeile je Notiz (Datum, Lehrgangstag, Uhrzeit, Team, Notiz, Quelle, Eingesprochen von), mit Filter.
 - **Teams**: Teilnehmer/in, Hund, Behörde, Bemerkung (Rasse/Alter nur noch bei alten Dateien).
 - Ein verstecktes Blatt `_baumprojekt` mit Startdatum und Dauer.
 
