@@ -138,3 +138,4 @@ body:has(#v-training:not(.hidden)) .tabs{display:none}
 .zg-row .cell-tx{flex:1;min-width:0}
 .cell-tx .zg-bar,.zg-bar{display:block;height:8px;border-radius:4px;background:var(--fill);overflow:hidden;margin:7px 0 4px}.zg-bar i{display:block;height:100%;border-radius:4px;transition:width .3s}
 .zg-undo{display:inline-flex;align-items:center;gap:6px;margin-top:12px;border:0;border-radius:18px;background:var(--fill);color:var(--tint);font-size:15px;font-weight:600;padding:8px 14px}.zg-undo svg{width:9px;height:15px}.zg-undo[hidden]{display:inline-flex;visibility:hidden}
+.modal-card,.sheet{overscroll-behavior:contain}

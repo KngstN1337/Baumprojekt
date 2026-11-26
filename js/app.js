@@ -579,6 +579,18 @@
     $('#gaB').value = ''; $('#gaF').value = ''; $('#gaB').focus();
     toast('✓ „' + b + '“ ' + (d ? 'ergänzt' : 'hinzugefügt'), 1500);
   }
+  // Hintergrund festhalten, solange ein Fenster oder Sheet offen ist (iOS scrollt sonst den Hintergrund mit)
+  (function scrollSperre() {
+    let y = 0, aktiv = false;
+    const pruefen = () => {
+      const offen = document.body.classList.contains('modal-open') || document.body.classList.contains('sheet-open');
+      if (offen === aktiv) return; aktiv = offen;
+      const st = document.body.style;
+      if (offen) { y = window.scrollY; st.position = 'fixed'; st.top = -y + 'px'; st.left = st.right = '0'; st.width = '100%'; }
+      else { st.position = st.top = st.left = st.right = st.width = ''; window.scrollTo(0, y); }
+    };
+    new MutationObserver(pruefen).observe(document.body, { attributes: true, attributeFilter: ['class'] });
+  })();
   function openModal(html) { $('#modalCard').innerHTML = html; document.body.classList.add('modal-open'); }
   function closeModal() { document.body.classList.remove('modal-open'); $('#modal').oninput = $('#modal').onchange = null; }
   function saveDraft() { if (job) { job.text = $('#noteText').value; S.KV.set('draft2', Object.assign({ courseId: activeId }, job)); } }
