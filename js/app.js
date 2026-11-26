@@ -357,7 +357,7 @@
     const f = $('#settingsForm');
     f.openaiKey.value = settings.openaiKey; f.sttModel.value = settings.sttModel; f.llmModel.value = settings.llmModel;
     $('#keyGuide').open = !settings.openaiKey;
-    $('#keyStatus').textContent = settings.openaiKey ? '' : '⚠ Noch kein Schlüssel eingetragen.';
+    if (!settings.openaiKey) { $('#keyStatus').className = 'key-status warn'; $('#keyStatus').textContent = '⚠ Noch kein Schlüssel eingetragen.'; }
     updateDriveStatus();
   }
   function updateDriveStatus() {
@@ -370,20 +370,51 @@
     settings.openaiKey = f.openaiKey.value.trim();
     settings.sttModel = f.sttModel.value.trim() || CFG.sttModel; settings.llmModel = f.llmModel.value.trim() || CFG.llmModel;
     localStorage.setItem('baumprojekt.settings', JSON.stringify(settings));
+    syncSettingsToDrive();
     if (settings.openaiKey) banner('');
     toast('✓ Einstellungen gespeichert');
     checkKey();
   }
 
-  async function checkKey() {
+  // Prüft den Schlüssel mit einer winzigen Anfrage (kostet Bruchteile eines Cents) – erkennt auch fehlendes Guthaben
+  function keyMsg(kind, text) {
     const st = $('#keyStatus');
-    if (!settings.openaiKey) { st.textContent = '⚠ Noch kein Schlüssel eingetragen.'; return; }
-    if (!/^sk-/.test(settings.openaiKey)) { st.textContent = '⚠ Der Schlüssel sollte mit „sk-“ beginnen. Bitte prüfen, ob er vollständig kopiert wurde.'; return; }
-    st.textContent = 'Prüfe Schlüssel …';
+    st.className = 'key-status ' + kind; st.textContent = text;
+    if (kind !== 'busy') toast(text, 5000);
+  }
+  async function syncSettingsToDrive() {
+    try { await S.Drive.saveSettings({ openaiKey: settings.openaiKey, sttModel: settings.sttModel, llmModel: settings.llmModel }); }
+    catch (e) { toast('Schlüssel nur auf diesem Gerät gespeichert (Google Drive nicht erreichbar).', 5000); }
+  }
+  // Nach dem Login: Einstellungen aus Google Drive holen (oder dorthin übertragen, falls nur hier vorhanden)
+  async function loadSettingsFromDrive() {
+    let remote = null;
+    try { remote = await S.Drive.loadSettings(); } catch (e) { return; }
+    if (remote && remote.openaiKey) {
+      Object.assign(settings, { openaiKey: remote.openaiKey, sttModel: remote.sttModel || settings.sttModel, llmModel: remote.llmModel || settings.llmModel });
+      localStorage.setItem('baumprojekt.settings', JSON.stringify(settings));
+    } else if (settings.openaiKey) { syncSettingsToDrive(); }
+  }
+  async function checkKey() {
+    if (!settings.openaiKey) return keyMsg('warn', '⚠ Noch kein Schlüssel eingetragen.');
+    if (!/^sk-/.test(settings.openaiKey)) return keyMsg('err', '✗ Das ist kein gültiger Schlüssel. Er muss mit „sk-“ beginnen. Bitte bei OpenAI erneut kopieren und einfügen.');
+    keyMsg('busy', '⏳ Prüfe Schlüssel bei OpenAI …');
+    let r, j = {};
     try {
-      const r = await fetch('https://api.openai.com/v1/models', { headers: { Authorization: 'Bearer ' + settings.openaiKey } });
-      st.textContent = r.ok ? '✓ Schlüssel funktioniert.' : r.status === 401 ? '✗ Schlüssel ungültig. Bitte neu kopieren und einfügen.' : '⚠ OpenAI meldet Fehler ' + r.status + '.';
-    } catch (e) { st.textContent = '⚠ Schlüssel konnte nicht geprüft werden (keine Verbindung?).'; }
+      r = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST', headers: { Authorization: 'Bearer ' + settings.openaiKey, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: settings.llmModel, messages: [{ role: 'user', content: 'Hallo' }], max_tokens: 1 })
+      });
+      try { j = await r.json(); } catch (e) { /* ignore */ }
+    } catch (e) { return keyMsg('err', '✗ Keine Verbindung zu OpenAI. Bitte Internet prüfen und erneut auf „Schlüssel prüfen“ tippen.'); }
+    const code = (j.error && (j.error.code || j.error.type)) || '';
+    if (r.ok) return keyMsg('ok', '✓ Schlüssel funktioniert. Du kannst jetzt Notizen aufnehmen.');
+    if (r.status === 401) return keyMsg('err', '✗ Schlüssel ungültig. Bitte bei OpenAI neu kopieren (oder neuen erstellen) und hier einfügen.');
+    if (code === 'insufficient_quota') return keyMsg('err', '✗ Schlüssel ist richtig, aber es ist kein Guthaben vorhanden. Bitte bei OpenAI unter „Billing“ Guthaben aufladen. Danach kann es ein paar Minuten dauern.');
+    if (r.status === 429) return keyMsg('warn', '⚠ OpenAI ist gerade ausgelastet. Schlüssel scheint zu stimmen, bitte später erneut prüfen.');
+    if (r.status === 404 || code === 'model_not_found') return keyMsg('err', '✗ Schlüssel ok, aber das Modell „' + settings.llmModel + '“ ist für dein Konto nicht freigeschaltet.');
+    if (r.status === 403) return keyMsg('err', '✗ Dieser Schlüssel hat keine Berechtigung. Beim Erstellen „All“ als Berechtigung wählen.');
+    keyMsg('err', '✗ OpenAI meldet einen Fehler (' + r.status + '): ' + ((j.error && j.error.message) || ''));
   }
 
   // ---------------- Anmeldung ----------------
@@ -398,6 +429,7 @@
   async function afterLogin() {
     try { await S.Drive.me(); } catch (e) { if (e.needsLogin) { lock(true); return; } }
     lock(false); banner('');
+    await loadSettingsFromDrive();
     await loadActive();
     await restoreDraft();
     migrate();
@@ -454,6 +486,7 @@
     $('#courseForm').addEventListener('submit', submitCourse);
     $('#downloadBtn').addEventListener('click', download);
     $('#settingsForm').addEventListener('submit', saveSettings);
+    $('#checkKeyBtn').addEventListener('click', () => { saveSettings(); });
     $('#logoutBtn').addEventListener('click', logout);
     $('#switchBtn').addEventListener('click', () => { logout(); login(true); });
     $('#loginBtn').addEventListener('click', () => login(false));
@@ -471,7 +504,13 @@
 
   async function init() {
     bind();
-    if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => {});
+    if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+      const hadController = !!navigator.serviceWorker.controller;
+      navigator.serviceWorker.register('sw.js').then(reg => reg.update()).catch(() => {});
+      // Neue Version installiert → einmal neu laden, damit sie sofort aktiv ist
+      navigator.serviceWorker.addEventListener('controllerchange', () => { if (hadController && !window.__reloaded) { window.__reloaded = true; location.reload(); } });
+    }
+    $('#appVersion').textContent = 'Version ' + (CFG.version || '');
     // Login-Knopf freigeben, sobald die Google-Bibliothek geladen ist
     const wait = setInterval(() => { if (S.Drive.ready()) { clearInterval(wait); $('#loginBtn').disabled = false; } }, 200);
     if (S.Drive.restore()) await afterLogin(); else lock(true);
