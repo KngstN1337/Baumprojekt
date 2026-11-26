@@ -60,9 +60,11 @@
   const glossarListe = g => (g || []).map(x => x.begriff + (x.falsch ? ' (oft erkannt als: ' + x.falsch + ')' : '')).join('\n') || '(leer)';
   const glossarHinweis = g => (g || []).map(x => x.begriff).join(', ');
   const stilVon = id => STILE.find(s => s.id === id) || STILE[0];
-  // Ansagewort „nächster Punkt“: teilt ein Transkript in mehrere Stichpunkte (eigene Notizen).
+  // Ansagewort „nächster Punkt“: teilt ein Transkript in mehrere Stichpunkte (untereinander in einer Notiz).
   // Robust gegen „Nächster Punkt.“, „nächster Punkt,“, „Nächster-Punkt“ und „naechster Punkt“; das Ansagewort selbst fällt weg.
   const ANSAGE = /(?<![\p{L}\p{N}])n(?:ä|ae)chster[\s\-]+punkt(?![\p{L}\p{N}])[\s.,;:!?…]*/giu;
+  // Mehrere Teile → je eine Zeile „• …“ (Absätze innerhalb eines Punkts werden zu einer Zeile); ein Teil bleibt wie er ist
+  const alsStichpunkte = teile => { const t = teile.map(x => String(x || '').trim()).filter(Boolean); return t.length > 1 ? t.map(x => '• ' + x.replace(/^•\s*/, '').replace(/\s*\n+\s*/g, ' ')).join('\n') : (t[0] || ''); };
   const splitPunkte = t => String(t || '').split(ANSAGE).map(p => p.replace(/^[\s.,;:!?…\-]+/, '').replace(/[\s,;:\-]+$/, '').trim()).filter(Boolean);
 
   async function assign(transcript, teams, opts) {
@@ -489,5 +491,5 @@
     });
   }
 
-  global.BaumprojektServices = { glossarHinweis, splitPunkte, pick, transcribe, assign, formulate, STILE, Drive, KV, Outbox, KATEGORIEN, XLSX_MIME };
+  global.BaumprojektServices = { glossarHinweis, splitPunkte, alsStichpunkte, pick, transcribe, assign, formulate, STILE, Drive, KV, Outbox, KATEGORIEN, XLSX_MIME };
 })(window);
