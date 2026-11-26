@@ -125,3 +125,5 @@ body:has(#v-training:not(.hidden)) .tabs{display:none}
 .tr-foot{display:flex;justify-content:space-between;align-items:center;padding:4px 20px}.tr-schritt{color:var(--sec);display:flex;align-items:center}
 
 #swList .cell{gap:12px}#swList input[type=radio]{accent-color:var(--tint);width:20px;height:20px;margin:0;flex:0 0 auto}
+.type-btn{display:block;margin:6px auto 0;font-size:15px}
+#zgLink:empty{display:none}

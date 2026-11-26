@@ -309,11 +309,16 @@
     const punkte = n => schritte().length ? '<span class="zg-dots" aria-label="Schritt ' + n + ' von ' + schritte().length + '">' + schritte().map((_, i) => '<i' + (i < n ? ' class="on"' : '') + '></i>').join('') + '</span>' : '';
     const schrittText = n => schritte().length && n ? 'Schritt ' + n + (schritte()[n - 1] && schritte()[n - 1].name !== 'Schritt ' + n ? ' · ' + schritte()[n - 1].name : '') : '';
     function renderTeam() {
-      const box = $('#zgBox'); if (!box) return;
+      const box = $('#zgBox'), link = $('#zgLink'); if (!box) return;
       const team = ctx.currentTeam();
-      if (!istSpuer() || !team) { box.innerHTML = ''; return; }
+      if (!istSpuer() || !team) { box.innerHTML = ''; if (link) link.innerHTML = ''; return; }
+      // Akte: nur eine kompakte Zeile, die Liste steht auf eigener Seite
+      const sumH = stoffe().reduce((a, s) => a + heute(team, s), 0), sumG = stoffe().reduce((a, s) => a + gesamt(team, s), 0);
+      if (link) link.innerHTML = '<div class="group"><button type="button" class="cell" id="zgOpenTeam"><div class="cell-tx"><b>Zielgerüche</b><span>' + stoffe().length + (stoffe().length === 1 ? ' Geruch' : ' Gerüche') + ' · heute ' + sumH + ' · gesamt ' + sumG + ' Belohnungen</span></div>' + CHEV + '</button></div>';
+      $('#zgSub').textContent = teamTitel(team);
+      $('#zgBackTx').textContent = (ctx.teamByName(team) || {}).teilnehmer || team;
       const heuteTxt = ctx.selDate() === ctx.today() ? 'heute' : WBK.isoToDe(ctx.selDate()).slice(0, 6);
-      box.innerHTML = '<div class="section-h zg-sh">Zielgerüche · Belohnungen' + (stoffe().length ? '<button type="button" class="text-btn" id="zgTraining">Trainingsmodus</button>' : '') + '</div><div class="group" id="zgRows">' +
+      box.innerHTML = '<div class="section-h zg-sh">Belohnungen gesamt' + (stoffe().length ? '<button type="button" class="text-btn" id="zgTraining">Trainingsmodus</button>' : '') + '</div><div class="group" id="zgRows">' +
         (stoffe().map(s => { const n = schritt(team, s); return '<div class="cell zg-row" data-stoff="' + esc(s) + '"><button type="button" class="cell-tx zg-detail" data-detail><b>' + esc(s) + '</b><span>' + punkte(n) + esc([schrittText(n), heuteTxt + ' ' + heute(team, s)].filter(Boolean).join(' · ')) + '</span></button>' +
           '<button type="button" class="zg-n" data-num aria-label="Zahl eingeben">' + gesamt(team, s) + '</button><button type="button" class="zg-plus" data-plus aria-label="Eine Belohnung an ' + esc(s) + '">+1</button></div>'; }).join('') ||
           '<div class="empty">Noch keine Zielgerüche. Unter Lehrgänge → „Aktuellen Lehrgang bearbeiten“ auswählen.</div>') +

@@ -43,13 +43,20 @@
 
     <!-- Team: Notizen und frühere Aufnahmen -->
     <section id="v-team" class="view hidden">
-      <div class="navbar"><button class="nav-btn back" id="teamBack"><svg class="chev-l"><use href="#i-back"/></svg>Heute</button><span></span><button class="nav-btn" id="typeBtn">Eintippen</button></div>
+      <div class="navbar"><button class="nav-btn back" id="teamBack"><svg class="chev-l"><use href="#i-back"/></svg>Heute</button><span></span></div>
       <div class="hero"><div class="avatar big" id="teamAvatar"></div><h2 id="teamName"></h2><span id="teamDog"></span></div>
-      <div class="cta-wrap"><button class="btn-filled cta" id="teamRec"><svg><use href="#i-mic"/></svg>Aufnehmen</button></div>
-      <div id="zgBox"></div>
+      <div class="cta-wrap"><button class="btn-filled cta" id="teamRec"><svg><use href="#i-mic"/></svg>Aufnehmen</button><button type="button" class="text-btn type-btn" id="typeBtn">oder Notiz eintippen</button></div>
+      <div id="zgLink"></div>
       <div id="teamNotes"></div>
       <div class="section-h">Aufnahmen</div>
       <div class="group" id="teamRecs"></div>
+    </section>
+
+    <!-- Spürhund: Zielgerüche eines Teams (aus der Akte geöffnet) -->
+    <section id="v-zgteam" class="view hidden">
+      <div class="navbar"><button class="nav-btn back" id="zgBack"><svg class="chev-l"><use href="#i-back"/></svg><span id="zgBackTx">Zurück</span></button><span></span></div>
+      <h1 class="large-title">Zielgerüche</h1><span class="subtitle" id="zgSub"></span>
+      <div id="zgBox"></div>
     </section>
 
     <!-- Spürhund: Trainingsmodus (große +1-Fläche für eine Hand) -->

@@ -44,7 +44,7 @@
   function show(el, on) { (typeof el === 'string' ? $(el) : el).classList.toggle('hidden', !on); }
   function go(view) {
     document.querySelectorAll('.view').forEach(v => show(v, v.id === 'v-' + view));
-    const tab = view === 'team' || view === 'training' ? 'heute' : ['glossar', 'gerueche', 'schritte'].includes(view) ? 'einst' : view;
+    const tab = ['team', 'training', 'zgteam'].includes(view) ? 'heute' : ['glossar', 'gerueche', 'schritte'].includes(view) ? 'einst' : view;
     document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('active', b.dataset.go === tab));
     if (view === 'heute') renderToday();
     if (view === 'lehrgang') refreshCourses();
@@ -1136,7 +1136,9 @@
     document.querySelectorAll('[data-back]').forEach(b => b.addEventListener('click', () => go(b.dataset.back)));
     $('#zgOpen').addEventListener('click', () => go('gerueche'));
     $('#svOpen').addEventListener('click', () => go('schritte'));
-    $('#trDone').addEventListener('click', () => { SP.flush(); go('team'); SP.renderTeam(); });
+    $('#trDone').addEventListener('click', () => { SP.flush(); go('zgteam'); SP.renderTeam(); });
+    $('#zgBack').addEventListener('click', () => { SP.flush(); go('team'); SP.renderTeam(); });
+    $('#zgLink').addEventListener('click', e => { if (e.target.closest('#zgOpenTeam')) { go('zgteam'); SP.renderTeam(); } });
     SP.bind();
     $('#glossAdd').addEventListener('submit', glossarHinzufuegen);
     $('#gaOk').addEventListener('mousedown', e => e.preventDefault()); // Tastatur bleibt offen
