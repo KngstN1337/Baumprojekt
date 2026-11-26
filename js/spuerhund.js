@@ -392,13 +392,15 @@
       const team = ctx.currentTeam(), h = heute(team, stoff), g = gesamt(team, stoff);
       let modus = 'plus';
       ctx.openModal('<h3>' + esc(stoff) + ' · ' + (ctx.selDate() === ctx.today() ? 'heute' : esc(WBK.isoToDe(ctx.selDate()))) + '</h3><p class="modal-sub">' + esc(teamTitel(team)) + '</p>' +
-        '<div class="m-pad"><div class="segmented" id="zMod"><button type="button" data-m2="plus" class="on">Dazuzählen</button><button type="button" data-m2="genau">Heute genau</button></div></div>' +
+        '<div class="m-pad"><div class="segmented" id="zMod"><button type="button" data-m2="plus" class="on">Dazuzählen</button><button type="button" data-m2="minus">Abziehen</button><button type="button" data-m2="genau">Heute genau</button></div></div>' +
         '<input id="zIn" class="zg-input" type="number" inputmode="numeric" pattern="[0-9]*" min="0" placeholder="0" aria-label="Anzahl">' +
         '<p class="modal-sub" id="zVor"></p><div class="actions"><button class="btn-gray" data-m="close">Abbrechen</button><button class="btn-filled" id="zOk" disabled>Übernehmen</button></div>');
-      const delta = () => { const n = Math.max(0, Math.round(Number($('#zIn').value) || 0)); return modus === 'plus' ? n : n - h; };
+      // Minus-Zeichen gibt es auf der iPhone-Zahlentastatur nicht, darum eigener Modus „Abziehen“ (nie unter 0)
+      const delta = () => { const roh = Math.round(Number($('#zIn').value) || 0), n = Math.abs(roh); if (modus === 'minus' || roh < 0) return -Math.min(n, h); return modus === 'plus' ? n : n - h; };
       const upd = () => {
         const leer = $('#zIn').value === '', d = delta();
-        $('#zVor').textContent = leer ? (modus === 'plus' ? 'Wie viele Belohnungen kommen dazu?' : 'Wie viele Belohnungen waren es an diesem Tag insgesamt?') : 'heute ' + h + ' → ' + (h + d) + '  ·  gesamt ' + g + ' → ' + (g + d);
+        const n = Math.abs(Math.round(Number($('#zIn').value) || 0)), zuViel = (modus === 'minus' || Number($('#zIn').value) < 0) && n > h;
+        $('#zVor').textContent = leer ? (modus === 'plus' ? 'Wie viele Belohnungen kommen dazu?' : modus === 'minus' ? 'Wie viele Belohnungen sollen weg? (heute gezählt: ' + h + ')' : 'Wie viele Belohnungen waren es an diesem Tag insgesamt?') : 'heute ' + h + ' → ' + (h + d) + '  ·  gesamt ' + g + ' → ' + (g + d) + (zuViel ? '  ·  mehr als ' + h + ' geht an diesem Tag nicht' : '');
         $('#zOk').disabled = leer || !d;
       };
       $('#zMod').onclick = e => { const b = e.target.closest('[data-m2]'); if (!b) return; modus = b.dataset.m2; $('#zMod').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); upd(); $('#zIn').focus(); };
