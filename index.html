@@ -12,8 +12,8 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/icon-192.png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/design.css?v=15">
-  <link rel="stylesheet" href="css/style.css?v=15">
+  <link rel="stylesheet" href="css/design.css?v=16">
+  <link rel="stylesheet" href="css/style.css?v=16">
 </head>
 <body class="locked">
   <section id="login" class="login">
@@ -135,7 +135,8 @@
         <p>Speichert ihr gleichzeitig, geht nichts verloren: Die App liest die Datei vor dem Speichern neu ein, prüft danach, ob die Notiz wirklich drinsteht, und wiederholt es sonst. Die Notizen des Kollegen erscheinen nach spätestens einer Minute.</p>
       </details>
       <details class="card"><summary>Etwas nachträglich ändern</summary>
-        <p>Alle Notizen eines Teams siehst du, wenn du unter Heute auf das Team tippst. Ändern oder löschen geht in Excel, und zwar im Blatt <b>Notizen (Rohdaten)</b>. Die Übersicht baut die App beim nächsten Speichern daraus neu. Die Spalte „Gesamteindruck“ in der Übersicht kannst du direkt beschreiben, sie bleibt erhalten.</p>
+        <p>Tippe unter Heute auf ein Team und dann auf die Notiz. Du kannst den Text ändern, einen anderen Stil wählen, etwas dazu sprechen („Weiter aufnehmen“) oder die Notiz unten mit „Notiz löschen“ entfernen. Vor jeder Änderung legt die App eine Sicherung der Excel-Datei an, die Sprachaufnahme bleibt immer erhalten.</p>
+        <p>Am PC geht es auch in Excel im Blatt <b>Notizen (Rohdaten)</b>. Die Übersicht baut die App beim nächsten Speichern daraus neu.</p>
         <p>Wichtig: Die Datei nicht am PC geöffnet lassen, während du am Handy speicherst.</p>
       </details>
       <details class="card"><summary>Abmelden, neues Handy, Browserdaten gelöscht</summary>
@@ -227,6 +228,7 @@
       <div class="ctrl"><button class="round" id="pauseBtn" aria-label="Pause"><svg><use href="#i-pause"/></svg></button><span id="pauseLbl">Pause</span></div>
     </div>
     <div id="sheetEditBtns" class="actions hidden"><button class="btn-gray" id="discardNote">Verwerfen</button><button class="btn-filled" id="saveNote">Speichern</button></div>
+    <button class="text-btn danger-text hidden" id="deleteNote">Notiz löschen</button>
     <div id="sheetErrBtns" class="actions hidden"><button class="btn-gray" id="errClose">Später</button><button class="btn-filled" id="retryBtn">Erneut versuchen</button></div>
   </div>
 
@@ -251,11 +253,11 @@
   <div id="busy" class="busy hidden"><div class="spinner"></div><div id="busyText">Bitte warten …</div></div>
   <div id="toast" class="toast hidden"></div>
 
-  <script src="config.js?v=15"></script>
+  <script src="config.js?v=16"></script>
   <script src="vendor/exceljs.min.js"></script>
-  <script src="js/workbook.js?v=15"></script>
-  <script src="js/services.js?v=15"></script>
-  <script src="js/app.js?v=15"></script>
+  <script src="js/workbook.js?v=16"></script>
+  <script src="js/services.js?v=16"></script>
+  <script src="js/app.js?v=16"></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 </body>
 </html>

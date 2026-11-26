@@ -194,7 +194,7 @@
       const mine = notes.filter(n => n.datum === d);
       if (!mine.length && d !== selDate) return '';
       return '<div class="section-h">' + esc(longDate(d)) + (d === today() ? ' · Heute' : '') + '</div><div class="group">' + (mine.length
-        ? mine.map(n => '<div class="note"><div class="note-m"><span>' + esc(n.uhrzeit) + ' Uhr' + (mehrere && n.von ? ' · ' + esc(n.von) : '') + '</span>' + (n.kategorie ? '<span class="tag">' + esc(n.kategorie) + '</span>' : '') + '</div><div class="note-t">' + esc(n.text) + '</div></div>').join('')
+        ? mine.map(n => '<div class="note tappable" data-ni="' + course.notes.indexOf(n) + '" role="button" aria-label="Notiz bearbeiten"><div class="note-m"><span>' + esc(n.uhrzeit) + ' Uhr' + (mehrere && n.von ? ' · ' + esc(n.von) : '') + '</span>' + (n.kategorie ? '<span class="tag">' + esc(n.kategorie) + '</span>' : '') + '<svg class="chev"><use href="#i-chev"/></svg></div><div class="note-t">' + esc(n.text) + '</div></div>').join('')
         : '<div class="empty">Noch keine Notiz an diesem Tag.</div>') + '</div>';
     }).join('');
   }
@@ -206,6 +206,7 @@
     show('#sheetRec', st === 'rec'); show('#sheetRecBtns', st === 'rec');
     show('#sheetBusy', st === 'busy'); if (st === 'busy') $('#sheetBusyText').textContent = msg || 'Bitte warten …';
     show('#sheetEdit', st === 'edit'); show('#sheetEditBtns', st === 'edit');
+    show('#deleteNote', st === 'edit' && !!(job && job.editOf)); $('#discardNote').textContent = job && job.editOf ? 'Abbrechen' : 'Verwerfen';
     show('#sheetErrBtns', st === 'err');
     if (st === 'err') $('#sheetSub').textContent = msg;
     else $('#sheetSub').textContent = longDate(job.datum);
@@ -472,6 +473,7 @@
     saveDraft();
     const text = job.text.trim();
     if (!text) { toast('Kein Text vorhanden.'); return; }
+    if (job.editOf) return saveEdit(text);
     const teams = job.team === ALLE ? course.teams.map(t => t.name) : [job.team];
     const neu = teams.map(team => ({ datum: job.datum, uhrzeit: job.uhrzeit, team, text, quelle: job.transcript ? 'Sprachnotiz' : 'Eingetippt', von: myName() }));
     const drin = (c, n) => c.notes.some(m => m.datum === n.datum && m.uhrzeit === n.uhrzeit && m.team === n.team && m.text === n.text.trim());
@@ -482,6 +484,39 @@
       toast('✓ Gespeichert');
       renderToday(); if (currentTeam && !$('#v-team').classList.contains('hidden')) renderTeamNotes();
     } catch (e) { /* Meldung kam schon; Entwurf bleibt erhalten */ }
+  }
+
+  // ---------------- Gespeicherte Notiz bearbeiten / löschen ----------------
+  // Eine Notiz wird an Datum, Uhrzeit, Team, Text und Sprecher erkannt (auch wenn ein Kollege inzwischen etwas ergänzt hat).
+  const gleich = (a, b) => a.datum === b.datum && a.uhrzeit === b.uhrzeit && a.team === b.team && (a.text || '').trim() === (b.text || '').trim() && (a.von || '') === (b.von || '');
+  function editNote(i) {
+    const n = course.notes[i]; if (!n) return;
+    job = { team: n.team, datum: n.datum, uhrzeit: n.uhrzeit, transcript: '', text: n.text, editOf: { datum: n.datum, uhrzeit: n.uhrzeit, team: n.team, text: n.text, von: n.von || '' } };
+    fillEdit(); openSheet(n.team, 'edit');
+  }
+  async function saveEdit(text) {
+    const alt = job.editOf;
+    if (text === alt.text.trim()) { closeSheet(); return; }
+    let gefunden = true;
+    try {
+      await withStore('Speichere Änderung …', () => modifyCourse(c => {
+        const n = c.notes.find(m => gleich(m, alt));
+        if (n) { n.text = text; n.quelle = (n.quelle || 'Sprachnotiz').replace(/ \(bearbeitet\)$/, '') + ' (bearbeitet)'; gefunden = true; }
+        else if (!c.notes.some(m => m.datum === alt.datum && m.uhrzeit === alt.uhrzeit && m.team === alt.team && m.text === text)) { gefunden = false; c.notes.push({ datum: alt.datum, uhrzeit: alt.uhrzeit, team: alt.team, text, quelle: 'Bearbeitet', von: myName() }); }
+      }, c => c.notes.some(m => m.datum === alt.datum && m.team === alt.team && m.text === text)));
+      closeSheet();
+      toast(gefunden ? '✓ Änderung gespeichert' : 'Die Notiz wurde inzwischen woanders geändert. Deine Fassung ist zusätzlich gespeichert.', gefunden ? 3000 : 6000);
+      renderToday(); if (currentTeam) renderTeamNotes();
+    } catch (e) { /* gemeldet, Entwurf bleibt */ }
+  }
+  async function deleteNote() {
+    const alt = job && job.editOf; if (!alt) return;
+    if (!confirm('Diese Notiz löschen?\n\nVor dem Löschen legt die App automatisch eine Sicherung der Excel-Datei im Ordner „Sicherungen“ an. Die Sprachaufnahme bleibt im Ordner „Aufnahmen“ erhalten.')) return;
+    try {
+      await withStore('Lösche Notiz …', () => modifyCourse(c => { const k = c.notes.findIndex(m => gleich(m, alt)); if (k >= 0) c.notes.splice(k, 1); }, c => !c.notes.some(m => gleich(m, alt))));
+      closeSheet(); toast('✓ Notiz gelöscht');
+      renderToday(); if (currentTeam) renderTeamNotes();
+    } catch (e) { /* gemeldet */ }
   }
 
   // ---------------- Sicherung der Aufnahmen (Warteschlange → Google Drive) ----------------
@@ -902,7 +937,9 @@
     $('#moreRec').addEventListener('click', () => startRec(job && job.team, true));
     $('#dim').addEventListener('click', () => { if (rec && rec.state !== 'inactive') return; if ($('#sheetEdit').classList.contains('hidden') && $('#sheetErrBtns').classList.contains('hidden')) return; saveDraft(); document.body.classList.remove('sheet-open'); });
     $('#saveNote').addEventListener('click', saveNote);
-    $('#discardNote').addEventListener('click', () => { if (!$('#noteText').value.trim() || confirm('Notiz verwerfen? Die Aufnahme selbst bleibt in Google Drive gesichert.')) { S.KV.del('lastAudio'); closeSheet(); } });
+    $('#deleteNote').addEventListener('click', deleteNote);
+    $('#teamNotes').addEventListener('click', e => { const el = e.target.closest('[data-ni]'); if (el) editNote(Number(el.dataset.ni)); });
+    $('#discardNote').addEventListener('click', () => { if (job && job.editOf) return closeSheet(); if (!$('#noteText').value.trim() || confirm('Notiz verwerfen? Die Aufnahme selbst bleibt in Google Drive gesichert.')) { S.KV.del('lastAudio'); closeSheet(); } });
     $('#noteText').addEventListener('input', () => { saveDraft(); renderUnklar(); });
     $('#unklarBox').addEventListener('click', e => { const b = e.target.closest('[data-unklar]'); if (b) openMeinst(Number(b.dataset.unklar)); });
     $('#glossList').addEventListener('click', e => { const b = e.target.closest('[data-gl]'); if (b) openBegriff(b.dataset.gl === 'neu' ? -1 : Number(b.dataset.gl)); });
