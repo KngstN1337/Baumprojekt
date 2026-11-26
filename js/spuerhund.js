@@ -1,4 +1,4 @@
-// Baumprojekt – Spürhund-Lehrgänge: Zielgerüche, Belohnungszähler und Konditionierungsschritte.
+// LTR – Spürhund-Lehrgänge: Zielgerüche, Belohnungszähler und Konditionierungsschritte.
 // Alles dazu steht in dieser Datei (plus vordefiniert.js); app.js ruft nur die Funktionen unten auf.
 // Daten: Bibliothek (eigene Gerüche und Vorlagen) in den Einstellungen im Google Drive des Nutzers,
 // Stoffe/Schritte des Lehrgangs und jede Belohnung in der Excel-Datei des Lehrgangs (Blatt „Zielgerüche (Rohdaten)“).

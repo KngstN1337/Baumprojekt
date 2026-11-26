@@ -1,4 +1,4 @@
-// Baumprojekt – vordefinierte Zielgerüche, Geruchs-Vorlagen und Konditionierungsschritte.
+// LTR – vordefinierte Zielgerüche, Geruchs-Vorlagen und Konditionierungsschritte.
 // Diese Einträge bekommt jeder Nutzer von Anfang an (in der App als „Vordefiniert“).
 // Eigene Einträge der Nutzer liegen getrennt in ihrem Google Drive.
 // Hier einfach ergänzen, streichen oder umbenennen. Namen der Gerüche in den Vorlagen müssen genauso geschrieben sein wie oben.

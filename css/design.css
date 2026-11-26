@@ -1,4 +1,4 @@
-/* Baumprojekt – Design-System (iOS-Stil, hell und dunkel)
+/* LTR – Design-System (iOS-Stil, hell und dunkel)
    Farben, Schrift und alle wiederverwendbaren Bausteine. Regeln und Beispiele: STYLE.md
    Neue Funktionen nutzen NUR diese Variablen und Klassen. Seitenspezifisches gehört in style.css. */
 :root{--bg:#f2f2f7;--card:#fff;--label:#000;--sec:rgba(60,60,67,.6);--ter:rgba(60,60,67,.3);--sep:rgba(60,60,67,.18);--fill:rgba(120,120,128,.12);--tint:#2c5d8a;--red:#ff3b30;--green:#34c759;--orange:#ff9500;--bar:rgba(249,249,249,.88);--sheet:#fff;--seg-on:#fff;--fill-tint:#2c5d8a;--field:#fff;color-scheme:light dark}
