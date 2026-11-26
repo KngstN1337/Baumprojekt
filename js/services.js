@@ -43,12 +43,14 @@
     { id: 'stichpunkte', name: 'Stichpunkte', text: 'Nur die Kernaussagen als kurze Liste.', regeln: [
       '- Jede Zeile ein Stichpunkt, beginnend mit „• “. Kurz und knapp, gern ohne ganze Sätze. Keine Überschriften, keine Leerzeilen.',
       '- Jede inhaltliche Aussage kommt vor, Wiederholungen nur einmal. Reihenfolge wie gesprochen.'] },
-    { id: 'beamtendeutsch', name: 'Beamtendeutsch', text: 'Seriös, sachlich und behördentauglich, z. B. für Amt, Gericht oder Versicherung.', regeln: [
+    { id: 'beamtendeutsch', name: 'Beamtendeutsch', text: 'Seriös, sachlich und unpersönlich („Es wurde festgestellt …“), z. B. für Amt, Gericht oder Versicherung.', regeln: [
       '- Formuliere wie in einem amtlichen Bericht oder Gutachten, das einer Behörde (z. B. Veterinär- oder Ordnungsamt) vorgelegt wird.',
-      '- Dritte Person und neutrale Form, keine Ich-Form: „Der Ausbilder stellte fest …“, „Die Teilnehmerin [Name] führte den Hund [Name] …“.',
+      '- Unpersönlich formulieren: keine Ich-Form und den Trainer nie in der dritten Person nennen (nicht „Der Ausbilder …“, „Der Trainer …“).',
+      '  Stattdessen Passiv oder unpersönliche Form: „Es wurde festgestellt, dass …“, „Es wurde beobachtet …“, „Die Übung wurde wiederholt.“',
+      '  Teilnehmer und Hunde sind Satzsubjekt, wo sie handeln: „Die Hündin [Name] zeigte …“, „Die Teilnehmerin [Name] führte den Hund …“.',
       '- Präteritum für Beobachtungen, Präsens für bleibende Zustände. Vollständige, eindeutige und nachvollziehbare Sätze.',
       '- Keine Umgangssprache, keine Gefühlswörter, keine Übertreibungen, keine Abkürzungen außer gängigen (z. B., ca.).',
-      '- Beobachtungen und Bewertungen klar trennen; Bewertungen nur, wenn der Trainer sie ausgesprochen hat, und dann als seine Einschätzung kennzeichnen.',
+      '- Beobachtungen und Bewertungen klar trennen; Bewertungen nur, wenn der Trainer sie ausgesprochen hat, und dann unpersönlich als Einschätzung kennzeichnen („Es wird eingeschätzt, dass …“).',
       '- Fachbegriffe korrekt verwenden. Konkrete Angaben (Übung, Dauer, Verhalten, Ergebnis) vollständig übernehmen.',
       '- Sinnabschnitte mit Leerzeile. Keine Überschriften, keine Aufzählungszeichen.'] }
   ];
