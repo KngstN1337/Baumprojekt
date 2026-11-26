@@ -3,6 +3,15 @@
 // Eigene Einträge der Nutzer liegen getrennt in ihrem Google Drive.
 // Hier einfach ergänzen, streichen oder umbenennen. Namen der Gerüche in den Vorlagen müssen genauso geschrieben sein wie oben.
 window.BaumprojektVordefiniert = {
+  // Glossar: Fachbegriffe für Spracherkennung und Formulierung (falsch = typische Fehlerkennungen, mit Komma getrennt)
+  glossar: [
+    { begriff: 'Clicker', falsch: 'Klicker, Klicka' },
+    { begriff: 'Kong', falsch: 'Kongo, Gong, King' },
+    { begriff: 'markern', falsch: 'markieren, Markern' },
+    { begriff: 'spüren', falsch: 'spuren, spühren' },
+    { begriff: 'Spürhund', falsch: 'Spür Hund, Spurhund' },
+    { begriff: 'Trieb', falsch: 'Trip' }
+  ],
   // Gerüche, gruppiert nach Bereich. Gerüche aus den Vorlagen unten kommen automatisch dazu.
   gerueche: [
     { gruppe: 'Sprengstoffe', namen: ['TNT', 'C4', 'Schwarzpulver', 'TATP', 'Nitropenta (PETN)'] },
