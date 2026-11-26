@@ -33,7 +33,9 @@
   // Glossar: eigenes (im eigenen Drive, gilt für alle Lehrgänge) plus Begriffe des Kollegen aus dem geteilten Lehrgang
   const lc = s => String(s || '').toLowerCase();
   const fremdGlossar = () => ((course && course.glossar) || []).filter(g => g.von !== myName() && !settings.glossar.some(x => lc(x.begriff) === lc(g.begriff)));
-  const glossarAktiv = () => settings.glossar.concat(fremdGlossar());
+  // Vordefinierte Begriffe (js/vordefiniert.js) gelten für alle; ein eigener Eintrag mit gleichem Begriff geht vor
+  const vordefGlossar = () => ((window.BaumprojektVordefiniert || {}).glossar || []).filter(g => !settings.glossar.some(x => lc(x.begriff) === lc(g.begriff)) && !fremdGlossar().some(x => lc(x.begriff) === lc(g.begriff)));
+  const glossarAktiv = () => settings.glossar.concat(fremdGlossar(), vordefGlossar());
   const openaiKey = () => (info && info.id === activeId && !info.ownedByMe && info.sharedKey) || settings.openaiKey;
 
   // ---------------- UI-Helfer ----------------
@@ -492,13 +494,16 @@
   }
   function renderGlossar() {
     const zeile = (g, attr) => '<button type="button" class="cell" ' + attr + '><div class="cell-tx wrap"><b>' + esc(g.begriff) + '</b>' + (g.falsch ? '<span>oft erkannt als: ' + esc(g.falsch) + '</span>' : '') + '</div><svg class="chev"><use href="#i-chev"/></svg></button>';
-    const n = settings.glossar.length;
-    $('#glossCount').textContent = n === 1 ? '1 Begriff' : n + ' Begriffe';
+    const n = settings.glossar.length, v = vordefGlossar(), ges = glossarAktiv().length;
+    $('#glossCount').textContent = ges === 1 ? '1 Begriff' : ges + ' Begriffe';
     $('#glossH').textContent = 'Meine Begriffe (' + n + ')';
     $('#glossList').innerHTML = settings.glossar.map((g, i) => zeile(g, 'data-gl="' + i + '"')).join('') || '<div class="empty">Noch keine Begriffe.</div>';
     const f = fremdGlossar();
     show('#glossFremdBox', f.length > 0);
     $('#glossFremd').innerHTML = f.map((g, i) => zeile(Object.assign({}, g, { falsch: (g.falsch ? g.falsch + ' · ' : '') + 'von ' + (g.von || 'Kollege') }), 'data-glf="' + i + '"')).join('');
+    show('#glossVordefBox', v.length > 0);
+    $('#glossVordefH').textContent = 'Vordefiniert (' + v.length + ')';
+    $('#glossVordef').innerHTML = v.map((g, i) => zeile(g, 'data-glv="' + i + '"')).join('');
   }
   function openBegriff(i, vorlage) {
     const alt = i >= 0 ? settings.glossar[i] : vorlage || null;
@@ -1103,6 +1108,7 @@
     $('#glossAdd').addEventListener('submit', glossarHinzufuegen);
     $('#gaOk').addEventListener('mousedown', e => e.preventDefault()); // Tastatur bleibt offen
     $('#gaB').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); if ($('#gaB').value.trim()) $('#gaF').focus(); } });
+    $('#glossVordef').addEventListener('click', e => { const b = e.target.closest('[data-glv]'); if (b) openBegriff(-1, vordefGlossar()[Number(b.dataset.glv)]); });
     $('#glossFremd').addEventListener('click', e => { const b = e.target.closest('[data-glf]'); if (b) openBegriff(-1, fremdGlossar()[Number(b.dataset.glf)]); });
     $('#modal').addEventListener('click', e => { if (e.target.id === 'modal' || e.target.closest('[data-m=close]')) closeModal(); });
     $('#retryBtn').addEventListener('click', async () => { const a = await S.KV.get('lastAudio'); if (a) { if (a.append) { job.append = true; job.transcript = a.prev; } processAudio(a.blob); } else closeSheet(); });
