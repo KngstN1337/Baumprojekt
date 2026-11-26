@@ -135,14 +135,15 @@
   function renderToday() {
     if (!course) {
       $('#dayTitle').textContent = 'Heute';
-      $('#courseBtn').textContent = 'Kein Lehrgang gewählt – hier tippen';
+      $('#courseBtn').textContent = 'Lehrgang wählen oder anlegen'; $('#weekInfo').textContent = '';
       $('#days').innerHTML = ''; $('#teamsHead').textContent = 'Teams';
       $('#teamList').innerHTML = '<div class="empty">Lege unter „Lehrgänge“ deinen ersten Lehrgang an.</div>';
       return;
     }
     const max = course.meta.wochen * 7, idx = WBK.dayIndex(course.meta.start, selDate), t = today();
     $('#dayTitle').textContent = selDate === t ? 'Heute' : longDate(selDate);
-    $('#courseBtn').textContent = (course.meta.titel || 'Lehrgang') + ' · Woche ' + Math.ceil(idx / 7) + ' von ' + course.meta.wochen;
+    $('#courseBtn').textContent = course.meta.titel || 'Lehrgang';
+    $('#weekInfo').textContent = ' · Woche ' + Math.ceil(idx / 7) + ' von ' + course.meta.wochen;
     const withNotes = new Set(course.notes.map(n => n.datum));
     let html = '';
     for (let i = 0; i < max; i++) {
@@ -188,13 +189,13 @@
       const mine = notes.filter(n => n.datum === d);
       if (!mine.length && d !== selDate) return '';
       return '<div class="section-h">' + esc(longDate(d)) + (d === today() ? ' · Heute' : '') + '</div><div class="group">' + (mine.length
-        ? mine.map(n => '<div class="note"><div class="note-m"><span>' + esc(n.uhrzeit) + ' Uhr' + (mehrere && n.von ? ' · ' + esc(n.von) : '') + '</span><span class="tag">' + esc(n.kategorie) + '</span></div><div class="note-t">' + esc(n.text) + '</div></div>').join('')
+        ? mine.map(n => '<div class="note"><div class="note-m"><span>' + esc(n.uhrzeit) + ' Uhr' + (mehrere && n.von ? ' · ' + esc(n.von) : '') + '</span>' + (n.kategorie ? '<span class="tag">' + esc(n.kategorie) + '</span>' : '') + '</div><div class="note-t">' + esc(n.text) + '</div></div>').join('')
         : '<div class="empty">Noch keine Notiz an diesem Tag.</div>') + '</div>';
     }).join('');
   }
 
   // ---------------- Aufnahme-Fenster ----------------
-  // job: { team: Name oder ALLE, datum, uhrzeit, aid, transcript, text, kategorie }
+  // job: { team: Name oder ALLE, datum, uhrzeit, aid, transcript, text }
   let job = null;
   function sheetState(st, msg) {
     show('#sheetRec', st === 'rec'); show('#sheetRecBtns', st === 'rec');
@@ -232,7 +233,7 @@
   }
   function typeNote(teamName) {
     if (!course) return needSetup();
-    job = { team: teamName, datum: selDate, uhrzeit: nowTime(), transcript: '', text: '', kategorie: 'Sonstiges' };
+    job = { team: teamName, datum: selDate, uhrzeit: nowTime(), transcript: '', text: '' };
     fillEdit(); openSheet(teamName, 'edit'); $('#noteText').focus();
   }
 
@@ -352,7 +353,7 @@
       sheetState('busy', 'Formuliere im Stil „' + (STIL_KURZ[settings.stil] || (S.STILE.find(s => s.id === settings.stil) || S.STILE[0]).name) + '“ …');
       const tm = job.team === ALLE ? null : teamByName(job.team);
       const r = await S.formulate(quelle, tm, { key: openaiKey(), model: settings.llmModel, stil: settings.stil, glossar: glossarAktiv() });
-      job.text = r.text; job.kategorie = r.kategorie; job.unklar = r.unklar;
+      job.text = r.text; job.unklar = r.unklar;
       fillEdit(); sheetState('edit'); saveDraft();
     } catch (e) {
       // Ohne KI weiter: Rohtext zum Bearbeiten anbieten
@@ -361,7 +362,6 @@
     }
   }
   function fillEdit() {
-    $('#noteKat').innerHTML = S.KATEGORIEN.map(k => '<option' + (k === job.kategorie ? ' selected' : '') + '>' + esc(k) + '</option>').join('');
     $('#noteText').value = job.text || '';
     renderUnklar();
   }
@@ -457,7 +457,7 @@
   }
   function openModal(html) { $('#modalCard').innerHTML = html; document.body.classList.add('modal-open'); }
   function closeModal() { document.body.classList.remove('modal-open'); $('#modal').oninput = $('#modal').onchange = null; }
-  function saveDraft() { if (job) { job.text = $('#noteText').value; job.kategorie = $('#noteKat').value; S.KV.set('draft2', Object.assign({ courseId: activeId }, job)); } }
+  function saveDraft() { if (job) { job.text = $('#noteText').value; S.KV.set('draft2', Object.assign({ courseId: activeId }, job)); } }
   // Eigenes Glossar im Lehrgang ablegen, damit der zweite Trainer es mitbenutzt (eigene Zeilen werden ersetzt)
   function glossarInKurs(c) {
     const me = myName() || 'Trainer';
@@ -468,7 +468,7 @@
     const text = job.text.trim();
     if (!text) { toast('Kein Text vorhanden.'); return; }
     const teams = job.team === ALLE ? course.teams.map(t => t.name) : [job.team];
-    const neu = teams.map(team => ({ datum: job.datum, uhrzeit: job.uhrzeit, team, kategorie: job.kategorie, text, quelle: job.transcript ? 'Sprachnotiz' : 'Eingetippt', von: myName() }));
+    const neu = teams.map(team => ({ datum: job.datum, uhrzeit: job.uhrzeit, team, text, quelle: job.transcript ? 'Sprachnotiz' : 'Eingetippt', von: myName() }));
     const drin = (c, n) => c.notes.some(m => m.datum === n.datum && m.uhrzeit === n.uhrzeit && m.team === n.team && m.text === n.text.trim());
     try {
       await withStore('Speichere im Lehrgang …', () => modifyCourse(c => { c.notes.push(...neu.filter(n => !drin(c, n))); glossarInKurs(c); }, c => neu.every(n => drin(c, n))));
@@ -552,14 +552,30 @@
   }
 
   // ---------------- Lehrgänge verwalten ----------------
+  function fillCourseSelects() {
+    const nm = f => f.name.replace(/\.xlsx$/, '').replace(/^Lehrgang /, '');
+    const cur0 = courses.find(f => f.id === activeId);
+    const html = (courses.length
+      ? (cur0 ? '' : '<option value="" selected disabled>Bitte wählen</option>') + courses.map(f => '<option value="' + esc(f.id) + '"' + (f.id === activeId ? ' selected' : '') + '>' + esc(nm(f)) + (f.ownedByMe === false ? ' (geteilt)' : '') + '</option>').join('')
+      : '<option value="" disabled selected>Noch keine Lehrgänge</option>') + '<option value="__neu">+ Neuer Lehrgang …</option>';
+    ['#courseSelect', '#courseSelectTop'].forEach(id => { const el = $(id); if (el) el.innerHTML = html; });
+  }
+  async function loadCourseList() { try { courses = await store().list(); } catch (e) { /* offline */ } fillCourseSelects(); }
+  async function switchCourse(e) {
+    const v = e.target.value;
+    if (v === '__neu') { fillCourseSelects(); go('lehrgang'); openCourseForm(false); return; }
+    if (!v || v === activeId) return;
+    setActive(v); selDate = today();
+    await withStore('Lade Lehrgang …', loadActive).catch(() => {});
+    fillCourseSelects();
+    if (!$('#v-lehrgang').classList.contains('hidden')) refreshCourses();
+  }
   async function refreshCourses() {
     $('#driveLink').classList.add('hidden');
     try { courses = await withStore('Lade Lehrgänge …', () => store().list()); } catch (e) { courses = []; }
     const nm = f => f.name.replace(/\.xlsx$/, '').replace(/^Lehrgang /, '');
     const cur0 = courses.find(f => f.id === activeId);
-    $('#courseSelect').innerHTML = courses.length
-      ? (cur0 ? '' : '<option value="" selected disabled>Bitte wählen</option>') + courses.map(f => '<option value="' + esc(f.id) + '"' + (f.id === activeId ? ' selected' : '') + '>' + esc(nm(f)) + (f.ownedByMe === false ? ' (geteilt)' : '') + '</option>').join('')
-      : '<option value="" disabled selected>Noch keine Lehrgänge</option>';
+    fillCourseSelects();
     $('#courseName').textContent = cur0 ? nm(cur0) : (courses.length ? 'Bitte wählen' : 'Noch keiner');
     $('#courseInfo').textContent = cur0 ? (cur0.ownedByMe === false ? 'geteilt von ' + (((cur0.owners || [])[0] || {}).displayName || 'Kollege') + ' · ' : '') + 'geändert ' + new Date(cur0.modifiedTime).toLocaleString('de-DE', { dateStyle: 'medium', timeStyle: 'short' }) : (courses.length ? courses.length + ' Lehrgänge' : 'Tippe oben rechts auf Plus');
     const cur = courses.find(f => f.id === activeId);
@@ -787,6 +803,7 @@
     lock(false); banner('');
     await loadSettingsFromDrive();
     await loadActive();
+    loadCourseList();
     await restoreDraft();
     migrate();
     syncOutbox();
@@ -846,12 +863,12 @@
     $('#glossList').addEventListener('click', e => { const b = e.target.closest('[data-gl]'); if (b) openBegriff(b.dataset.gl === 'neu' ? -1 : Number(b.dataset.gl)); });
     $('#glossFremd').addEventListener('click', e => { const b = e.target.closest('[data-glf]'); if (b) openBegriff(-1, fremdGlossar()[Number(b.dataset.glf)]); });
     $('#modal').addEventListener('click', e => { if (e.target.id === 'modal' || e.target.closest('[data-m=close]')) closeModal(); });
-    $('#noteKat').addEventListener('change', saveDraft);
     $('#retryBtn').addEventListener('click', async () => { const a = await S.KV.get('lastAudio'); if (a) { if (a.append) { job.append = true; job.transcript = a.prev; } processAudio(a.blob); } else closeSheet(); });
     $('#errClose').addEventListener('click', () => { closeSheet(); restoreDraft(); });
     renderStil();
     $('#stilSeg').addEventListener('click', e => { const b = e.target.closest('[data-stil]'); if (b) chooseStil(b.dataset.stil); });
-    $('#courseSelect').addEventListener('change', async e => { if (e.target.value) { setActive(e.target.value); selDate = today(); await withStore('Lade Lehrgang …', loadActive).catch(() => {}); refreshCourses(); } });
+    $('#courseSelect').addEventListener('change', switchCourse);
+    $('#courseSelectTop').addEventListener('change', switchCourse);
     $('#newCourseBtn').addEventListener('click', () => openCourseForm(false));
     $('#addSharedBtn').addEventListener('click', () => addShared(localStorage.getItem('baumprojekt.invite') || ''));
     $('#shareBox').addEventListener('click', e => { if (e.target.id === 'inviteBtn') invite(); const u = e.target.closest('[data-unshare]'); if (u) unshare(u.dataset.unshare); });

@@ -410,18 +410,18 @@
   };
 
 
-  // Eine Aufnahme zu EINEM bekannten Team im gewählten Stil formulieren und einer Kategorie zuordnen.
+  // Eine Aufnahme zu EINEM bekannten Team im gewählten Stil formulieren.
   async function formulate(transcript, team, opts) {
     const stil = stilVon(opts.stil);
     const alle = !team;
     const system =
       'Du bist Assistent eines Hundetrainers. Er hat eine Notiz ' + (alle ? 'für ALLE Teams seines Lehrgangs' : 'zu genau einem Team (Teilnehmer/in mit Hund)') + ' eingesprochen. ' +
-      'Schreibe daraus den Notiztext und wähle die passendste Kategorie. Hausaufgaben oder Übungsaufträge für zu Hause bekommen die Kategorie "Hausaufgabe".\n\n' +
+      'Schreibe daraus den Notiztext.\n\n' +
       (alle ? '' : 'Team: Teilnehmer/in ' + (team.teilnehmer || '?') + ', Hund ' + (team.hund || '?') + (team.rasse ? ' (' + team.rasse + ')' : '') + '\n\n') +
       'Regeln für text (Schreibstil „' + stil.name + '“):\n' + stil.regeln.join('\n') + '\n' + GEMEINSAM + '\n' + GLOSSAR_REGELN +
       '\n\nGlossar (Begriff, dahinter typische Fehlerkennungen der Spracherkennung):\n' + glossarListe(opts.glossar);
-    const schema = { type: 'object', additionalProperties: false, required: ['kategorie', 'text', 'unklar'],
-      properties: { kategorie: { type: 'string', enum: KATEGORIEN }, text: { type: 'string' },
+    const schema = { type: 'object', additionalProperties: false, required: ['text', 'unklar'],
+      properties: { text: { type: 'string' },
         unklar: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['wort', 'vorschlag'], properties: { wort: { type: 'string' }, vorschlag: { type: 'string' } } } } } };
     const res = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -435,7 +435,7 @@
     if (!res.ok) throw await oaiError(res);
     const j = await res.json();
     const content = j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content;
-    const r = JSON.parse(content || '{"kategorie":"Sonstiges","text":"","unklar":[]}');
+    const r = JSON.parse(content || '{"text":"","unklar":[]}');
     // Nur Rückfragen behalten, deren Wort wirklich im Text steht
     r.unklar = (r.unklar || []).filter(u => u.wort && r.text.toLowerCase().indexOf(u.wort.toLowerCase()) >= 0 && u.wort !== u.vorschlag);
     return r;

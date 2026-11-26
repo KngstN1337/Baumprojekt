@@ -126,20 +126,22 @@
 
     // Notizen (Rohdaten)
     const wn = wb.addWorksheet(SHEET_NOT, { views: [{ state: 'frozen', ySplit: 1 }] });
-    const nh = ['Datum', 'Lehrgangstag', 'Uhrzeit', 'Team', 'Kategorie', 'Notiz', 'Quelle', 'Eingesprochen von'];
-    const nw = [12, 13, 9, 18, 17, 70, 13, 20];
-    nh.forEach((h, i) => {
+    // Kategorien werden nicht mehr vergeben. Die Spalte bleibt nur, solange alte Notizen eine Kategorie haben (nichts geht verloren).
+    const mitKat = notes.some(n => n.kategorie);
+    const COLS = [['Datum', 12, n => isoToDe(n.datum)], ['Lehrgangstag', 13, n => 'Tag ' + dayIndex(m.start, n.datum)], ['Uhrzeit', 9, n => n.uhrzeit || ''], ['Team', 18, n => n.team || ''],
+      ...(mitKat ? [['Kategorie', 17, n => n.kategorie || '']] : []), ['Notiz', 70, n => n.text || ''], ['Quelle', 13, n => n.quelle || 'Sprachnotiz'], ['Eingesprochen von', 20, n => n.von || '']];
+    COLS.forEach(([h, w], i) => {
       const c = wn.getRow(1).getCell(i + 1);
       c.value = h; c.font = { bold: true, color: { argb: 'FFFFFFFF' } };
       c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: BLUE } };
-      wn.getColumn(i + 1).width = nw[i];
+      wn.getColumn(i + 1).width = w;
     });
     notes.forEach((n, i) => {
       const row = wn.getRow(i + 2);
-      row.values = [isoToDe(n.datum), 'Tag ' + dayIndex(m.start, n.datum), n.uhrzeit || '', n.team || '', n.kategorie || '', n.text || '', n.quelle || 'Sprachnotiz', n.von || ''];
+      row.values = COLS.map(col => col[2](n));
       row.eachCell(c => { c.alignment = { wrapText: true, vertical: 'top' }; });
     });
-    wn.autoFilter = { from: 'A1', to: 'H' + Math.max(1, notes.length + 1) };
+    wn.autoFilter = { from: 'A1', to: String.fromCharCode(64 + COLS.length) + Math.max(1, notes.length + 1) };
 
     // Teams
     const wt = wb.addWorksheet(SHEET_TEAMS);
@@ -195,9 +197,14 @@
     });
 
     const wn = wb.getWorksheet(SHEET_NOT);
+    // Spalten über die Überschriften finden (alte Dateien haben noch „Kategorie“, neue nicht)
+    const col = {};
+    if (wn) wn.getRow(1).eachCell((c, k) => { col[String(cellText(c.value) || '').trim()] = k; });
+    const at = (name, alt) => col[name] || (Object.keys(col).length ? 0 : alt);
+    const txt = (r, k) => k ? String(cellText(r.getCell(k).value) || '').trim() : '';
     if (wn) wn.eachRow((r, i) => {
       if (i === 1) return;
-      const n = { datum: parseDateCell(r.getCell(1).value), uhrzeit: parseTimeCell(r.getCell(3).value), team: String(cellText(r.getCell(4).value) || '').trim(), kategorie: String(cellText(r.getCell(5).value) || '').trim(), text: String(cellText(r.getCell(6).value) || '').trim(), quelle: String(cellText(r.getCell(7).value) || '').trim(), von: String(cellText(r.getCell(8).value) || '').trim() };
+      const n = { datum: parseDateCell(r.getCell(at('Datum', 1)).value), uhrzeit: parseTimeCell(r.getCell(at('Uhrzeit', 3) || 3).value), team: txt(r, at('Team', 4)), kategorie: txt(r, at('Kategorie', 5)), text: txt(r, at('Notiz', 6)), quelle: txt(r, at('Quelle', 7)), von: txt(r, at('Eingesprochen von', 8)) };
       if (n.datum && n.text) course.notes.push(n);
     });
 
