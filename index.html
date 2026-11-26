@@ -14,8 +14,8 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/icon-192.png">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-  <link rel="stylesheet" href="css/design.css?v=35">
-  <link rel="stylesheet" href="css/style.css?v=35">
+  <link rel="stylesheet" href="css/design.css?v=36">
+  <link rel="stylesheet" href="css/style.css?v=36">
 </head>
 <body class="locked">
   <section id="login" class="login">
@@ -147,7 +147,8 @@
           <li>Unter <b>Heute</b> oben den Tag antippen. Vorausgewählt ist heute; jeder Tag des Lehrgangs geht, auch nachträglich. Ein Punkt unter dem Tag heißt: Dort gibt es schon Notizen.</li>
           <li>Beim Team auf das <b>Mikrofon</b> tippen und frei sprechen. Die Aufnahme startet sofort. Mit <b>Pause</b> unterbrichst du, mit <b>Weiter</b> geht es an derselben Stelle weiter.</li>
           <li>Auf den roten Knopf <b>Fertig</b> tippen. Kurz danach siehst du den Text. Du kannst ihn noch ändern. Fällt dir noch etwas ein, tippst du auf <b>Weiter aufnehmen</b>; das Neue wird angehängt.</li>
-          <li>Unter dem Text wählst du den Schreibstil: <b>Fließtext</b> (dein Wortlaut, nur korrigiert), <b>Buchtext</b> (sauber ausformuliert in Ich-Form), <b>Stichpunkte</b> (nur die Kernaussagen) oder <b>Amtlich</b> (Beamtendeutsch: sachlich und unpersönlich wie „Es wurde festgestellt, dass …“, tauglich für Behörden). Ein anderer Stil formuliert den Text sofort neu. Die App merkt sich deine Wahl.</li>
+          <li>Unter dem Text wählst du den Schreibstil: <b>Fließtext</b> (dein Wortlaut, nur korrigiert), <b>Buchtext</b> (sauber ausformuliert in Ich-Form) oder <b>Amtlich</b> (Beamtendeutsch: sachlich und unpersönlich wie „Es wurde festgestellt, dass …“, tauglich für Behörden). Ein anderer Stil formuliert den Text sofort neu. Die App merkt sich deine Wahl.</li>
+          <li><b>Mehrere Stichpunkte in einer Aufnahme:</b> Sag zwischendurch <b>„nächster Punkt“</b>. Die App teilt die Aufnahme dort auf und zeigt jeden Stichpunkt in einem eigenen Feld. Beim Speichern wird jeder zu einer eigenen Notiz. Das Ansagewort selbst taucht im Text nicht auf, und es klappt mit jedem Schreibstil. Ein Feld, das du leerst, entfällt.</li>
           <li>„Speichern“ tippen, fertig. Beim Team erscheint ein grüner Haken.</li>
         </ol>
         <p><b>Für alle Teams:</b> Was alle betrifft („Alle Hunde haben heute …“), sprichst du unten bei „Notiz für alle Teams“ ein. Es wird bei jedem Team eingetragen.</p>
@@ -383,10 +384,11 @@
     <div id="sheetRec">
       <div class="rec-time" id="recTime">0:00</div>
       <canvas id="wave" class="wave" width="600" height="112"></canvas>
+      <p class="rec-hint">Sag „nächster Punkt“ für einen neuen Stichpunkt</p>
     </div>
     <div id="sheetBusy" class="sheet-busy hidden"><div class="spinner"></div><span id="sheetBusyText">Spracherkennung läuft …</span></div>
     <div id="sheetEdit" class="hidden">
-      <textarea id="noteText" rows="7" placeholder="Notiz eintippen …"></textarea>
+      <div id="noteParts"><textarea id="noteText" class="note-ta" rows="7" placeholder="Notiz eintippen …"></textarea></div>
       <div id="unklarBox" class="chips hidden" aria-label="Unsichere Wörter"></div>
       <button class="text-btn more-rec" id="moreRec"><svg><use href="#i-mic"/></svg>Weiter aufnehmen</button>
       <div class="stil-label">Schreibstil</div>
@@ -425,13 +427,13 @@
   <div id="busy" class="busy hidden"><div class="spinner"></div><div id="busyText">Bitte warten …</div></div>
   <div id="toast" class="toast hidden"></div>
 
-  <script src="config.js?v=35"></script>
+  <script src="config.js?v=36"></script>
   <script src="vendor/exceljs.min.js"></script>
-  <script src="js/workbook.js?v=35"></script>
-  <script src="js/services.js?v=35"></script>
-  <script src="js/vordefiniert.js?v=35"></script>
-  <script src="js/spuerhund.js?v=35"></script>
-  <script src="js/app.js?v=35"></script>
+  <script src="js/workbook.js?v=36"></script>
+  <script src="js/services.js?v=36"></script>
+  <script src="js/vordefiniert.js?v=36"></script>
+  <script src="js/spuerhund.js?v=36"></script>
+  <script src="js/app.js?v=36"></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 </body>
 </html>
