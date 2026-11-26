@@ -3,16 +3,26 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Baumi – Lehrgangsnotizen</title>
+  <title>Baumprojekt – Lehrgangsnotizen</title>
   <meta name="theme-color" content="#1F4E79">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/icon-192.png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
   <link rel="stylesheet" href="css/style.css">
 </head>
-<body>
+<body class="locked">
+  <section id="login" class="login">
+    <img src="icons/icon-192.png" alt="" width="96" height="96">
+    <h1>Baumprojekt</h1>
+    <p>Lehrgangsnotizen per Sprache – direkt in die Excel-Datei in deinem Google Drive.</p>
+    <button id="loginBtn" disabled>Mit Google anmelden</button>
+    <div id="loginMsg" class="small"></div>
+    <p class="small muted">Nur für freigeschaltete Google-Konten. Deine Daten bleiben in deinem eigenen Google Drive.</p>
+  </section>
+
+  <div id="app">
   <header>
-    <div class="brand">Baumi</div>
+    <div class="brand">Baumprojekt</div>
     <button id="courseBtn" class="course-btn" data-go="lehrgang">Kein Lehrgang gewählt</button>
   </header>
 
@@ -99,20 +109,58 @@
       </form>
     </section>
 
+    <!-- Hilfe -->
+    <section id="v-hilfe" class="view hidden help">
+      <div class="card">
+        <h3>So funktioniert Baumprojekt</h3>
+        <p>Baumprojekt ist eine App auf deinem Handy. Du sprichst nach dem Training einfach drauflos, was dir bei den Teams aufgefallen ist. Die App schreibt das auf, sortiert es den richtigen Teams zu und trägt es in die Excel-Datei des Lehrgangs ein. Die Excel-Datei musst du dafür nicht öffnen – die App legt sie selbst in deinem Google Drive an und füllt sie.</p>
+      </div>
+      <details class="card" open><summary>Erste Schritte</summary>
+        <ol>
+          <li><b>Auf den Startbildschirm legen:</b> Im Browser-Menü „Zum Startbildschirm hinzufügen“ (iPhone: Teilen-Symbol ↑). Dann startet die App wie jede andere.</li>
+          <li><b>OpenAI-Schlüssel eintragen</b> unter ⚙️ Einstellungen. Der Schlüssel sorgt für Spracherkennung und Zuordnung. Du bekommst ihn auf platform.openai.com unter „API keys“.</li>
+          <li><b>Lehrgang anlegen</b> unter 📁 Lehrgang → „+ Neuer Lehrgang“: Name, erster Tag, 4 oder 10 Wochen und die Teams (Teilnehmer/in und Hund).</li>
+        </ol>
+      </details>
+      <details class="card"><summary>Notizen einsprechen</summary>
+        <ol>
+          <li>Unter 🎙️ Notiz den Tag prüfen (vorausgewählt ist heute; jeder Tag des Lehrgangs geht, auch nachträglich).</li>
+          <li>Roten Knopf tippen und frei sprechen. Nochmal tippen zum Beenden.</li>
+          <li>Die App zeigt dann eine <b>Vorschau</b>: jeder Abschnitt mit Team, Kategorie und Text. Hier kannst du alles korrigieren, Abschnitte löschen oder ergänzen.</li>
+          <li>Gelb markiert = die App wusste nicht, zu welchem Team das gehört. Bitte ein Team auswählen oder löschen.</li>
+          <li>„Im Lehrgang speichern“ – fertig.</li>
+        </ol>
+        <p><b>Tipps:</b> Nenne Person oder Hund, bevor du etwas zu ihnen sagst („Bei Anna und Balu …“, „Kira hat heute …“). Hausaufgaben am besten ausdrücklich sagen („Hausaufgabe für Rocky: …“). Was für alle gilt („Alle Hunde haben heute …“), wird bei jedem Team eingetragen. Statt zu sprechen kannst du auch „oder Text eintippen“ nutzen.</p>
+      </details>
+      <details class="card"><summary>Wo ist meine Excel-Datei?</summary>
+        <p>In deinem Google Drive im Ordner <b>„Baumprojekt Lehrgänge“</b>, eine Datei pro Lehrgang. Unter 📁 Lehrgang kannst du sie herunterladen oder in Google Drive öffnen.</p>
+        <p>Die Datei hat drei Blätter: <b>Übersicht</b> (Teams untereinander, jeder Tag eine Spalte), <b>Notizen (Rohdaten)</b> (jede Notiz eine Zeile) und <b>Teams</b>.</p>
+        <p><b>Am Windows-PC:</b> Mit dem Programm „Google Drive für Desktop“ erscheint dein Drive als Laufwerk (z. B. G:). Dort die Datei direkt mit Excel öffnen.</p>
+      </details>
+      <details class="card"><summary>Etwas nachträglich ändern</summary>
+        <p>Den Tag kannst du unter 📅 Tag ansehen. Ändern oder löschen geht in Excel, und zwar im Blatt <b>Notizen (Rohdaten)</b>. Die Übersicht baut die App beim nächsten Speichern daraus neu. Die Spalte „Gesamteindruck“ in der Übersicht kannst du direkt beschreiben, sie bleibt erhalten.</p>
+        <p>Wichtig: Die Datei nicht am PC geöffnet lassen, während du am Handy speicherst.</p>
+      </details>
+      <details class="card"><summary>Abmelden, neues Handy, Browserdaten gelöscht</summary>
+        <p>Alle Lehrgänge liegen in deinem Google Drive, nicht auf dem Handy. Nach dem Abmelden, auf einem neuen Handy oder nach dem Löschen der Browserdaten meldest du dich einfach wieder mit Google an – alle Lehrgänge sind wieder da.</p>
+        <p>Nur den <b>OpenAI-Schlüssel</b> musst du dann neu eintragen, weil er aus Sicherheitsgründen nur auf dem Gerät gespeichert wird.</p>
+        <p>Die Google-Anmeldung gilt jeweils etwa eine Stunde. Danach fragt die App einmal kurz nach.</p>
+      </details>
+      <details class="card"><summary>Datenschutz</summary>
+        <p>Es gibt keinen Server von Baumprojekt. Die App läuft nur auf deinem Handy. Deine Aufnahmen gehen zur Spracherkennung an OpenAI (mit deinem eigenen Schlüssel), die Notizen nur in dein eigenes Google Drive. Niemand sonst, auch nicht der Herausgeber der App, kann deine Daten sehen.</p>
+      </details>
+      <details class="card"><summary>Kosten</summary>
+        <p>OpenAI berechnet die Nutzung über deinen Schlüssel: grob 1 Cent pro Minute Sprache. Bei 10 Minuten am Tag sind das etwa 2–3 € im Monat.</p>
+      </details>
+    </section>
+
     <!-- Einstellungen -->
     <section id="v-einst" class="view hidden">
       <form id="settingsForm" class="card">
-        <h3>Speicherort</h3>
-        <label class="inline"><input type="radio" name="mode" value="drive"> Google Drive (empfohlen)</label>
-        <label class="inline"><input type="radio" name="mode" value="local"> Nur auf diesem Gerät (zum Ausprobieren)</label>
-        <div id="driveBox">
-          <p class="small muted">Baumi legt die Dateien im Ordner „Baumi Lehrgänge“ in deinem eigenen Google Drive an und sieht nur diese Dateien.</p>
-          <div class="actions"><button type="button" id="connectBtn">Mit Google verbinden</button><button type="button" id="disconnectBtn" class="secondary">Trennen</button></div>
-          <div id="driveStatus" class="small"></div>
-          <details><summary class="small">Erweitert</summary>
-            <label>Google-Client-ID <input name="clientId" placeholder="…apps.googleusercontent.com"></label>
-          </details>
-        </div>
+        <h3>Google-Konto</h3>
+        <div id="driveStatus" class="small"></div>
+        <p class="small muted">Die Lehrgänge liegen im Ordner „Baumprojekt Lehrgänge“ in deinem Google Drive. Die App sieht nur diesen Ordner.</p>
+        <div class="actions"><button type="button" id="logoutBtn" class="secondary">Abmelden</button><button type="button" id="switchBtn" class="secondary">Konto wechseln</button></div>
         <h3>OpenAI</h3>
         <label>API-Schlüssel <input name="openaiKey" type="password" autocomplete="off" placeholder="sk-…"></label>
         <p class="small muted">Der Schlüssel bleibt nur auf diesem Gerät gespeichert und wird direkt an OpenAI geschickt.</p>
@@ -123,8 +171,8 @@
         <div class="actions"><button type="submit">Speichern</button></div>
       </form>
       <div class="card">
-        <button id="wipeBtn" class="danger">Alle Baumi-Daten auf diesem Gerät löschen</button>
-        <p class="small muted">Löscht Schlüssel, Einstellungen und lokale Testdateien. Dateien in Google Drive bleiben erhalten.</p>
+        <button id="wipeBtn" class="danger">Alle Baumprojekt-Daten auf diesem Gerät löschen</button>
+        <p class="small muted">Löscht den OpenAI-Schlüssel, Einstellungen und nicht gespeicherte Entwürfe auf diesem Gerät. Die Dateien in Google Drive bleiben erhalten.</p>
       </div>
     </section>
   </main>
@@ -133,8 +181,10 @@
     <button data-go="notiz" class="active">🎙️<span>Notiz</span></button>
     <button data-go="tag">📅<span>Tag</span></button>
     <button data-go="lehrgang">📁<span>Lehrgang</span></button>
+    <button data-go="hilfe">❓<span>Hilfe</span></button>
     <button data-go="einst">⚙️<span>Einstellungen</span></button>
   </nav>
+  </div>
 
   <div id="busy" class="busy hidden"><div class="spinner"></div><div id="busyText">Bitte warten …</div></div>
   <div id="toast" class="toast hidden"></div>
