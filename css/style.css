@@ -24,7 +24,8 @@
 .note-t{font-size:16px;line-height:1.45;white-space:pre-wrap}
 .rec-cell{flex-wrap:wrap}.rec-cell audio{width:100%;height:40px;margin-top:4px}
 .rohtext{width:100%;white-space:pre-wrap;font-size:14px;color:var(--sec);background:var(--fill);border-radius:8px;padding:8px 10px;margin-top:6px}
-.cta-wrap{position:sticky;bottom:calc(92px + env(safe-area-inset-bottom));padding:4px 16px 0;margin-top:-8px}
+/* Aufnehmen-Knopf fest unter dem Namen (nicht schwebend, damit er nichts verdeckt) */
+.cta-wrap{padding:0 16px 26px}
 .rec-time{font-size:46px;font-weight:300;text-align:center;font-variant-numeric:tabular-nums;margin:14px 0 2px;letter-spacing:-.01em}
 .wave{display:block;width:100%;height:56px;margin:4px 0 16px}
 .sheet-busy{display:flex;flex-direction:column;align-items:center;gap:12px;padding:30px 0 26px;color:var(--sec);font-size:15px}
@@ -80,7 +81,7 @@ body:not(.locked) #login{display:none}
 .chip small{display:block;font-size:13px;color:var(--sec)}
 .chip:active{transform:scale(.97)}
 .group-foot{font-size:13px;color:var(--sec);margin:-20px 32px 28px}
-.modal{position:fixed;inset:0;z-index:25;background:rgba(0,0,0,.32);display:flex;align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s}
+.modal{position:fixed;inset:0;z-index:25;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s}
 body.modal-open .modal{opacity:1;pointer-events:auto}
 .modal-card{background:var(--bg);width:100%;max-width:640px;max-height:90vh;overflow:auto;border-radius:14px 14px 0 0;padding:16px 0 calc(16px + env(safe-area-inset-bottom));transform:translateY(30px);transition:transform .25s}
 body.modal-open .modal-card{transform:none}
@@ -115,8 +116,12 @@ body.modal-open .modal-card{transform:none}
 body:has(#v-training:not(.hidden)) .tabs{display:none}
 .tr-head{text-align:center;padding:0 16px}.tr-head span{color:var(--sec);font-size:15px}.tr-head h1{font-size:28px;margin:0;letter-spacing:-.02em}
 .tr-seg{padding:14px 16px 0}.tr-seg .segmented{margin:0}
-.zg-scroll{overflow-x:auto;scrollbar-width:none}.zg-scroll button{flex:0 0 auto;padding:6px 12px}
+/* Trainingsmodus: alle Gerüche auf einen Blick als Kacheln (3 Spalten, bei 2 oder 4 Gerüchen 2 Spalten) */
+#trSeg{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;background:none;padding:0}#trSeg.zg-grid2{grid-template-columns:repeat(2,1fr)}
+#trSeg button{background:var(--fill);border-radius:10px;padding:11px 4px;font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#trSeg button.on{background:var(--fill-tint);color:#fff;box-shadow:none}
 .tr-n{display:block;width:100%;background:none;border:0;color:var(--label);text-align:center;padding:10px 0 0}.tr-n b{display:block;font-size:96px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}.tr-n span{color:var(--sec);font-size:15px}
-.tr-tap{display:flex;flex-direction:column;align-items:center;justify-content:center;width:calc(100% - 32px);margin:18px 16px 10px;height:min(38vh,300px);border:0;border-radius:28px;background:var(--fill-tint);color:#fff;font-size:64px;font-weight:700;-webkit-user-select:none;user-select:none;touch-action:manipulation}
+.tr-tap{display:flex;flex-direction:column;align-items:center;justify-content:center;width:calc(100% - 32px);margin:18px 16px 10px;height:min(32vh,260px);border:0;border-radius:28px;background:var(--fill-tint);color:#fff;font-size:64px;font-weight:700;-webkit-user-select:none;user-select:none;touch-action:manipulation}
 .tr-tap small{font-size:17px;font-weight:500;opacity:.85;margin-top:6px}
 .tr-foot{display:flex;justify-content:space-between;align-items:center;padding:4px 20px}.tr-schritt{color:var(--sec);display:flex;align-items:center}
+
+#swList .cell{gap:12px}#swList input[type=radio]{accent-color:var(--tint);width:20px;height:20px;margin:0;flex:0 0 auto}
