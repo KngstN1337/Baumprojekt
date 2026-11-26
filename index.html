@@ -12,7 +12,7 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/icon-192.png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="stylesheet" href="css/style.css?v=8">
+  <link rel="stylesheet" href="css/style.css?v=9">
 </head>
 <body class="locked">
   <section id="login" class="login">
@@ -61,6 +61,9 @@
         <button class="cell link-cell" id="downloadBtn">Excel herunterladen</button>
         <a class="cell link-cell hidden" id="driveLink" target="_blank" rel="noopener">Ordner in Google Drive öffnen</a>
       </div>
+      <div id="shareSec" class="hidden"><div class="section-h">Gemeinsam mit anderen Trainern</div>
+      <div class="group" id="shareBox"></div></div>
+      <div class="group"><button class="cell link-cell" id="addSharedBtn">Geteilten Lehrgang hinzufügen</button></div>
       <details id="allRecs" class="group disclosure"><summary class="cell">Alle Aufnahmen dieses Lehrgangs</summary><div id="allRecList"></div></details>
 
       <form id="courseForm" class="hidden">
@@ -118,6 +121,15 @@
       <details class="card"><summary>Aufnahmen nachhören</summary>
         <p>Jede Aufnahme wird sofort nach dem Beenden gesichert: zuerst auf dem Handy, dann in Google Drive – noch bevor die KI sie verarbeitet. Ohne Netz bleibt sie auf dem Handy und wird automatisch nachgeladen, sobald wieder Netz da ist. Solange steht unter Heute ein Hinweis „… wartet auf die Sicherung“.</p>
         <p>Tippst du unter Heute auf ein Team, siehst du alle seine Notizen und Aufnahmen. Unter Lehrgänge findest du alle Aufnahmen des Lehrgangs. „▶ Anhören“ spielt sie ab, „Rohtext anzeigen“ zeigt, was die Spracherkennung verstanden hat.</p>
+      </details>
+      <details class="card"><summary>Gemeinsam mit einem zweiten Trainer</summary>
+        <p>Ihr könnt beide im selben Lehrgang einsprechen. Jede Notiz zeigt, wer sie eingesprochen hat (in Excel in der Spalte „Eingesprochen von“).</p>
+        <ol>
+          <li><b>Einladen:</b> Unter Lehrgänge den Lehrgang wählen und bei „Gemeinsam mit anderen Trainern“ auf <b>Trainer einladen</b> tippen, dann die Google-E-Mail-Adresse eintragen. Der Lehrgangsordner wird in Google Drive für diese Person freigegeben. Das Konto muss außerdem für Baumprojekt freigeschaltet sein.</li>
+          <li><b>Der Eingeladene</b> öffnet den Link aus der E-Mail, meldet sich an und tippt auf „Hinzufügen“. In der Google-Auswahl markiert er alles im Ordner (Excel-Datei, Aufnahmen, Sicherungen) und tippt auf „Auswählen“. Das ist nur einmal nötig.</li>
+          <li><b>OpenAI-Schlüssel:</b> Der Einladende kann „Meinen OpenAI-Schlüssel mitbenutzen lassen“ einschalten. Dann braucht der Kollege keinen eigenen, die Kosten laufen über den Einladenden. Sonst trägt jeder seinen eigenen Schlüssel ein.</li>
+        </ol>
+        <p>Speichert ihr gleichzeitig, geht nichts verloren: Die App liest die Datei vor dem Speichern neu ein, prüft danach, ob die Notiz wirklich drinsteht, und wiederholt es sonst. Die Notizen des Kollegen erscheinen nach spätestens einer Minute.</p>
       </details>
       <details class="card"><summary>Etwas nachträglich ändern</summary>
         <p>Alle Notizen eines Teams siehst du, wenn du unter Heute auf das Team tippst. Ändern oder löschen geht in Excel, und zwar im Blatt <b>Notizen (Rohdaten)</b>. Die Übersicht baut die App beim nächsten Speichern daraus neu. Die Spalte „Gesamteindruck“ in der Übersicht kannst du direkt beschreiben, sie bleibt erhalten.</p>
@@ -224,11 +236,11 @@
   <div id="busy" class="busy hidden"><div class="spinner"></div><div id="busyText">Bitte warten …</div></div>
   <div id="toast" class="toast hidden"></div>
 
-  <script src="config.js?v=8"></script>
+  <script src="config.js?v=9"></script>
   <script src="vendor/exceljs.min.js"></script>
-  <script src="js/workbook.js?v=8"></script>
-  <script src="js/services.js?v=8"></script>
-  <script src="js/app.js?v=8"></script>
+  <script src="js/workbook.js?v=9"></script>
+  <script src="js/services.js?v=9"></script>
+  <script src="js/app.js?v=9"></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 </body>
 </html>

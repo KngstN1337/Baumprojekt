@@ -39,6 +39,14 @@ Wichtig: Die Übersicht wird bei jedem Speichern aus den Rohdaten neu aufgebaut.
 
 Am Windows-PC: Mit „Google Drive für Desktop“ erscheint Drive als Laufwerk (z. B. `G:\Meine Ablage\Baumprojekt Lehrgänge`), dort die Datei direkt mit Excel öffnen.
 
+## Gemeinsame Lehrgänge (zweiter Trainer)
+- **Einladen** (Lehrgänge → „Trainer einladen“): gibt den Lehrgangsordner per Drive-API als *Bearbeiter* an die E-Mail frei. Google schickt eine E-Mail mit Link `…/Baumprojekt/?lehrgang=<OrdnerID>`. Das Konto muss als Testnutzer freigeschaltet sein.
+- **Hinzufügen** beim Eingeladenen: Wegen `drive.file` muss er Excel, „Aufnahmen“ und „Sicherungen“ einmal in der Google-Auswahl (Picker) markieren. Die App verschiebt geteilte Lehrgänge nie und legt dort keine Ordner doppelt an.
+- **Urheber**: Jede Notiz hat „Eingesprochen von“ (Spalte H in „Notizen (Rohdaten)“, in der Übersicht in Klammern, sobald es mehrere Trainer gibt). Aufnahmen tragen `appProperties.von`.
+- **Kein Überschreiben**: Vor dem Speichern wird der Dateistand (Revision) gemerkt und direkt vor dem Schreiben erneut geprüft; hat jemand anderes gespeichert, wird neu eingelesen und wiederholt. Danach wird geprüft, ob die Notiz wirklich in der Datei steht. Geteilte Lehrgänge werden jede Minute auf Änderungen geprüft.
+- **OpenAI-Schlüssel mitbenutzen** (Schalter beim Einladenden): Der Schlüssel liegt als `appProperties` (bk0–bk3) an der Lehrgangsdatei, nicht in der Excel. Ist er gesetzt, nutzt der Eingeladene ihn für diesen Lehrgang, sonst seinen eigenen.
+- **Einrichtung (einmalig)**: In der Google Cloud Console die **Google Picker API** aktivieren und unter „Anmeldedaten“ einen **API-Schlüssel** anlegen (beschränkt auf die Website `https://kngstn1337.github.io/*` und die Picker API). Den Schlüssel in `config.js` bei `googleApiKey` eintragen.
+
 ## Datenschutz
 - Kein eigener Server. Die App ist eine statische Webseite; alles läuft im Browser des Handys.
 - Google-Zugriff mit dem Recht `drive.file`: Die App sieht nur Dateien, die sie selbst angelegt hat (Ordner „Baumprojekt Lehrgänge“), nicht den Rest des Drives.
