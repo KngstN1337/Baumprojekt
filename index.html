@@ -199,6 +199,41 @@
         <p>Die App merkt sich, welchen Lehrgang du zuletzt gewählt hast, auch auf anderen Geräten. Auch der <b>OpenAI-Schlüssel</b> liegt in deinem Google Drive und ist nach der Anmeldung automatisch wieder da, auf jedem Gerät. Du musst ihn nur einmal eintragen.</p>
         <p>Die Google-Anmeldung gilt jeweils etwa eine Stunde. Danach fragt die App einmal kurz nach.</p>
       </details>
+      <details class="card"><summary>Sicherungen: Kann etwas verloren gehen?</summary>
+        <p><b>Kurz gesagt:</b> Nein, so gut wie nie. Die App hebt alles mehrfach auf, ganz automatisch. Du musst dafür nichts tun und nichts einstellen.</p>
+        <p><b>Vergleich:</b> Stell dir vor, du schreibst in ein Heft. Bevor du eine Seite änderst, macht die App jedes Mal eine Fotokopie der alten Seite und legt sie in eine eigene Mappe. Und jedes Diktat wird zusätzlich als Tonaufnahme aufgehoben.</p>
+        <h4>1. Was wird gesichert?</h4>
+        <ul>
+          <li><b>Jede Sprachaufnahme</b>: Sie wird sofort nach „Fertig“ gespeichert, noch bevor die KI sie in Text umwandelt. Zuerst auf dem Handy, dann in deinem Google Drive im Ordner „Aufnahmen“. Dazu kommt der Rohtext, also genau das, was die Spracherkennung verstanden hat.</li>
+          <li><b>Die Excel-Datei</b>: Vor jedem Speichern legt die App eine Kopie des bisherigen Stands in den Ordner „Sicherungen“. Der Dateiname enthält Datum und Uhrzeit, z. B. „Lehrgang Frühjahr – Sicherung 2026-11-26 14-05-12.xlsx“.</li>
+          <li><b>Zielgerüche (Spürhund)</b>: Jeder Tipp auf +1 wird sofort auf dem Handy gemerkt und nach ein paar Sekunden in die Excel-Datei geschrieben, die wiederum gesichert wird.</li>
+        </ul>
+        <h4>2. Wo liegen die Sicherungen?</h4>
+        <p>In deinem Google Drive, im Ordner „LTR Lehrgänge“. Jeder Lehrgang hat dort seinen eigenen Ordner, darin:</p>
+        <ul>
+          <li><b>Lehrgang &lt;Name&gt;.xlsx</b>: der aktuelle Stand.</li>
+          <li><b>Aufnahmen</b>: alle Tonaufnahmen und Rohtexte. Hier wird nie etwas gelöscht.</li>
+          <li><b>Sicherungen</b>: die früheren Stände der Excel-Datei.</li>
+        </ul>
+        <h4>3. Wie lange werden Sicherungen aufgehoben?</h4>
+        <p>Aus den letzten 14 Tagen bleibt jede einzelne Sicherung erhalten. Für ältere Tage behält die App nur die letzte Sicherung des Tages, damit der Ordner nicht überquillt. Die aussortierten Kopien landen im Papierkorb deines Google Drive und sind dort noch 30 Tage zu finden.</p>
+        <h4>4. Was ist ohne Netz?</h4>
+        <p>Dann bleibt die Aufnahme auf dem Handy und wird automatisch nach Google Drive übertragen, sobald wieder Netz da ist. Solange steht unter Heute „… wartet auf die Sicherung“. In dieser Zeit die App bitte nicht löschen und die Browserdaten nicht löschen.</p>
+        <h4>5. Ich habe aus Versehen etwas gelöscht</h4>
+        <ul>
+          <li><b>Eine Notiz:</b> Vor dem Löschen hat die App eine Sicherung der Excel-Datei angelegt, und die Sprachaufnahme liegt weiter im Ordner „Aufnahmen“. Am einfachsten sprichst oder tippst du die Notiz neu ein, den Wortlaut findest du in der Sicherung oder im Rohtext.</li>
+          <li><b>Einen ganzen Lehrgang:</b> Der Ordner liegt 30 Tage im Papierkorb deines Google Drive. Dort antippen und „Wiederherstellen“ wählen, danach ist der Lehrgang in der App wieder da.</li>
+        </ul>
+        <h4>6. Einen alten Stand der Excel-Datei zurückholen</h4>
+        <p>Das geht am besten am PC im Browser auf drive.google.com:</p>
+        <ol>
+          <li>Den Lehrgangsordner öffnen, dann „Sicherungen“. Die passende Sicherung nach Datum und Uhrzeit heraussuchen und herunterladen.</li>
+          <li>Zurück in den Lehrgangsordner. Mit der rechten Maustaste auf die Datei „Lehrgang &lt;Name&gt;.xlsx“ klicken, dann „Dateiinformationen“ → „Versionen verwalten“ → „Neue Version hochladen“ und die heruntergeladene Sicherung auswählen. Ändert Google dabei den Dateinamen, ist das egal.</li>
+        </ol>
+        <p><b>Wichtig:</b> Bitte so vorgehen und die Lehrgangsdatei nicht löschen oder durch eine umbenannte Kopie ersetzen. Nur so erkennt die App den Lehrgang weiter. Unter „Versionen verwalten“ findest du übrigens auch die früheren Versionen, die Google selbst aufhebt.</p>
+        <h4>7. Was muss ich selbst tun?</h4>
+        <p>Nichts. Lösche nur die Ordner „Aufnahmen“ und „Sicherungen“ nicht und lass die Datei „LTR-Einstellungen (nicht löschen)“ in Ruhe. Wer ganz sicher gehen will, lädt am Ende eines Lehrgangs den Lehrgangsordner einmal aus Google Drive herunter und legt ihn zusätzlich auf dem PC oder einem USB-Stick ab.</p>
+      </details>
       <details class="card"><summary>Datenschutz: Wer kann meine Daten sehen?</summary>
         <p><b>Kurz gesagt:</b> Nur du. Deine Lehrgänge, Notizen, Aufnahmen, Excel-Dateien und dein OpenAI-Schlüssel liegen ausschließlich in deinem eigenen Google Drive. Der Entwickler der App kann davon nichts sehen, nichts lesen und nichts herunterladen.</p>
         <p><b>Vergleich:</b> Stell dir die App wie einen Kugelschreiber vor, den dir jemand schenkt. Der Hersteller hat den Stift gebaut, aber er sieht nicht, was du damit schreibst. Und deine Blätter legst du in deinen eigenen Schrank (dein Google Drive), zu dem nur du den Schlüssel hast.</p>
