@@ -393,11 +393,12 @@
     else { saveDraft(); job.append = true; sheetState('rec'); }
     elapsed = 0; paused = false; setPauseUi();
     $('#recTime').textContent = '0:00';
+    // Ton in guter Qualität: keine Telefonfilter (Echo-/Rauschunterdrückung klingen blechern und verschlucken Silben), 64 kbit/s mono
     let stream;
-    try { stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } }); }
+    try { stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: false, noiseSuppression: false, autoGainControl: true } }); }
     catch (e) { if (append) sheetState('edit'); else closeSheet(); toast('Kein Zugriff aufs Mikrofon: ' + e.message, 5000); return; }
     const type = ['audio/webm;codecs=opus', 'audio/mp4', 'audio/webm', 'audio/ogg'].find(t => window.MediaRecorder && MediaRecorder.isTypeSupported(t)) || '';
-    rec = new MediaRecorder(stream, type ? { mimeType: type, audioBitsPerSecond: 32000 } : undefined);
+    rec = new MediaRecorder(stream, type ? { mimeType: type, audioBitsPerSecond: 64000 } : undefined);
     chunks = []; cancelled = false;
     rec.ondataavailable = e => e.data.size && chunks.push(e.data);
     rec.onstop = async () => {
