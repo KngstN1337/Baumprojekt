@@ -12,8 +12,8 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/icon-192.png">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-  <link rel="stylesheet" href="css/design.css?v=23">
-  <link rel="stylesheet" href="css/style.css?v=23">
+  <link rel="stylesheet" href="css/design.css?v=24">
+  <link rel="stylesheet" href="css/style.css?v=24">
 </head>
 <body class="locked">
   <section id="login" class="login">
@@ -46,9 +46,22 @@
       <div class="navbar"><button class="nav-btn back" id="teamBack"><svg class="chev-l"><use href="#i-back"/></svg>Heute</button><span></span></div>
       <div class="hero"><div class="avatar big" id="teamAvatar"></div><h2 id="teamName"></h2><span id="teamDog"></span></div>
       <div class="cta-wrap"><button class="btn-filled cta" id="teamRec"><svg><use href="#i-mic"/></svg>Aufnehmen</button><button type="button" class="text-btn type-btn" id="typeBtn">oder Notiz eintippen</button></div>
-      <div id="zgLink"></div>
+      <div class="group akte-links"><div id="zgLink"></div>
+        <button type="button" class="cell" id="notesOpen"><div class="cell-tx"><b>Notizen</b><span id="notesInfo"></span></div><svg class="chev"><use href="#i-chev"/></svg></button>
+        <button type="button" class="cell" id="recsOpen"><div class="cell-tx"><b>Aufnahmen</b><span id="recsInfo"></span></div><svg class="chev"><use href="#i-chev"/></svg></button></div>
+    </section>
+
+    <!-- Notizen eines Teams (aus der Akte geöffnet) -->
+    <section id="v-notizen" class="view hidden">
+      <div class="navbar"><button class="nav-btn back" data-akte><svg class="chev-l"><use href="#i-back"/></svg><span class="akte-back">Zurück</span></button><span></span></div>
+      <h1 class="large-title">Notizen</h1><span class="subtitle akte-sub"></span>
       <div id="teamNotes"></div>
-      <div class="section-h">Aufnahmen</div>
+    </section>
+
+    <!-- Aufnahmen eines Teams (aus der Akte geöffnet) -->
+    <section id="v-aufnahmen" class="view hidden">
+      <div class="navbar"><button class="nav-btn back" data-akte><svg class="chev-l"><use href="#i-back"/></svg><span class="akte-back">Zurück</span></button><span></span></div>
+      <h1 class="large-title">Aufnahmen</h1><span class="subtitle akte-sub"></span>
       <div class="group" id="teamRecs"></div>
     </section>
 
@@ -345,13 +358,13 @@
   <div id="busy" class="busy hidden"><div class="spinner"></div><div id="busyText">Bitte warten …</div></div>
   <div id="toast" class="toast hidden"></div>
 
-  <script src="config.js?v=23"></script>
+  <script src="config.js?v=24"></script>
   <script src="vendor/exceljs.min.js"></script>
-  <script src="js/workbook.js?v=23"></script>
-  <script src="js/services.js?v=23"></script>
-  <script src="js/vordefiniert.js?v=23"></script>
-  <script src="js/spuerhund.js?v=23"></script>
-  <script src="js/app.js?v=23"></script>
+  <script src="js/workbook.js?v=24"></script>
+  <script src="js/services.js?v=24"></script>
+  <script src="js/vordefiniert.js?v=24"></script>
+  <script src="js/spuerhund.js?v=24"></script>
+  <script src="js/app.js?v=24"></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 </body>
 </html>

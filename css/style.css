@@ -126,4 +126,4 @@ body:has(#v-training:not(.hidden)) .tabs{display:none}
 
 #swList .cell{gap:12px}#swList input[type=radio]{accent-color:var(--tint);width:20px;height:20px;margin:0;flex:0 0 auto}
 .type-btn{display:block;margin:6px auto 0;font-size:15px}
-#zgLink:empty{display:none}
+#zgLink:empty{display:none}.akte-links>#zgLink:empty+.cell::before{display:none}
