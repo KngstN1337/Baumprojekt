@@ -3,7 +3,9 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Baumprojekt – Lehrgangsnotizen</title>
+  <title>LTR – Lehrgangsnotizen</title>
+  <meta name="apple-mobile-web-app-title" content="LTR">
+  <meta name="application-name" content="LTR">
   <meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -12,13 +14,14 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/icon-192.png">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-  <link rel="stylesheet" href="css/design.css?v=29">
-  <link rel="stylesheet" href="css/style.css?v=29">
+  <link rel="stylesheet" href="css/design.css?v=30">
+  <link rel="stylesheet" href="css/style.css?v=30">
 </head>
 <body class="locked">
   <section id="login" class="login">
     <img src="icons/icon-192.png" alt="" width="88" height="88">
-    <h1>Baumprojekt</h1>
+    <h1>LTR</h1>
+    <p class="small muted">Loben, Toben, Raus</p>
     <p>Lehrgangsnotizen per Sprache, direkt in die Excel-Datei in deinem Google Drive.</p>
     <button id="loginBtn" class="btn-filled" disabled>Mit Google anmelden</button>
     <div id="loginMsg" class="small"></div>
@@ -130,7 +133,7 @@
     <section id="v-hilfe" class="view hidden help">
       <h1 class="large-title">Hilfe</h1>
       <div class="card">
-        <p>Baumprojekt ist eine App auf deinem Handy. Du wählst den Tag, tippst bei einem Team auf das Mikrofon und sprichst, was dir aufgefallen ist. Die App schreibt es auf und trägt es in die Excel-Datei des Lehrgangs ein. Die Excel-Datei musst du dafür nicht öffnen: Die App legt sie selbst in deinem Google Drive an und füllt sie.</p>
+        <p>LTR (Loben, Toben, Raus) ist eine App auf deinem Handy. Du wählst den Tag, tippst bei einem Team auf das Mikrofon und sprichst, was dir aufgefallen ist. Die App schreibt es auf und trägt es in die Excel-Datei des Lehrgangs ein. Die Excel-Datei musst du dafür nicht öffnen: Die App legt sie selbst in deinem Google Drive an und füllt sie.</p>
       </div>
       <details class="card" open><summary>Erste Schritte</summary>
         <ol>
@@ -151,7 +154,7 @@
         <p><b>Lieber tippen?</b> Team antippen, dann oben rechts „Eintippen“.</p>
       </details>
       <details class="card"><summary>Wo ist meine Excel-Datei?</summary>
-        <p>In deinem Google Drive im Ordner <b>„Baumprojekt Lehrgänge“</b>. Darin hat jeder Lehrgang einen eigenen Ordner mit seinem Namen:</p>
+        <p>In deinem Google Drive im Ordner <b>„LTR Lehrgänge“</b> (früher hieß er „Baumprojekt Lehrgänge“, die App benennt ihn automatisch um). Darin hat jeder Lehrgang einen eigenen Ordner mit seinem Namen:</p>
         <ul>
           <li><b>Lehrgang &lt;Name&gt;.xlsx</b> – die Excel-Datei des Lehrgangs.</li>
           <li><b>Aufnahmen</b> – jede Sprachaufnahme als Audiodatei und dazu der Rohtext (was die Spracherkennung verstanden hat, unverändert).</li>
@@ -168,7 +171,7 @@
       <details class="card"><summary>Gemeinsam mit einem zweiten Trainer</summary>
         <p>Ihr könnt beide im selben Lehrgang einsprechen. Jede Notiz zeigt, wer sie eingesprochen hat (in Excel in der Spalte „Eingesprochen von“).</p>
         <ol>
-          <li><b>Einladen:</b> Unter Lehrgänge den Lehrgang wählen und bei „Gemeinsam mit anderen Trainern“ auf <b>Trainer einladen</b> tippen, dann die Google-E-Mail-Adresse eintragen. Der Lehrgangsordner wird in Google Drive für diese Person freigegeben. Das Konto muss außerdem für Baumprojekt freigeschaltet sein.</li>
+          <li><b>Einladen:</b> Unter Lehrgänge den Lehrgang wählen und bei „Gemeinsam mit anderen Trainern“ auf <b>Trainer einladen</b> tippen, dann die Google-E-Mail-Adresse eintragen. Der Lehrgangsordner wird in Google Drive für diese Person freigegeben. Das Konto muss außerdem für LTR freigeschaltet sein.</li>
           <li><b>Der Eingeladene</b> öffnet den Link aus der E-Mail, meldet sich an und tippt auf „Hinzufügen“. In der Google-Auswahl markiert er alles im Ordner (Excel-Datei, Aufnahmen, Sicherungen) und tippt auf „Auswählen“. Das ist nur einmal nötig.</li>
           <li><b>OpenAI-Schlüssel:</b> Der Einladende kann „Meinen OpenAI-Schlüssel mitbenutzen lassen“ einschalten. Dann braucht der Kollege keinen eigenen, die Kosten laufen über den Einladenden. Sonst trägt jeder seinen eigenen Schlüssel ein.</li>
         </ol>
@@ -196,8 +199,31 @@
         <p>Die App merkt sich, welchen Lehrgang du zuletzt gewählt hast, auch auf anderen Geräten. Auch der <b>OpenAI-Schlüssel</b> liegt in deinem Google Drive und ist nach der Anmeldung automatisch wieder da, auf jedem Gerät. Du musst ihn nur einmal eintragen.</p>
         <p>Die Google-Anmeldung gilt jeweils etwa eine Stunde. Danach fragt die App einmal kurz nach.</p>
       </details>
-      <details class="card"><summary>Datenschutz</summary>
-        <p>Es gibt keinen Server von Baumprojekt. Die App läuft nur auf deinem Handy. Deine Aufnahmen gehen zur Spracherkennung an OpenAI (mit deinem eigenen Schlüssel), Notizen und Schlüssel nur in dein eigenes Google Drive. Niemand sonst, auch nicht der Herausgeber der App, kann deine Daten sehen.</p>
+      <details class="card"><summary>Datenschutz: Wer kann meine Daten sehen?</summary>
+        <p><b>Kurz gesagt:</b> Nur du. Deine Lehrgänge, Notizen, Aufnahmen, Excel-Dateien und dein OpenAI-Schlüssel liegen ausschließlich in deinem eigenen Google Drive. Der Entwickler der App kann davon nichts sehen, nichts lesen und nichts herunterladen.</p>
+        <p><b>Vergleich:</b> Stell dir die App wie einen Kugelschreiber vor, den dir jemand schenkt. Der Hersteller hat den Stift gebaut, aber er sieht nicht, was du damit schreibst. Und deine Blätter legst du in deinen eigenen Schrank (dein Google Drive), zu dem nur du den Schlüssel hast.</p>
+        <h4>1. Wie kommt die App auf mein Handy?</h4>
+        <p>Die App ist eine Internetseite, die sich wie eine normale App benimmt. Sie wird über <b>GitHub Pages</b> bereitgestellt, einen Dienst, der nur die Bauanleitung der App (den Programmcode) ausliefert, so wie ein Kiosk nur das leere Notizbuch verkauft. Beim Öffnen lädt dein Handy diesen Programmcode herunter, danach läuft die App auf deinem Handy. GitHub bekommt dabei nur mit, dass die Seite aufgerufen wurde, so wie bei jeder Internetseite. Deine Inhalte bekommt GitHub nie.</p>
+        <h4>2. Es gibt keinen eigenen Server</h4>
+        <p>Viele Apps schicken alles an einen Rechner des Herstellers (einen „Server“) und speichern es dort. Diese App hat <b>keinen solchen Server</b>. Es gibt also keinen Ort, an dem der Entwickler deine Daten sammeln oder ansehen könnte. Alles, was die App tut, passiert auf deinem Handy.</p>
+        <h4>3. Wo liegen meine Daten?</h4>
+        <p>In deinem eigenen Google Drive, im Ordner „LTR Lehrgänge“: die Excel-Dateien, die Sprachaufnahmen, die Sicherungen und eine kleine Datei mit deinen Einstellungen und deinem OpenAI-Schlüssel. Du meldest dich mit deinem Google-Konto an. Die Verbindung geht direkt von deinem Handy zu Google, ohne Umweg über den Entwickler.</p>
+        <h4>4. Was darf die App in meinem Google Drive?</h4>
+        <p>Bei der Anmeldung erlaubst du der App nur das Mindeste: Sie darf <b>nur die Dateien sehen, die sie selbst angelegt hat</b> (bei Google heißt das „drive.file“). Deine übrigen Dateien, Fotos oder Dokumente im Drive kann die App nicht sehen. Die Erlaubnis kannst du jederzeit in deinem Google-Konto unter „Sicherheit → Drittanbieter-Apps“ wieder entziehen. Deine Dateien bleiben dann trotzdem in deinem Drive.</p>
+        <h4>5. Was passiert mit meinen Sprachaufnahmen?</h4>
+        <p>Damit aus Sprache Text wird, schickt dein Handy die Aufnahme <b>direkt an OpenAI</b>, einen Anbieter für Spracherkennung. Dafür benutzt die App <b>deinen eigenen OpenAI-Schlüssel</b>. Der Text kommt direkt zurück auf dein Handy und wird in deine Excel-Datei geschrieben. Auch hier gibt es keinen Umweg über den Entwickler. OpenAI verwendet Daten, die über einen solchen Schlüssel geschickt werden, nach eigenen Angaben nicht zum Trainieren seiner KI.</p>
+        <h4>6. Kann der Entwickler wirklich nichts sehen?</h4>
+        <p>Ja, das ist technisch so gebaut:</p>
+        <ul>
+          <li>Er hat keinen Server, auf dem etwas ankommt.</li>
+          <li>Er hat keinen Zugang zu deinem Google-Konto und kein Passwort von dir.</li>
+          <li>Er kennt deinen OpenAI-Schlüssel nicht und sieht nicht, was du an OpenAI schickst.</li>
+          <li>Der Programmcode der App ist öffentlich einsehbar. Jeder Fachkundige kann nachprüfen, dass die App Daten nur an Google und OpenAI schickt.</li>
+        </ul>
+        <h4>7. Was liegt auf dem Handy selbst?</h4>
+        <p>Nur Zwischenstände: zum Beispiel eine Aufnahme, die noch auf Netz wartet, und deine Anmeldung. Mit „Alle LTR-Daten auf diesem Gerät löschen“ unter Einstellungen entfernst du das jederzeit. Was in Google Drive liegt, bleibt dabei erhalten.</p>
+        <h4>8. Wer kann sonst noch mitlesen?</h4>
+        <p>Nur Personen, die du selbst einlädst (siehe „Gemeinsam mit einem zweiten Trainer“). Sie sehen dann genau den einen Lehrgangsordner, den du freigibst, sonst nichts.</p>
       </details>
       <details class="card"><summary>Kosten</summary>
         <p>OpenAI berechnet die Nutzung über deinen Schlüssel: grob 1 Cent pro Minute Sprache. Bei 10 Minuten am Tag sind das etwa 2–3 € im Monat.</p>
@@ -210,7 +236,7 @@
       <form id="settingsForm" class="card">
         <h3>Google-Konto</h3>
         <div id="driveStatus" class="small"></div>
-        <p class="small muted">Die Lehrgänge liegen im Ordner „Baumprojekt Lehrgänge“ in deinem Google Drive. Die App sieht nur diesen Ordner.</p>
+        <p class="small muted">Die Lehrgänge liegen im Ordner „LTR Lehrgänge“ in deinem Google Drive. Die App sieht nur diesen Ordner. Mehr dazu unter Hilfe → Datenschutz.</p>
         <div class="actions"><button type="button" id="logoutBtn" class="btn-gray">Abmelden</button><button type="button" id="switchBtn" class="btn-gray">Konto wechseln</button></div>
         <h3>OpenAI</h3>
         <p class="small">Die App braucht einen eigenen OpenAI-Schlüssel für Spracherkennung und Formulierung. Den bekommst du einmalig bei OpenAI.</p>
@@ -218,14 +244,14 @@
           <ol>
             <li>Öffne <a href="https://platform.openai.com/signup" target="_blank" rel="noopener">platform.openai.com</a> und melde dich an oder lege ein Konto an. Das geht auch mit deinem Google-Konto. (Ein ChatGPT-Abo ist dafür nicht nötig und reicht auch nicht.)</li>
             <li><b>Guthaben aufladen:</b> Öffne <a href="https://platform.openai.com/settings/organization/billing/overview" target="_blank" rel="noopener">Billing</a>, tippe auf „Add payment details“, hinterlege eine Karte und lade den Mindestbetrag von 5 $ auf. Das reicht für viele Wochen. Ohne Guthaben funktioniert der Schlüssel nicht.</li>
-            <li><b>Schlüssel erstellen:</b> Öffne <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener">API keys</a> und tippe auf „Create new secret key“. Name z. B. „Baumprojekt“, dann „Create secret key“.</li>
+            <li><b>Schlüssel erstellen:</b> Öffne <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener">API keys</a> und tippe auf „Create new secret key“. Name z. B. „LTR“, dann „Create secret key“.</li>
             <li>Tippe bei dem angezeigten Schlüssel (beginnt mit <code>sk-</code>) auf „Copy“. Er wird nur dieses eine Mal angezeigt.</li>
             <li>Zurück in dieser App: Schlüssel unten ins Feld einfügen (lange tippen → Einfügen) und auf „Speichern“ tippen.</li>
           </ol>
         </details>
         <label>API-Schlüssel <input name="openaiKey" type="password" autocomplete="off" placeholder="sk-… hier einfügen"></label>
         <div id="keyStatus" class="key-status"></div>
-        <p class="small muted">🔒 Der Schlüssel wird in deinem eigenen Google Drive gespeichert (Datei „Baumprojekt-Einstellungen“ im Ordner „Baumprojekt Lehrgänge“) und direkt an OpenAI geschickt. Niemand sonst sieht ihn. Du trägst ihn nur einmal ein: Auf anderen Geräten, im Browser am PC oder nach dem Löschen der Browserdaten ist er nach der Google-Anmeldung automatisch wieder da. Bitte die Datei nicht weitergeben.</p>
+        <p class="small muted">🔒 Der Schlüssel wird in deinem eigenen Google Drive gespeichert (Datei „LTR-Einstellungen“ im Ordner „LTR Lehrgänge“) und direkt an OpenAI geschickt. Niemand sonst sieht ihn. Du trägst ihn nur einmal ein: Auf anderen Geräten, im Browser am PC oder nach dem Löschen der Browserdaten ist er nach der Google-Anmeldung automatisch wieder da. Bitte die Datei nicht weitergeben.</p>
         <details><summary class="small">Modelle</summary>
           <label>Spracherkennung <input name="sttModel"></label>
           <label>Formulierung <input name="llmModel"></label>
@@ -239,7 +265,7 @@
       <div class="group"><button type="button" class="cell" id="zgOpen"><div class="cell-tx"><b>Zielgerüche</b></div><span class="cell-st muted" id="zgCount"></span><svg class="chev"><use href="#i-chev"/></svg></button></div>
       <p class="group-foot">Wie beim Glossar: Vordefiniertes ist schon drin, eigene Gerüche und Vorlagen kommen dazu. Im Lehrgang wählst du dann nur noch die Vorlage.</p>
       <div class="card">
-        <button id="wipeBtn" class="danger">Alle Baumprojekt-Daten auf diesem Gerät löschen</button>
+        <button id="wipeBtn" class="danger">Alle LTR-Daten auf diesem Gerät löschen</button>
         <p class="small muted">Löscht den OpenAI-Schlüssel, Einstellungen und nicht gespeicherte Entwürfe auf diesem Gerät. Die Dateien in Google Drive bleiben erhalten.</p>
       </div>
       <p id="appVersion" class="small muted center"></p>
@@ -347,13 +373,13 @@
   <div id="busy" class="busy hidden"><div class="spinner"></div><div id="busyText">Bitte warten …</div></div>
   <div id="toast" class="toast hidden"></div>
 
-  <script src="config.js?v=29"></script>
+  <script src="config.js?v=30"></script>
   <script src="vendor/exceljs.min.js"></script>
-  <script src="js/workbook.js?v=29"></script>
-  <script src="js/services.js?v=29"></script>
-  <script src="js/vordefiniert.js?v=29"></script>
-  <script src="js/spuerhund.js?v=29"></script>
-  <script src="js/app.js?v=29"></script>
+  <script src="js/workbook.js?v=30"></script>
+  <script src="js/services.js?v=30"></script>
+  <script src="js/vordefiniert.js?v=30"></script>
+  <script src="js/spuerhund.js?v=30"></script>
+  <script src="js/app.js?v=30"></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 </body>
 </html>

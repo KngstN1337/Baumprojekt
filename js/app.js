@@ -868,9 +868,9 @@
       await withStore('Lade ein …', async () => {
         const f = await S.Drive.withFolders(activeId, x => x);
         const link = location.origin + location.pathname + '?lehrgang=' + encodeURIComponent(f.folder);
-        await S.Drive.share(f.folder, email, myName() + ' hat dich zum Lehrgang „' + titel + '“ in Baumprojekt eingeladen. So machst du mit: ' + link + ' öffnen, mit diesem Google-Konto anmelden und „Hinzufügen“ tippen.');
+        await S.Drive.share(f.folder, email, myName() + ' hat dich zum Lehrgang „' + titel + '“ in der App LTR eingeladen. So machst du mit: ' + link + ' öffnen, mit diesem Google-Konto anmelden und „Hinzufügen“ tippen.');
       });
-      toast('✓ Eingeladen. ' + email + ' bekommt eine E-Mail von Google. Wichtig: Das Konto muss für Baumprojekt freigeschaltet sein.', 7000);
+      toast('✓ Eingeladen. ' + email + ' bekommt eine E-Mail von Google. Wichtig: Das Konto muss für LTR freigeschaltet sein.', 7000);
       await loadInfo();
     } catch (e) { /* gemeldet */ }
   }
@@ -1077,7 +1077,7 @@
 
   // ---------------- Anmeldung ----------------
   function lock(on) { document.body.classList.toggle('locked', on); }
-  // Lehrgänge aus dem alten Aufbau (Datei direkt in „Baumprojekt Lehrgänge“) in eigene Ordner verschieben
+  // Lehrgänge aus dem alten Aufbau (Datei direkt im Hauptordner) in eigene Ordner verschieben
   async function migrate() {
     try {
       const root = await S.Drive.folderId();
@@ -1205,7 +1205,7 @@
     $('#wipeBtn').addEventListener('click', async () => {
       const offen = (await S.Outbox.all()).filter(it => it.blob || (it.transcript && !it.textId)).length;
       if (offen && !confirm('Achtung: ' + offen + ' Aufnahme(n) sind noch nicht in Google Drive gesichert und gehen beim Löschen verloren. Trotzdem löschen?')) return;
-      if (!confirm('Wirklich alle Baumprojekt-Daten auf diesem Gerät löschen? Die Dateien in Google Drive bleiben erhalten.')) return;
+      if (!confirm('Wirklich alle LTR-Daten auf diesem Gerät löschen? Die Dateien in Google Drive bleiben erhalten.')) return;
       Object.keys(localStorage).filter(k => k.startsWith('baumprojekt.')).forEach(k => localStorage.removeItem(k)); indexedDB.deleteDatabase('baumprojekt'); location.reload();
     });
   }

@@ -1,4 +1,4 @@
-# Baumprojekt – Stilregeln
+# LTR – Stilregeln
 
 Die App sieht aus wie eine iOS-App: ruhig, hell/dunkel automatisch, wenige Farben. **Jede neue Funktion verwendet nur die Bausteine aus `css/design.css`.** Seitenspezifisches (z. B. Tageleiste, Aufnahme-Fenster) steht in `css/style.css`. Keine Emojis als Icons, keine eigenen Farben, keine Schatten- oder Rahmen-Experimente.
 
@@ -64,4 +64,4 @@ Unterseiten bekommen oben links einen Zurück-Knopf `.nav-btn.back` in der `.nav
 Alle Icons sind SVG-Symbole am Ende von `index.html` (`<symbol id="i-…">`) und werden mit `<svg><use href="#i-name"/></svg>` eingebunden. Sie übernehmen die Textfarbe. Neue Icons im gleichen Stil (gefüllt, 24×24) dort ergänzen.
 
 ## Texte
-Deutsch, kurz, in der Du-Form. Knöpfe mit Verb („Speichern“, „Weiter aufnehmen“). App-Name immer „Baumprojekt“.
+Deutsch, kurz, in der Du-Form. Knöpfe mit Verb („Speichern“, „Weiter aufnehmen“). App-Name immer „LTR“ (Loben, Toben, Raus), nie „Baumprojekt“ oder „Baumi“. Der Name des Entwicklers steht nirgends in der App.

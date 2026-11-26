@@ -1,4 +1,4 @@
-// Baumprojekt – Dienste: OpenAI (Transkription + Zuordnung), Google Drive, lokaler Speicher.
+// LTR – Dienste: OpenAI (Transkription + Zuordnung), Google Drive, lokaler Speicher.
 // Alles läuft im Browser des Nutzers. Es gibt keinen eigenen Server.
 (function (global) {
   'use strict';
@@ -102,7 +102,7 @@
     return JSON.parse(content || '{"abschnitte":[]}').abschnitte;
   }
 
-  // ---------------- Google Drive (Scope drive.file: nur von Baumprojekt angelegte Dateien) ----------------
+  // ---------------- Google Drive (Scope drive.file: nur von der App angelegte Dateien) ----------------
   const Drive = {
     token: null, expires: 0, client: null, clientId: null, user: null,
     ready() { return !!(global.google && google.accounts && google.accounts.oauth2); },
@@ -172,23 +172,34 @@
       if (!res.ok) { let t = ''; try { t = (await res.json()).error.message; } catch (e) { /* ignore */ } throw new Error('Google Drive: ' + res.status + ' ' + t); }
       return res;
     },
+    // Hauptordner „LTR Lehrgänge“. Früher hieß er „Baumprojekt Lehrgänge“: Der alte Ordner wird weiter gefunden
+    // und nur umbenannt (gleiche Ordner-ID, Inhalt bleibt unverändert). Es wird nie ein zweiter Ordner angelegt, wenn der alte da ist.
     async folderId() {
+      const NAME = 'LTR Lehrgänge', ALT = 'Baumprojekt Lehrgänge';
+      const rename = async (id, name) => {
+        if (name !== ALT) return;
+        try { await this.req('https://www.googleapis.com/drive/v3/files/' + id + '?fields=id', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: NAME }) }); }
+        catch (e) { if (e.needsLogin) throw e; console.warn('Ordner umbenennen später erneut', e); }
+      };
       const cached = localStorage.getItem('baumprojekt.folderId');
       if (cached) {
-        try { const r = await this.req('https://www.googleapis.com/drive/v3/files/' + cached + '?fields=id,trashed'); const j = await r.json(); if (!j.trashed) return cached; } catch (e) { if (e.needsLogin) throw e; }
+        try { const r = await this.req('https://www.googleapis.com/drive/v3/files/' + cached + '?fields=id,name,trashed'); const j = await r.json(); if (!j.trashed) { await rename(cached, j.name); return cached; } } catch (e) { if (e.needsLogin) throw e; }
       }
-      const q = encodeURIComponent("mimeType='application/vnd.google-apps.folder' and name='Baumprojekt Lehrgänge' and trashed=false");
-      const r = await this.req('https://www.googleapis.com/drive/v3/files?q=' + q + '&fields=files(id)');
-      const j = await r.json();
-      let id = j.files && j.files[0] && j.files[0].id;
-      if (!id) {
-        const c = await this.req('https://www.googleapis.com/drive/v3/files?fields=id', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'Baumprojekt Lehrgänge', mimeType: 'application/vnd.google-apps.folder' }) });
+      const q = encodeURIComponent("mimeType='application/vnd.google-apps.folder' and (name='" + NAME + "' or name='" + ALT + "') and trashed=false");
+      const r = await this.req('https://www.googleapis.com/drive/v3/files?q=' + q + '&orderBy=createdTime&fields=files(id,name)');
+      const files = (await r.json()).files || [];
+      // Gibt es beide, gewinnt der alte (dort liegen die bisherigen Lehrgänge)
+      const f = files.find(x => x.name === ALT) || files[0];
+      let id = f && f.id;
+      if (id) await rename(id, f.name);
+      else {
+        const c = await this.req('https://www.googleapis.com/drive/v3/files?fields=id', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: NAME, mimeType: 'application/vnd.google-apps.folder' }) });
         id = (await c.json()).id;
       }
       localStorage.setItem('baumprojekt.folderId', id);
       return id;
     },
-    // Aufbau in Drive:  Baumprojekt Lehrgänge / <Lehrgang> / Lehrgang <Name>.xlsx
+    // Aufbau in Drive:  LTR Lehrgänge / <Lehrgang> / Lehrgang <Name>.xlsx
     //                                                      / Aufnahmen  (Audio + Rohtext je Diktat)
     //                                                      / Sicherungen (Stand der Excel vor jedem Speichern)
     async list() {
@@ -199,8 +210,13 @@
     // Einstellungen (OpenAI-Schlüssel, Modelle) als kleine Datei im eigenen Drive – damit sie auf allen Geräten da sind
     async findSettingsFile() {
       const q = encodeURIComponent("appProperties has { key='baumprojektSettings' and value='1' } and trashed=false");
-      const r = await this.req('https://www.googleapis.com/drive/v3/files?q=' + q + '&fields=files(id)');
+      const r = await this.req('https://www.googleapis.com/drive/v3/files?q=' + q + '&fields=files(id,name)');
       const f = ((await r.json()).files || [])[0];
+      // Alter Dateiname „Baumprojekt-Einstellungen …“ → „LTR-Einstellungen …“ (nur der Name, Inhalt bleibt)
+      if (f && /^Baumprojekt-/.test(f.name || '')) {
+        try { await this.req('https://www.googleapis.com/drive/v3/files/' + f.id + '?fields=id', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: f.name.replace(/^Baumprojekt-/, 'LTR-') }) }); }
+        catch (e) { if (e.needsLogin) throw e; }
+      }
       return f ? f.id : null;
     },
     async loadSettings() {
@@ -214,7 +230,7 @@
       const id = await this.findSettingsFile();
       if (id) { await this.req('https://www.googleapis.com/upload/drive/v3/files/' + id + '?uploadType=media', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body }); return; }
       const parent = await this.folderId();
-      const meta = { name: 'Baumprojekt-Einstellungen (nicht löschen).json', mimeType: 'application/json', parents: [parent], appProperties: { baumprojektSettings: '1' } };
+      const meta = { name: 'LTR-Einstellungen (nicht löschen).json', mimeType: 'application/json', parents: [parent], appProperties: { baumprojektSettings: '1' } };
       const boundary = 'bp' + Math.random().toString(36).slice(2);
       const mp = '--' + boundary + '\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n' + JSON.stringify(meta) + '\r\n--' + boundary + '\r\nContent-Type: application/json\r\n\r\n' + body + '\r\n--' + boundary + '--';
       await this.req('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', { method: 'POST', headers: { 'Content-Type': 'multipart/related; boundary=' + boundary }, body: mp });
@@ -238,7 +254,7 @@
       const c = await this.req('https://www.googleapis.com/drive/v3/files?fields=id', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, mimeType: 'application/vnd.google-apps.folder', parents: [parent] }) });
       return (await c.json()).id;
     },
-    // Ordner eines Lehrgangs finden. Liegt die Datei noch im alten Aufbau direkt in „Baumprojekt Lehrgänge“,
+    // Ordner eines Lehrgangs finden. Liegt die Datei noch im alten Aufbau direkt im Hauptordner,
     // bekommt sie hier ihren eigenen Ordner (verschoben, nicht kopiert – es geht nichts verloren).
     async withFolders(id, fn) {
       try { return await fn(await this.courseFolders(id)); }
@@ -322,7 +338,7 @@
       return j;
     },
     // OpenAI-Schlüssel des Einladenden für den Lehrgang freigeben (oder mit key=null zurücknehmen).
-    // Er liegt als App-Eigenschaft an der Lehrgangsdatei: nicht in der Excel, nicht in Downloads, nur für Baumprojekt lesbar.
+    // Er liegt als App-Eigenschaft an der Lehrgangsdatei: nicht in der Excel, nicht in Downloads, nur für die App lesbar.
     async setSharedKey(id, key, von) {
       const props = { bkVon: key ? String(von || '').slice(0, 100) : null };
       const chunks = key ? key.match(/.{1,110}/g) || [] : [];
@@ -350,7 +366,7 @@
       const f = await this.courseFolders(id);
       const patch = fid => this.req('https://www.googleapis.com/drive/v3/files/' + fid + '?fields=id', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ trashed: true }) });
       if (f.shared) throw new Error('Geteilte Lehrgänge kann nur der Besitzer löschen.');
-      if (f.folder && f.folder !== await this.folderId()) await patch(f.folder); // nie den Hauptordner „Baumprojekt Lehrgänge“
+      if (f.folder && f.folder !== await this.folderId()) await patch(f.folder); // nie den Hauptordner „LTR Lehrgänge“
       await patch(id).catch(() => {}); // falls die Datei (noch) nicht im Ordner liegt
       localStorage.removeItem('baumprojekt.folders.' + id);
     },

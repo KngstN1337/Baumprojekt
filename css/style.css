@@ -1,4 +1,4 @@
-/* Baumprojekt – seitenspezifische Gestaltung. Bausteine und Farben stehen in design.css (siehe STYLE.md). */
+/* LTR – seitenspezifische Gestaltung. Bausteine und Farben stehen in design.css (siehe STYLE.md). */
 /* Tageleiste */
 .days{display:flex;gap:4px;padding:0 12px 18px;overflow-x:auto;scroll-snap-type:x proximity;scrollbar-width:none}
 .days::-webkit-scrollbar{display:none}
@@ -44,6 +44,7 @@
 .team-row input{flex:1;min-width:0;text-align:left;font-size:16px}
 .team-row .rm{background:none;border:0;color:var(--red);font-size:20px;padding:6px 8px}
 .help p,.help li{font-size:16px;line-height:1.45}.help ol,.help ul{padding-left:20px}.help li{margin:6px 0}
+.help h4{font-size:16px;font-weight:600;margin:16px 0 4px}
 #settingsForm label{display:block;color:var(--sec);font-size:14px;margin:0 0 12px}
 #settingsForm input{width:100%;font:inherit;font-size:16px;margin-top:4px;padding:11px 12px;border:0;border-radius:10px;background:var(--fill);color:var(--label);outline:none}
 #settingsForm .actions{margin:12px 0}

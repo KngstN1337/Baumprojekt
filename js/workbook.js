@@ -1,4 +1,4 @@
-// Baumprojekt – Excel-Datei je Lehrgang (Format der ersten Vorlage: Übersicht, Notizen (Rohdaten), Teams)
+// LTR – Excel-Datei je Lehrgang (Format der ersten Vorlage: Übersicht, Notizen (Rohdaten), Teams)
 // Datenquelle ist das Blatt "Notizen (Rohdaten)". Die Übersicht wird daraus bei jedem Speichern neu
 // aufgebaut; die Spalte "Gesamteindruck" bleibt dabei erhalten.
 // Was in der Übersicht am PC geändert wurde, geht nicht verloren: Beim Schreiben merkt sich die App im versteckten
@@ -105,7 +105,7 @@
   // ---------- Schreiben ----------
   function build(course) {
     const wb = new ExcelJS.Workbook();
-    wb.creator = 'Baumprojekt';
+    wb.creator = 'LTR';
     const m = course.meta;
     const teams = course.teams.map(t => ({ ...t, name: teamName(t) }));
     const days = courseDays(course);
