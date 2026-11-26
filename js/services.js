@@ -107,7 +107,7 @@
     },
     // Anmeldung ohne Popup: Die Seite wechselt zu Google und kommt danach zurück (bleibt so in der App, kein neuer Tab).
     // Voraussetzung: Die Adresse der App ist in der Google Cloud Console als „Autorisierte Weiterleitungs-URI“ eingetragen.
-    redirectUri() { return location.origin + location.pathname; },
+    redirectUri() { const c = (global.BAUMPROJEKT_CONFIG || {}).redirectUri; return c && c.startsWith(location.origin) ? c : location.origin + location.pathname.replace(/index\.html$/, ''); },
     connectRedirect(clientId, chooseAccount) {
       const state = Math.random().toString(36).slice(2) + Date.now().toString(36);
       localStorage.setItem('baumprojekt.oauthState', state);
