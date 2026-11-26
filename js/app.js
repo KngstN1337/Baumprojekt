@@ -44,14 +44,13 @@
   function show(el, on) { (typeof el === 'string' ? $(el) : el).classList.toggle('hidden', !on); }
   function go(view) {
     document.querySelectorAll('.view').forEach(v => show(v, v.id === 'v-' + view));
-    const tab = ['team', 'training', 'zgteam', 'notizen', 'aufnahmen'].includes(view) ? 'heute' : ['glossar', 'gerueche', 'schritte'].includes(view) ? 'einst' : view;
+    const tab = ['team', 'training', 'zgteam', 'notizen', 'aufnahmen'].includes(view) ? 'heute' : ['glossar', 'gerueche'].includes(view) ? 'einst' : view;
     document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('active', b.dataset.go === tab));
     if (view === 'heute') renderToday();
     if (view === 'lehrgang') refreshCourses();
     if (view === 'einst') fillSettings();
     if (view === 'glossar') renderGlossar();
     if (view === 'gerueche') SP.renderGerueche();
-    if (view === 'schritte') SP.renderSchritte();
     window.scrollTo(0, 0);
   }
   // Vom linken Rand nach rechts wischen = eine Ebene zurück (wie in iOS), auf Hauptseiten passiert nichts
@@ -1144,7 +1143,6 @@
     initEdgeBack();
     document.querySelectorAll('[data-back]').forEach(b => b.addEventListener('click', () => go(b.dataset.back)));
     $('#zgOpen').addEventListener('click', () => go('gerueche'));
-    $('#svOpen').addEventListener('click', () => go('schritte'));
     $('#trDone').addEventListener('click', () => { SP.flush(); go('zgteam'); SP.renderTeam(); });
     $('#notesOpen').addEventListener('click', () => { renderTeamNotes(); go('notizen'); });
     $('#recsOpen').addEventListener('click', () => { go('aufnahmen'); renderRecordings($('#teamRecs'), r => r.team === currentTeam); });

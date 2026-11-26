@@ -116,10 +116,7 @@
           <div class="section-h">Zielgerüche</div>
           <div class="group"><label class="cell picker"><div class="cell-tx"><b id="gvName">Keine Vorlage</b><span id="gvInfo"></span></div><span class="val">Vorlage<svg><use href="#i-updown"/></svg></span><select id="gvSel" aria-label="Geruchs-Vorlage wählen"></select></label></div>
           <div class="group" id="formStoffe"></div>
-          <div class="section-h">Konditionierungsschritte</div>
-          <div class="group"><label class="cell picker"><div class="cell-tx"><b id="svName">Keine Vorlage</b><span id="svInfo"></span></div><span class="val">Vorlage<svg><use href="#i-updown"/></svg></span><select id="svSel" aria-label="Schritt-Vorlage wählen"></select></label></div>
-          <div class="group" id="formSchritte"></div>
-          <p class="group-foot">Vorlagen pflegst du unter Einstellungen → Spürhund. Spätere Änderungen an einer Vorlage ändern diesen Lehrgang nicht.</p>
+          <p class="group-foot">Vorlagen pflegst du unter Einstellungen → Spürhund → Zielgerüche. Spätere Änderungen an einer Vorlage ändern diesen Lehrgang nicht.</p>
         </div>
         <div class="section-h">Teams</div>
         <div class="group form" id="teamRows"></div>
@@ -177,11 +174,11 @@
         <p>Speichert ihr gleichzeitig, geht nichts verloren: Die App liest die Datei vor dem Speichern neu ein, prüft danach, ob die Notiz wirklich drinsteht, und wiederholt es sonst. Die Notizen des Kollegen erscheinen nach spätestens einer Minute.</p>
       </details>
       <details class="card"><summary>Spürhund: Zielgerüche zählen</summary>
-        <p>Beim Anlegen oder Bearbeiten eines Lehrgangs (Lehrgänge → „Aktuellen Lehrgang bearbeiten“) bei <b>Art</b> „Spürhund“ wählen. Dann eine <b>Geruchs-Vorlage</b> und eine <b>Schritt-Vorlage</b> aussuchen. Einzelne Gerüche kannst du entfernen oder dazunehmen.</p>
+        <p>Beim Anlegen oder Bearbeiten eines Lehrgangs (Lehrgänge → „Aktuellen Lehrgang bearbeiten“) bei <b>Art</b> „Spürhund“ wählen. Dann eine <b>Geruchs-Vorlage</b> aussuchen. Einzelne Gerüche kannst du entfernen oder dazunehmen.</p>
         <ul>
           <li><b>Zählen:</b> Team antippen. Bei jedem Stoff steht ein <b>+1</b>-Knopf. Antippen = eine Belohnung. Gedrückt halten = eine zurücknehmen.</li>
           <li><b>Zahl eintippen:</b> Auf die Gesamtzahl tippen, Anzahl eingeben, „Dazuzählen“ oder „Heute genau“ wählen.</li>
-          <li><b>Schritt setzen:</b> Auf den Namen des Stoffs tippen. Dort siehst du auch den Verlauf je Tag.</li>
+          <li><b>Verlauf:</b> Auf den Namen des Stoffs tippen, dann siehst du die Belohnungen je Tag.</li>
           <li><b>Trainingsmodus:</b> Große +1-Fläche für eine Hand. Oben den Stoff wechseln.</li>
         </ul>
         <p>Jeder Tipp wird sofort auf dem Handy gesichert und nach ein paar Sekunden in die Excel-Datei geschrieben (Blätter „Zielgerüche“ und „Zielgerüche (Rohdaten)“). Eigene Gerüche und Vorlagen pflegst du unter Einstellungen → Spürhund.</p>
@@ -238,8 +235,7 @@
       <div class="section-h">Spracherkennung</div>
       <div class="group"><button type="button" class="cell" id="glossOpen"><div class="cell-tx"><b>Glossar</b></div><span class="cell-st muted" id="glossCount"></span><svg class="chev"><use href="#i-chev"/></svg></button></div>
       <div class="section-h">Spürhund</div>
-      <div class="group"><button type="button" class="cell" id="zgOpen"><div class="cell-tx"><b>Zielgerüche</b></div><span class="cell-st muted" id="zgCount"></span><svg class="chev"><use href="#i-chev"/></svg></button>
-        <button type="button" class="cell" id="svOpen"><div class="cell-tx"><b>Konditionierungsschritte</b></div><span class="cell-st muted" id="svCount"></span><svg class="chev"><use href="#i-chev"/></svg></button></div>
+      <div class="group"><button type="button" class="cell" id="zgOpen"><div class="cell-tx"><b>Zielgerüche</b></div><span class="cell-st muted" id="zgCount"></span><svg class="chev"><use href="#i-chev"/></svg></button></div>
       <p class="group-foot">Wie beim Glossar: Vordefiniertes ist schon drin, eigene Gerüche und Vorlagen kommen dazu. Im Lehrgang wählst du dann nur noch die Vorlage.</p>
       <div class="card">
         <button id="wipeBtn" class="danger">Alle Baumprojekt-Daten auf diesem Gerät löschen</button>
@@ -290,14 +286,6 @@
       </div>
     </section>
 
-    <!-- Konditionierungsschritte (Unterseite der Einstellungen) -->
-    <section id="v-schritte" class="view hidden">
-      <div class="navbar"><button class="nav-btn back" data-back="einst"><svg class="chev-l"><use href="#i-back"/></svg>Einstellungen</button><span></span></div>
-      <div class="title-row"><h1 class="large-title zg-lt">Konditionierungs&shy;schritte</h1><button class="nav-icon" id="svPlusBtn" aria-label="Neue Vorlage"><svg><use href="#i-plus"/></svg></button></div>
-      <div class="section-h">Vordefiniert</div><div class="group" id="svVordef"></div>
-      <div class="section-h">Meine Vorlagen</div><div class="group" id="svEigene"></div>
-      <p class="group-foot">Antippen, um die Schritte zu beschriften. Vordefinierte Vorlagen kopierst du und passt die Kopie an.</p>
-    </section>
   </main>
 
   <nav class="tabs">
