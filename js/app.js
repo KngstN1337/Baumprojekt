@@ -42,7 +42,38 @@
   function toast(msg, ms) { const t = $('#toast'); t.textContent = msg; t.classList.remove('hidden'); clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.add('hidden'), ms || 3000); }
   function busy(msg) { $('#busyText').textContent = msg || 'Bitte warten …'; $('#busy').classList.toggle('hidden', !msg); }
   function show(el, on) { (typeof el === 'string' ? $(el) : el).classList.toggle('hidden', !on); }
+  // ---------------- Ungespeicherte Änderungen ----------------
+  // Vor dem Verlassen einer Seite (Tab, Zurück, Wischen, Schließen) wird gefragt, wenn ein Formular geändert, aber nicht gespeichert ist.
+  let kursStand = null;
+  function kursFormStand() {
+    const f = $('#courseForm');
+    const felder = [...f.querySelectorAll('input,select,textarea')].filter(el => el.name || el.dataset.k).map(el => (el.type === 'radio' || el.type === 'checkbox') ? el.checked : el.value);
+    return JSON.stringify([felder, SP.readForm()]);
+  }
+  function kursGeaendert() { return !$('#courseForm').classList.contains('hidden') && kursStand !== null && kursFormStand() !== kursStand; }
+  function einstGeaendert() {
+    const f = $('#settingsForm'); if ($('#v-einst').classList.contains('hidden')) return false;
+    return f.openaiKey.value.trim() !== (settings.openaiKey || '') || (f.sttModel.value.trim() || CFG.sttModel) !== settings.sttModel || (f.llmModel.value.trim() || CFG.llmModel) !== settings.llmModel;
+  }
+  function ungespeichert() { return kursGeaendert() ? 'kurs' : einstGeaendert() ? 'einst' : ''; }
+  // weiter() läuft sofort, wenn nichts offen ist; sonst erst nach „Speichern“ (erfolgreich) oder „Verwerfen“
+  function verlassen(weiter) {
+    const was = ungespeichert(); if (!was) { weiter(); return; }
+    openModal('<h3>Änderungen speichern?</h3><p class="modal-sub">' + (was === 'kurs' ? 'Du hast den Lehrgang geändert, aber noch nicht gespeichert.' : 'Du hast die Einstellungen geändert, aber noch nicht gespeichert.') + ' Wenn du die Seite verlässt, gehen die Änderungen verloren.</p>' +
+      '<div class="actions"><button class="btn-gray" id="lvVerwerfen">Verwerfen</button><button class="btn-filled" id="lvSpeichern">Speichern</button></div><button class="text-btn" data-m="close" style="display:block;margin:6px auto 0">Abbrechen</button>');
+    $('#lvVerwerfen').onclick = () => { closeModal(); if (was === 'kurs') { show('#courseForm', false); kursStand = null; } else fillSettings(); weiter(); };
+    $('#lvSpeichern').onclick = async () => {
+      closeModal();
+      if (was === 'kurs') { await submitCourse({ preventDefault() {}, target: $('#courseForm') }); if (kursGeaendert()) return; }
+      else saveSettings();
+      weiter();
+    };
+  }
+  window.addEventListener('beforeunload', e => { if (ungespeichert()) { e.preventDefault(); e.returnValue = ''; } });
+
   function go(view) {
+    const jetzt = document.querySelector('.view:not(.hidden)');
+    if (jetzt && jetzt.id !== 'v-' + view && ungespeichert()) { verlassen(() => go(view)); return; }
     document.querySelectorAll('audio').forEach(a => { if (!a.paused) a.pause(); }); // Wiedergabe stoppt beim Seitenwechsel
     document.querySelectorAll('.view').forEach(v => show(v, v.id === 'v-' + view));
     const tab = ['team', 'training', 'zgteam', 'notizen', 'aufnahmen'].includes(view) ? 'heute' : ['glossar', 'gerueche'].includes(view) ? 'einst' : view;
@@ -818,6 +849,7 @@
   async function loadCourseList() { try { courses = await listCourses(); } catch (e) { /* offline */ } fillCourseSelects(); }
   async function switchCourse(e) {
     const v = e.target.value;
+    if (kursGeaendert() && v !== activeId) { fillCourseSelects(); verlassen(() => { const sel = e.target; sel.value = v; switchCourse({ target: sel }); }); return; }
     if (v === '__neu') { fillCourseSelects(); go('lehrgang'); openCourseForm(false); return; }
     if (!v || v === activeId) return;
     setActive(v, true); selDate = today();
@@ -940,6 +972,7 @@
   }
 
   function openCourseForm(edit) {
+    if (kursGeaendert()) { verlassen(() => openCourseForm(edit)); return; }
     editing = edit;
     const f = $('#courseForm');
     f.reset();
@@ -952,6 +985,7 @@
     $('#teamRows').innerHTML = c.teams.map(teamRow).join('');
     SP.fillForm(edit ? course : null);
     show(f, true); f.scrollIntoView({ behavior: 'smooth' });
+    kursStand = kursFormStand();
   }
   async function submitCourse(ev) {
     ev.preventDefault();
@@ -982,7 +1016,7 @@
         setActive(id, true); course = c; await S.KV.set('course:' + id, c);
       }
       selDate = today(); clampDate();
-      show('#courseForm', false); refreshCourses(); toast('✓ Gespeichert');
+      show('#courseForm', false); kursStand = null; refreshCourses(); toast('✓ Gespeichert');
     } catch (e) { /* gemeldet */ }
   }
   async function download() {
@@ -1186,7 +1220,7 @@
     $('#editCourseBtn').addEventListener('click', () => (course ? openCourseForm(true) : toast('Kein Lehrgang gewählt.')));
     $('#addTeam').addEventListener('click', () => $('#teamRows').insertAdjacentHTML('beforeend', teamRow()));
     $('#teamRows').addEventListener('click', e => { if (e.target.hasAttribute('data-rm')) e.target.closest('.team-row').remove(); });
-    $('#cancelCourse').addEventListener('click', () => show('#courseForm', false));
+    $('#cancelCourse').addEventListener('click', () => { if (kursGeaendert() && !confirm('Änderungen verwerfen?\n\nDer Lehrgang bleibt so, wie er vorher war.')) return; show('#courseForm', false); kursStand = null; });
     $('#courseForm').addEventListener('submit', submitCourse);
     $('#courseForm').addEventListener('click', e => { if (SP.formClick(e)) e.preventDefault(); });
     $('#courseForm').addEventListener('change', e => { if (SP.formChange(e)) return; if (e.target.name === 'wochen') { show('#wochenX', e.target.value === 'x'); if (e.target.value === 'x') $('#courseForm').wochenX.focus(); } });
