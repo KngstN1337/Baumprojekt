@@ -324,7 +324,19 @@
       const sumH = stoffe().reduce((a, s) => a + heute(team, s), 0);
       return '<div class="zg-donut"><svg viewBox="0 0 160 160" role="img" aria-label="' + sum + ' Belohnungen gesamt"><circle r="' + r + '" cx="80" cy="80" fill="none" stroke="var(--fill)" stroke-width="18"/>' + ringe +
         '<text x="80" y="82" text-anchor="middle" class="zg-donut-n">' + sum + '</text><text x="80" y="103" text-anchor="middle" class="zg-donut-l">Belohnungen</text></svg>' +
-        '<div class="zg-donut-h">' + (ctx.selDate() === ctx.today() ? 'heute' : WBK.isoToDe(ctx.selDate()).slice(0, 6)) + ' +' + sumH + '</div></div>';
+        '<div class="zg-donut-h">' + (ctx.selDate() === ctx.today() ? 'heute' : WBK.isoToDe(ctx.selDate()).slice(0, 6)) + ' +' + sumH + '</div>' + undoKnopf(team) + '</div>';
+    }
+    // Rückgängig in der Schnellübersicht: merkt sich die letzten +1 (je Team, nur in dieser Sitzung)
+    const zuletzt = [];
+    const meinUndo = team => { for (let i = zuletzt.length - 1; i >= 0; i--) { const u = zuletzt[i]; if (u.team === team && u.courseId === ctx.activeId() && u.datum === ctx.selDate()) return i; } return -1; };
+    function rueckgaengig() {
+      const team = ctx.currentTeam(), i = meinUndo(team); if (i < 0) return;
+      const u = zuletzt.splice(i, 1)[0];
+      if (heute(team, u.stoff) > 0) { eintragen(team, u.stoff, -1); ctx.toast('−1 bei ' + u.stoff, 1500); } else renderAll();
+    }
+    function undoKnopf(team) {
+      const i = meinUndo(team), u = zuletzt[i];
+      return '<button type="button" class="zg-undo" id="zgUndo"' + (u ? '' : ' hidden') + '><svg><use href="#i-back"/></svg>Rückgängig' + (u ? ': ' + esc(u.stoff) + ' +1' : '') + '</button>';
     }
     function renderTeam() {
       const box = $('#zgBox'), link = $('#zgLink'); if (!box) return;
@@ -338,10 +350,10 @@
       const heuteTxt = ctx.selDate() === ctx.today() ? 'heute' : WBK.isoToDe(ctx.selDate()).slice(0, 6);
       box.innerHTML = donut(team) + '<div class="section-h zg-sh">Belohnungen gesamt' + (stoffe().length ? '<button type="button" class="text-btn" id="zgTraining">Trainingsmodus</button>' : '') + '</div><div class="group" id="zgRows">' +
         (stoffe().map(s => { const n = schritt(team, s); return '<div class="cell zg-row" data-stoff="' + esc(s) + '"><button type="button" class="cell-tx zg-detail" data-detail><b><i class="zg-sw" style="background:' + farbe(s) + '"></i>' + esc(s) + '</b><span class="zg-bar"><i style="width:' + balken(team, s) + '%;background:' + farbe(s) + '"></i></span><span>' + punkte(n) + esc([schrittText(n), heuteTxt + ' ' + heute(team, s)].filter(Boolean).join(' · ')) + '</span></button>' +
-          '<button type="button" class="zg-n" data-num aria-label="Zahl eingeben">' + gesamt(team, s) + '</button><button type="button" class="zg-plus" data-plus aria-label="Eine Belohnung an ' + esc(s) + '">+1</button></div>'; }).join('') ||
+          '<button type="button" class="zg-n" data-num aria-label="Zahl bearbeiten">' + gesamt(team, s) + '<svg><use href="#i-pencil"/></svg></button><button type="button" class="zg-plus" data-plus aria-label="Eine Belohnung an ' + esc(s) + '">+1</button></div>'; }).join('') ||
           '<div class="empty">Noch keine Zielgerüche. Unter Lehrgänge → „Aktuellen Lehrgang bearbeiten“ auswählen.</div>') +
         (stoffe().length && schritte().length ? '<button type="button" class="cell link-cell" id="zgAlle">Schritt für alle Gerüche setzen</button>' : '') + '</div>' +
-        '<p class="group-foot">+1 = eine Belohnung am Stoff. Gedrückt halten = eine zurücknehmen. Auf die Gesamtzahl tippen, um eine Anzahl einzutippen. Stoff antippen = Verlauf je Tag.</p>' +
+        '<p class="group-foot">+1 = eine Belohnung am Stoff. „Rückgängig“ oben nimmt das letzte +1 zurück. Zahl mit Stift antippen = Anzahl selbst eintragen. Stoff antippen = Verlauf je Tag.</p>' +
         '<p class="zg-status sync-info"></p>';
       renderStatus();
     }
@@ -359,6 +371,7 @@
         const b = e.target.closest('[data-plus],#trTap'); if (!b) return;
         if (lang) { lang = false; return; }
         const z = ziel(b); if (!z) return;
+        zuletzt.push({ team: z.team, stoff: z.stoff, datum: ctx.selDate(), courseId: ctx.activeId() }); if (zuletzt.length > 50) zuletzt.shift();
         eintragen(z.team, z.stoff, 1); if (navigator.vibrate) navigator.vibrate(15);
         b.classList.remove('zg-pop'); void b.offsetWidth; b.classList.add('zg-pop');
       });
@@ -367,6 +380,7 @@
     function teamClick(e) {
       const row = e.target.closest('[data-stoff]');
       if (e.target.id === 'zgTraining') return training(stoffe()[0]);
+      if (e.target.closest('#zgUndo')) return rueckgaengig();
       if (e.target.id === 'zgAlle') return schrittWahl(null);
       if (!row) return;
       if (e.target.closest('[data-num]')) zahl(row.dataset.stoff);
