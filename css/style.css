@@ -93,3 +93,30 @@ body.modal-open .modal-card{transform:none}
 .modal-foot{font-size:13px;color:var(--sec);margin:-6px 32px 6px}
 .modal .form .field>span{flex:0 0 130px}
 .modal .danger{margin-top:4px}
+
+/* Spürhund: Zielgerüche in der Akte, Trainingsmodus */
+.m-pad{padding:0 16px}.m-pad .segmented{margin:0 0 20px}
+.zg-row{gap:10px}
+.zg-detail{background:none;border:0;padding:0;text-align:left;color:var(--label);font:inherit;cursor:pointer}
+.cell-tx .zg-dots,.zg-dots{display:inline-flex;gap:4px;vertical-align:middle;margin-right:6px}.zg-dots i{width:8px;height:8px;border-radius:50%;background:var(--ter)}.zg-dots i.on{background:var(--tint)}
+.zg-n{background:none;border:0;font-size:22px;font-weight:600;font-variant-numeric:tabular-nums;min-width:44px;text-align:right;padding:8px 2px;color:var(--label)}
+.zg-plus{flex:0 0 auto;width:58px;height:44px;border-radius:12px;border:0;background:var(--fill-tint);color:#fff;font-size:19px;font-weight:600;-webkit-user-select:none;user-select:none;touch-action:manipulation}
+.zg-plus:active,.tr-tap:active{transform:scale(.95)}
+.zg-pop{animation:zgpop .25s}
+@keyframes zgpop{50%{transform:scale(1.08)}}
+.zg-cnt{font-size:22px;font-weight:600;font-variant-numeric:tabular-nums}.zg-cnt.small-cnt{font-size:17px}
+.zg-nr{width:30px;height:30px;font-size:14px;background:var(--fill-tint)}
+.zg-sh{display:flex;justify-content:space-between;align-items:center}.zg-sh>.text-btn{font-size:15px;text-transform:none;padding:0}.zg-sh span{display:flex;gap:12px}.zg-sh .text-btn{font-size:13px;text-transform:none}.zg-sh .text-btn:disabled{opacity:.3}
+.zg-foot{margin:-12px 32px 20px}
+.zg-input{display:block;width:calc(100% - 32px);margin:0 16px;font:inherit;font-size:56px;font-weight:700;text-align:center;border:0;border-radius:12px;background:var(--card);color:var(--label);padding:6px 0;outline:none;font-variant-numeric:tabular-nums}
+.zg-lt{font-size:30px}
+.zg-status:empty{display:none}.zg-status{margin:-12px 32px 20px}
+.cell .rm{background:none;border:0;color:var(--red);font-size:20px;padding:6px 8px}
+body:has(#v-training:not(.hidden)) .tabs{display:none}
+.tr-head{text-align:center;padding:0 16px}.tr-head span{color:var(--sec);font-size:15px}.tr-head h1{font-size:28px;margin:0;letter-spacing:-.02em}
+.tr-seg{padding:14px 16px 0}.tr-seg .segmented{margin:0}
+.zg-scroll{overflow-x:auto;scrollbar-width:none}.zg-scroll button{flex:0 0 auto;padding:6px 12px}
+.tr-n{display:block;width:100%;background:none;border:0;color:var(--label);text-align:center;padding:10px 0 0}.tr-n b{display:block;font-size:96px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}.tr-n span{color:var(--sec);font-size:15px}
+.tr-tap{display:flex;flex-direction:column;align-items:center;justify-content:center;width:calc(100% - 32px);margin:18px 16px 10px;height:min(38vh,300px);border:0;border-radius:28px;background:var(--fill-tint);color:#fff;font-size:64px;font-weight:700;-webkit-user-select:none;user-select:none;touch-action:manipulation}
+.tr-tap small{font-size:17px;font-weight:500;opacity:.85;margin-top:6px}
+.tr-foot{display:flex;justify-content:space-between;align-items:center;padding:4px 20px}.tr-schritt{color:var(--sec);display:flex;align-items:center}

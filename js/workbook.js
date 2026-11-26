@@ -13,6 +13,10 @@
   const SHEET_META = '_baumprojekt';
   const SHEET_GLOSSAR = '_glossar';
   const SHEET_STAND = '_uebersicht';
+  // Spürhund-Lehrgänge: Zielgerüche, Belohnungen und Konditionierungsschritte
+  const SHEET_ZG = 'Zielgerüche';
+  const SHEET_ZG_ROH = 'Zielgerüche (Rohdaten)';
+  const SHEET_SPUER = '_spuerhund';
   const AM_PC = ' (am PC geändert)';
   const WD = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
   const BLUE = 'FF1F4E79';
@@ -175,8 +179,10 @@
 
     // Versteckte Einstellungen
     const wm = wb.addWorksheet(SHEET_META, { state: 'hidden' });
-    [['format', 'baumprojekt-1'], ['titel', m.titel || ''], ['trainer', m.trainer || ''], ['ort', m.ort || ''], ['start', m.start], ['wochen', Number(m.wochen) || 4]]
+    [['format', 'baumprojekt-1'], ['titel', m.titel || ''], ['trainer', m.trainer || ''], ['ort', m.ort || ''], ['start', m.start], ['wochen', Number(m.wochen) || 4],
+      ...(m.art ? [['art', m.art], ['geruchVorlage', m.geruchVorlage || ''], ['schrittVorlage', m.schrittVorlage || '']] : [])]
       .forEach((kv, i) => { wm.getRow(i + 1).values = kv; });
+    buildSpuer(wb, course, teams, days);
 
     // Verstecktes Glossar des Lehrgangs: Fachbegriffe beider Trainer (je Zeile Begriff | oft erkannt als | von)
     const wg = wb.addWorksheet(SHEET_GLOSSAR, { state: 'hidden' });
@@ -189,6 +195,86 @@
     stand.forEach((x, i) => { wsn.getRow(i + 2).values = [x.team, x.datum, x.uhrzeit, x.von, x.bullet ? '1' : '0', x.suf, x.text]; });
 
     return wb;
+  }
+
+  // ---------- Spürhund: Zielgerüche ----------
+  // Belohnungen je Team, Stoff und Tag (Summe der Einträge; Korrekturen sind negative Einträge)
+  function zgSumme(zg, team, stoff, datum) {
+    let n = 0;
+    zg.forEach(e => { if (e.team === team && e.stoff === stoff && (!datum || e.datum === datum) && e.anzahl) n += Number(e.anzahl) || 0; });
+    return n;
+  }
+  // Aktueller Schritt (Nummer ab 1, 0 = noch keiner) = letzter Schritt-Eintrag
+  function zgSchritt(zg, team, stoff) {
+    let s = 0, k = '';
+    zg.forEach(e => { if (e.team === team && e.stoff === stoff && e.schritt !== '' && e.schritt != null) { const key = e.datum + (e.uhrzeit || ''); if (key >= k) { k = key; s = Number(e.schritt) || 0; } } });
+    return s;
+  }
+  const head = (row, values, widths, ws) => values.forEach((h, i) => {
+    const c = row.getCell(i + 1);
+    c.value = h; c.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: BLUE } };
+    c.alignment = { wrapText: true, vertical: 'middle', horizontal: 'center' }; c.border = BORDER;
+    if (widths) ws.getColumn(i + 1).width = widths[i];
+  });
+  function buildSpuer(wb, course, teams, days) {
+    const sp = course.spuer || { stoffe: [], schritte: [] }, zg = course.zg || [];
+    if (course.meta.art !== 'spuerhund' && !zg.length) return;
+    const m = course.meta;
+    const stoffe = sp.stoffe.slice();
+    zg.forEach(e => { if (e.stoff && !stoffe.includes(e.stoff)) stoffe.push(e.stoff); });
+    // Übersicht: je Team und Stoff eine Zeile, Schritt, Summe und Belohnungen je Tag
+    const ws = wb.addWorksheet(SHEET_ZG, { views: [{ state: 'frozen', xSplit: 4, ySplit: 3 }] });
+    ws.getCell('A1').value = 'Zielgerüche: ' + (m.titel || '') + (m.schrittVorlage ? '  ·  Schritte: ' + m.schrittVorlage : '');
+    ws.getCell('A1').font = { bold: true, size: 13 };
+    head(ws.getRow(3), ['Team', 'Stoff', 'Schritt', 'Belohnungen gesamt', ...days.map(d => 'Tag ' + dayIndex(m.start, d) + '\n' + isoToDe(d).slice(0, 6))],
+      [22, 18, 22, 12, ...days.map(() => 8)], ws);
+    ws.getRow(3).height = 32;
+    let r = 4;
+    teams.forEach(t => stoffe.forEach(st => {
+      const row = ws.getRow(r++), nr = zgSchritt(zg, t.name, st), schr = sp.schritte[nr - 1];
+      row.getCell(1).value = t.name; row.getCell(1).font = { bold: true };
+      row.getCell(2).value = st;
+      row.getCell(3).value = nr ? nr + (schr && schr.name && schr.name !== 'Schritt ' + nr ? ' · ' + schr.name : '') : '';
+      row.getCell(4).value = zgSumme(zg, t.name, st);
+      row.getCell(4).font = { bold: true };
+      days.forEach((d, i) => { const n = zgSumme(zg, t.name, st, d); if (n) row.getCell(i + 5).value = n; });
+      for (let c = 1; c <= days.length + 4; c++) { const cell = row.getCell(c); cell.border = BORDER; if (c > 2) cell.alignment = { horizontal: 'center' }; }
+    }));
+    // Rohdaten: jede Belohnung, Korrektur und jeder Schrittwechsel eine Zeile (Datenquelle)
+    const wr = wb.addWorksheet(SHEET_ZG_ROH, { views: [{ state: 'frozen', ySplit: 1 }] });
+    head(wr.getRow(1), ['Datum', 'Uhrzeit', 'Team', 'Stoff', 'Belohnungen', 'Schritt', 'Eingetragen von', 'ID'], [12, 9, 18, 18, 12, 9, 20, 12], wr);
+    const sorted = zg.slice().sort((a, b) => (a.datum + (a.uhrzeit || '')).localeCompare(b.datum + (b.uhrzeit || '')));
+    sorted.forEach((e, i) => { wr.getRow(i + 2).values = [isoToDe(e.datum), e.uhrzeit || '', e.team, e.stoff, e.anzahl === '' || e.anzahl == null ? '' : Number(e.anzahl), e.schritt === '' || e.schritt == null ? '' : Number(e.schritt), e.von || '', e.id || '']; });
+    // Versteckt: Stoffe und Schritte des Lehrgangs (aus der Vorlage übernommen, danach unabhängig von ihr)
+    const wsp = wb.addWorksheet(SHEET_SPUER, { state: 'hidden' });
+    wsp.getRow(1).values = ['Typ', 'Name', 'Beschreibung'];
+    let k = 2;
+    sp.stoffe.forEach(st => { wsp.getRow(k++).values = ['stoff', st, '']; });
+    sp.schritte.forEach(s => { wsp.getRow(k++).values = ['schritt', s.name, s.beschr || '']; });
+  }
+  function parseSpuer(wb, course) {
+    course.spuer = { stoffe: [], schritte: [] }; course.zg = [];
+    const t = (r, k) => k ? String(cellText(r.getCell(k).value) == null ? '' : cellText(r.getCell(k).value)).trim() : '';
+    const wsp = wb.getWorksheet(SHEET_SPUER);
+    if (wsp) wsp.eachRow((r, i) => {
+      if (i === 1) return;
+      const typ = t(r, 1), name = t(r, 2);
+      if (!name) return;
+      if (typ === 'stoff') course.spuer.stoffe.push(name);
+      if (typ === 'schritt') course.spuer.schritte.push({ name, beschr: t(r, 3) });
+    });
+    const wr = wb.getWorksheet(SHEET_ZG_ROH);
+    if (!wr) return;
+    const col = {};
+    wr.getRow(1).eachCell((c, k) => { col[String(cellText(c.value) || '').trim()] = k; });
+    const num = v => { const s = String(v).replace(',', '.').trim(); return s === '' || isNaN(Number(s)) ? '' : Number(s); };
+    wr.eachRow((r, i) => {
+      if (i === 1) return;
+      const e = { datum: parseDateCell(r.getCell(col['Datum'] || 1).value), uhrzeit: parseTimeCell(r.getCell(col['Uhrzeit'] || 2).value), team: t(r, col['Team']), stoff: t(r, col['Stoff']),
+        anzahl: num(t(r, col['Belohnungen'])), schritt: num(t(r, col['Schritt'])), von: t(r, col['Eingetragen von']), id: t(r, col['ID']) };
+      if (e.datum && e.team && e.stoff && (e.anzahl !== '' || e.schritt !== '')) course.zg.push(e);
+    });
   }
 
   // ---------- Änderungen aus der Übersicht übernehmen ----------
@@ -328,11 +414,12 @@
         if (name && g) course.gesamt[name] = g;
       });
     }
+    parseSpuer(wb, course);
     course.amPcGeaendert = applyOverviewEdits(wb, course);
     if (!course.meta.start) course.meta.start = course.notes.length ? sortNotes(course.notes)[0].datum : dateToIso(new Date());
     return course;
   }
 
-  const api = { build, toBuffer, parse, teamName, courseDays, sortNotes, isoToDe, dateToIso, addDays, dayIndex, weekday };
+  const api = { zgSumme, zgSchritt, build, toBuffer, parse, teamName, courseDays, sortNotes, isoToDe, dateToIso, addDays, dayIndex, weekday };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else global.BaumprojektWorkbook = api;
 })(typeof window !== 'undefined' ? window : globalThis);
