@@ -560,6 +560,8 @@
       '- Abschnitte inhalte, ueberblick, gesamt, hinweise: der Text der jeweiligen Aufnahme.\n' +
       '- Team-Aufnahmen: verteile den Inhalt auf die Felder ' + WB_TEAM_FELDER + '. team genau wie in der Überschrift. Jeder Satz kommt in genau ein Feld, nichts doppelt.\n' +
       '- Aufnahme „Ganzer Bericht“: der Trainer spricht alles am Stück und sagt jeweils an, worum es geht (Abschnitt oder Team-Name, auch nur Teilnehmer- oder Hundename). Ordne jeden Satz dem angesagten Abschnitt bzw. Team zu.\n' +
+      '- Ansagen für mehrere Teams umsetzen: Sagt der Trainer z. B. „übernimm das für alle anderen Teams“, „gilt für alle Teams“ oder „bei Sabine genauso wie bei Detlef“, ' +
+      'dann trage die betreffenden Felder bei diesen Teams genauso ein (Namen von Teilnehmer und Hund passend ersetzen, Note mit übernehmen). Was danach für ein Team einzeln gesagt wird, ergänzt bzw. ersetzt das Übernommene bei diesem Team. Die Ansage selbst nicht in den Text schreiben.\n' +
       '- Erwähnt eine Aufnahme ausdrücklich etwas, das zu einem anderen Abschnitt oder Team gehört, ordne es dort ein.\n' +
       '- nicht_zugeordnet: Sätze, die in kein Feld passen. Sonst "". Felder ohne Inhalt bleiben "".\n' +
       '- Keine Überschriften, keine Aufzählungszeichen, keine Feldnamen im Text.\n\n' +

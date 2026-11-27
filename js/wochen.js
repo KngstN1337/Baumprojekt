@@ -145,7 +145,7 @@
     function schrittListe() {
       const l = [{ key: 'a.inhalte', titel: TITEL.inhalte, fragen: ['Was wurde diese Woche geübt?', 'Wo und mit welchen Zielgerüchen?'] },
         { key: 'a.ueberblick', titel: TITEL.ueberblick, fragen: ['Wie lief die Woche für die ganze Gruppe?'] }];
-      teams().forEach(t => l.push({ key: 't.' + t.name, team: t.name, titel: t.name, fragen: ['Fortschritte: Was hat gut geklappt?', 'Auffälligkeiten: Wo hakt es noch?', 'Nächste Schritte: Was wird gefördert?', 'Note für die Woche (z. B. „gut“)'] }));
+      teams().forEach(t => l.push({ key: 't.' + t.name, team: t.name, titel: t.name, fragen: ['Fortschritte: Was hat gut geklappt?', 'Auffälligkeiten: Wo hakt es noch?', 'Nächste Schritte: Was wird gefördert?', 'Note für die Woche (z. B. „gut“)', 'Gilt für alle? Sag „übernimm das für alle Teams“'] }));
       l.push({ key: 'a.gesamt', titel: TITEL.gesamt, fragen: ['Wie steht die Gruppe insgesamt?'] },
         { key: 'a.hinweise', titel: TITEL.hinweise, fragen: ['Was wurde der Gruppe mitgegeben?'] });
       return l;
@@ -156,7 +156,7 @@
       show('#wdSchritt', !alle); show('#wdAlle', alle);
       if (alle) {
         const tl = teams();
-        $('#wdAlle').innerHTML = '<p class="wd-say">Sag jeweils kurz, worüber du sprichst, z. B. „' + esc(tl[0] ? tl[0].name.replace(' & ', ' und ') : 'Gesamtüberblick') + ' …“</p>' +
+        $('#wdAlle').innerHTML = '<p class="wd-say">Sag jeweils kurz, worüber du sprichst, z. B. „' + esc(tl[0] ? tl[0].name.replace(' & ', ' und ') : 'Gesamtüberblick') + ' …“. Gilt etwas für alle, sag „übernimm das für alle Teams“.</p>' +
           [[TITEL.inhalte, 'Was wurde geübt, wo, mit welchen Zielgerüchen?'], [TITEL.ueberblick, 'Wie lief die Woche für die ganze Gruppe?'], ['Je Team', 'Fortschritte · Auffälligkeiten · nächste Schritte · Note'], [TITEL.gesamt, 'Wie steht die Gruppe insgesamt?'], [TITEL.hinweise, 'Was wurde der Gruppe mitgegeben?']]
             .map(([t, f], i) => '<div class="wd-row"><span class="wd-num">' + (i + 1) + '</span><div><b>' + t + '</b><span>' + f + '</span>' + (i === 2 ? '<div class="wd-teams">' + tl.map(t => esc(t.name)).join('<br>') + '</div>' : '') + '</div></div>').join('');
       } else {
