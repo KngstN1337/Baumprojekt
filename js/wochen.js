@@ -38,7 +38,8 @@
       const a = start(woche), ab = entwurf.abschnitte || {};
       $('#wbTitle').textContent = woche + '. Woche';
       $('#wbWoSub').textContent = 'KW ' + WBK.isoKW(a) + ' · ' + WBK.isoToDe(a) + ' bis ' + WBK.isoToDe(WBK.addDays(a, 6));
-      let h = '<div class="group"><button type="button" class="cell link-cell" id="wbKi">' + (Object.values(ab).some(Boolean) ? 'Neu vorschlagen lassen' : 'Aus den Tagesprotokollen vorschlagen lassen') + '</button></div>';
+      const da = !!(course().wochenberichte || {})[woche];
+      let h = '<div class="group">' + (da ? '<button type="button" class="cell link-cell" id="wbPdf">Wochenbericht als PDF …</button>' : '') + '<button type="button" class="cell link-cell" id="wbKi">' + (Object.values(ab).some(Boolean) ? 'Neu vorschlagen lassen' : 'Aus den Tagesprotokollen vorschlagen lassen') + '</button></div>';
       h += '<div class="section-h">Gruppe</div><div class="group">' + ['inhalte', 'ueberblick'].map(k => feld('a.' + k, TITEL[k], ab[k], 3)).join('') + '</div>';
       teams().forEach(t => {
         const tb = (entwurf.teams || {})[t.name] || {}, n = WBK.einheiten(course(), t.name, woche);
@@ -110,7 +111,10 @@
       $('#wbList').addEventListener('click', e => { const b = e.target.closest('[data-w]'); if (b) oeffnen(Number(b.dataset.w)); });
       $('#wbWoBack').addEventListener('click', () => ctx.go('wochen'));
       $('#wbSave').addEventListener('click', sichern);
-      $('#wbBody').addEventListener('click', e => { if (e.target.closest('#wbKi')) vorschlagen(); });
+      $('#wbBody').addEventListener('click', async e => {
+        if (e.target.closest('#wbKi')) vorschlagen();
+        if (e.target.closest('#wbPdf')) { const w = woche; if (geaendert()) { await sichern(); if (geaendert()) return; } ctx.pdfWoche(w); }
+      });
       $('#wbBody').addEventListener('input', e => { if (e.target.classList.contains('wb-ta')) groesse(e.target); });
     }
     return { bind, renderListe, geaendert, verwerfen: () => { stand = JSON.stringify(lesen()); }, speichern: sichern };

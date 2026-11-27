@@ -142,7 +142,7 @@
   // Wochenberichte je Lehrgangswoche – eigener Baustein in js/wochen.js
   const WO = window.BaumprojektWochen({
     course: () => course, toast, busy: m => busy(m), go: v => go(v), openaiKey: () => openaiKey(), llmModel: () => settings.llmModel,
-    withStore: (l, f) => withStore(l, f), modifyCourse: (f, c) => modifyCourse(f, c)
+    withStore: (l, f) => withStore(l, f), modifyCourse: (f, c) => modifyCourse(f, c), pdfWoche: w => PDF.wochenbericht(w)
   });
   // Spürhund-Lehrgänge (Zielgerüche, Belohnungen, Schritte) – eigener Baustein in js/spuerhund.js
   const SP = window.BaumprojektSpuerhund({

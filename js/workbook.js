@@ -114,12 +114,12 @@
   // Inhalt eines Feldes einer Notiz. Ältere Notizen (noch nicht aufgeteilt) stehen ganz unter „Beobachtungen“.
   const feldVon = (n, k) => n.felder ? String(n.felder[k] || '').trim() : (k === 'beobachtung' ? n.text || '' : '');
   const deKurz = iso => weekday(iso) + ' ' + isoToDe(iso).replace(/\.(\d\d)(\d\d)$/, '.$2');
-  let LOGO = null; // Base64 des LAFP-Logos (setzt die App beim Start)
+  let LOGO = null;
+  let KOPF = ''; // Lehrgangsname für die Kopfzeile beim Druck // Base64 des LAFP-Logos (setzt die App beim Start)
 
   function titelZeilen(ws, titel, unter, breite) {
     ws.getCell('A1').value = titel; ws.getCell('A1').font = fnt({ size: 16, bold: true, color: { argb: A2.blau } });
     ws.getRow(1).height = 26;
-    if (unter) { ws.getCell('A2').value = unter; ws.getCell('A2').font = fnt({ size: 9 }); }
     for (let c = 1; c <= breite; c++) ws.getRow(2).getCell(c).border = { bottom: seite('medium', A2.blau) };
   }
   function kopfZeile(row, werte) {
@@ -147,7 +147,7 @@
     ws.pageSetup = Object.assign(ws.pageSetup || {}, { paperSize: 9, orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0, horizontalCentered: true,
       margins: { left: 0.4, right: 0.4, top: 0.6, bottom: 0.6, header: 0.25, footer: 0.25 } });
     if (kopfReihe) ws.pageSetup.printTitlesRow = kopfReihe + ':' + kopfReihe;
-    ws.headerFooter = { oddHeader: '&L&"Arial"&8LTR · Lehrgangsdokumentation&R&"Arial"&8' + blatt, oddFooter: '&L&"Arial"&8Interne Dokumentation&C&"Arial,Fett"&8Seite &P von &N&R&"Arial"&8Gedruckt am &D' };
+    ws.headerFooter = { oddHeader: '&L&"Arial"&8' + KOPF.replace(/&/g, '&&') + '&R&"Arial"&8' + blatt, oddFooter: '&L&"Arial"&8Interne Dokumentation&C&"Arial,Fett"&8Seite &P von &N&R&"Arial"&8Gedruckt am &D' };
   }
   // Zeilenhöhe passend zum längsten Text (Excel macht das bei umgebrochenem Text nicht von selbst)
   function hoehe(row, breiten) {
@@ -179,7 +179,7 @@
       const ws = wb.addWorksheet('Wochenbericht KW ' + String(kw).padStart(2, '0'), { views: [{ showGridLines: false }] });
       const N = 8, breite = [26, 16, 30, 30, 30, 17, 24, 24];
       breite.forEach((x, i) => { ws.getColumn(i + 1).width = x; });
-      titelZeilen(ws, 'LTR | GEMEINSAMER INTERNER WOCHENBERICHT', 'Von LTR aus den Tagesprotokollen der Woche vorgeschlagen · vom Trainer geprüft und änderbar', N);
+      titelZeilen(ws, (m.titel ? m.titel + ' | ' : '') + 'Gemeinsamer interner Wochenbericht', '', 6);
       ws.getRow(3).height = 30;
       logoRein(wb, ws, 6.2);
       const kopf = [['Dienststelle', m.kopfBehoerde || '–', 'Organisationseinheit', [m.kopfOe1, m.kopfOe2].filter(Boolean).join(' – ') || '–'], ['Trainer', m.trainer || '–', 'Lehrgangswoche', w + '. Lehrgangswoche'],
@@ -245,6 +245,7 @@
     const wb = new ExcelJS.Workbook();
     wb.creator = 'LTR';
     const m = course.meta;
+    KOPF = m.titel || '';
     const teams = course.teams.map(t => ({ ...t, name: teamName(t) }));
     const days = courseDays(course);
     const notes = sortNotes(course.notes);
@@ -254,11 +255,11 @@
 
     // Start: Kopfdaten (aus den Einstellungen), Lehrgang, Bewertungsskala, Hinweise
     const wsS = wb.addWorksheet('Start', { views: [{ showGridLines: false }] });
-    titelZeilen(wsS, 'LTR | Trainingsdokumentation', m.titel || '', 3);
+    titelZeilen(wsS, (m.titel ? m.titel + ' | ' : '') + 'Trainingsdokumentation', '', 2);
     const start = [['Behörde / Einrichtung', m.kopfBehoerde], ['Organisationseinheit', [m.kopfOe1, m.kopfOe2].filter(Boolean).join(' – ')], ['Lehrgang', m.titel], ['Zeitraum', isoToDe(m.start) + ' bis ' + isoToDe(bis) + ' (' + (Number(m.wochen) || 4) + ' Wochen)'],
       ['Trainer/in', m.trainer], ['Teams', String(teams.length)],
       ['Bewertung', 'Schulnoten, ausgeschrieben und so eingesprochen: sehr gut | gut | befriedigend | ausreichend | mangelhaft | ungenügend. Wird keine Note gesagt, bleibt sie leer.'],
-      ['Datenpflege', 'Diese Datei liegt im eigenen Google Drive und wird von LTR automatisch aktualisiert. Änderungen im Tagesprotokoll am PC werden übernommen.'],
+      ['Datenpflege', 'Diese Datei liegt im eigenen Google Drive und wird von der App automatisch aktualisiert. Änderungen im Tagesprotokoll am PC werden übernommen.'],
       ['Datenschutz', 'Nur dienstlich freigegebene Angaben eintragen und die geltenden Datenschutz- und Aufbewahrungsvorgaben beachten.']];
     start.forEach(([k, v], i) => {
       const row = wsS.getRow(4 + i);
