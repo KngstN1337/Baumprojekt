@@ -84,7 +84,7 @@
     if (jetzt && jetzt.id !== 'v-' + view && ungespeichert()) { verlassen(() => go(view)); return; }
     document.querySelectorAll('audio').forEach(a => { if (!a.paused) a.pause(); }); // Wiedergabe stoppt beim Seitenwechsel
     document.querySelectorAll('.view').forEach(v => show(v, v.id === 'v-' + view));
-    const tab = ['team', 'training', 'zgteam', 'notizen', 'aufnahmen'].includes(view) ? 'heute' : ['glossar', 'gerueche'].includes(view) ? 'einst' : view === 'pdf' ? PDF.tab() : ['wochen', 'woche'].includes(view) ? 'lehrgang' : view;
+    const tab = ['team', 'training', 'zgteam', 'notizen', 'aufnahmen'].includes(view) ? 'heute' : ['glossar', 'gerueche'].includes(view) ? 'einst' : view === 'pdf' ? PDF.tab() : ['wochen', 'woche', 'testgruppe'].includes(view) ? 'lehrgang' : view;
     document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('active', b.dataset.go === tab));
     if (view === 'heute') renderToday();
     if (view === 'lehrgang') refreshCourses();
@@ -152,6 +152,13 @@
       await S.Outbox.put(item); syncOutbox(); return item.aid;
     },
     rohtextSichern: (aid, text) => keepTranscript(aid, text)
+  });
+  // Testgruppe zum Ausprobieren – eigener Baustein in js/testgruppe.js (Daten aus js/beispiel.js)
+  const TG = window.BaumprojektTestgruppe({
+    go: v => go(v), today, trainer: () => localStorage.getItem('baumprojekt.trainer') || '',
+    namen: () => courses.map(f => f.name.replace(/\.xlsx$/, '').replace(/^Lehrgang /, '')),
+    kopf: () => { const k = settings.kopf || {}; return k.behoerde || k.oe1 || k.oe2 ? Object.assign({ eigene: true }, k) : { behoerde: 'Musterbehörde für Ausbildung', oe1: 'Diensthundwesen', oe2: 'Ausbildungsgruppe Test' }; },
+    anlegen: c => testgruppeAnlegen(c)
   });
   // Spürhund-Lehrgänge (Zielgerüche, Belohnungen, Schritte) – eigener Baustein in js/spuerhund.js
   const SP = window.BaumprojektSpuerhund({
@@ -230,6 +237,7 @@
   // check prüft nach dem Speichern, ob die Änderung wirklich in der Datei steht.
   // Kopfdaten aus den Einstellungen (Behörde, Organisationseinheit) für das Blatt „Start“
   function kopfInKurs(c) {
+    if (c.meta.test) return; // Testgruppe behält ihre eigenen (erfundenen oder leeren) Kopfdaten
     const k = settings.kopf || {};
     if (k.behoerde || k.oe1 || k.oe2) Object.assign(c.meta, { kopfBehoerde: k.behoerde || '', kopfOe1: k.oe1 || '', kopfOe2: k.oe2 || '' });
   }
@@ -907,7 +915,7 @@
     const name = course.meta.titel || 'Lehrgang';
     const geteilt = f && f.ownedByMe === false;
     const frage = geteilt
-      ? '„' + name + '“ aus deiner Liste entfernen?\n\nDer Lehrgang gehört einem anderen Trainer und bleibt bei ihm vollständig erhalten. Du kannst ihn später über „Geteilten Lehrgang hinzufügen“ wieder holen.'
+      ? '„' + name + '“ aus deiner Liste entfernen?\n\nDer Lehrgang gehört einem anderen Trainer und bleibt bei ihm vollständig erhalten. Du kannst ihn später über Plus → „Geteilten Lehrgang hinzufügen“ wieder holen.'
       : '„' + name + '“ wirklich löschen?\n\nDer ganze Lehrgangsordner (Excel-Datei, alle Aufnahmen und Sicherungen) kommt in den Papierkorb deines Google Drive. Dort kannst du ihn 30 Tage lang wiederherstellen, danach ist er endgültig weg.' + (info && info.shared ? '\n\nAchtung: Der Lehrgang ist mit einem anderen Trainer geteilt. Auch er verliert ihn.' : '');
     if (!confirm(frage)) return;
     const id = activeId;
@@ -951,7 +959,9 @@
     const nm = f => f.name.replace(/\.xlsx$/, '').replace(/^Lehrgang /, '');
     const cur0 = courses.find(f => f.id === activeId);
     fillCourseSelects();
-    $('#deleteCourseBtn').textContent = cur0 && cur0.ownedByMe === false ? 'Aus meiner Liste entfernen' : 'Lehrgang löschen';
+    const istTest = !!(cur0 && course && course.meta.test);
+    show('#testTag', istTest); show('#testBan', istTest);
+    $('#deleteCourseBtn').textContent = cur0 && cur0.ownedByMe === false ? 'Aus meiner Liste entfernen' : istTest ? 'Testgruppe löschen' : 'Lehrgang löschen';
     show('#deleteCourseBtn', !!cur0);
     $('#courseName').textContent = cur0 ? nm(cur0) : (courses.length ? 'Bitte wählen' : 'Noch keiner');
     $('#courseInfo').textContent = cur0 ? (cur0.ownedByMe === false ? 'geteilt von ' + (((cur0.owners || [])[0] || {}).displayName || 'Kollege') + ' · ' : '') + 'geändert ' + new Date(cur0.modifiedTime).toLocaleString('de-DE', { dateStyle: 'medium', timeStyle: 'short' }) : (courses.length ? courses.length + ' Lehrgänge' : 'Tippe oben rechts auf Plus');
@@ -1107,16 +1117,22 @@
       show('#courseForm', false); kursStand = null; refreshCourses(); toast('✓ Gespeichert');
     } catch (e) { /* gemeldet */ }
   }
-  // Beispiel-Lehrgang (erfundene Daten, 4 Wochen Datenspeicherspürhunde) im eigenen Google Drive anlegen – zum Ausprobieren
-  async function beispielAnlegen() {
+  // Testgruppe (erfundene Daten, Einstellungen in js/testgruppe.js) im eigenen Google Drive anlegen – zum Ausprobieren
+  async function testgruppeAnlegen(c) {
     if (!S.Drive.connected()) return toast('Bitte zuerst anmelden.');
-    if (!confirm('Einen Beispiel-Lehrgang „Datenspeicherspürhunde“ mit 5 erfundenen Teams, Tagesprotokollen, Belohnungen und Wochenberichten in deinem Google Drive anlegen? Du kannst ihn später wie jeden Lehrgang löschen.')) return;
-    const c = window.BaumprojektBeispiel(today(), localStorage.getItem('baumprojekt.trainer') || '');
     try {
-      const id = await withStore('Lege Beispiel-Lehrgang an …', async () => { kopfInKurs(c); return store().create(c.meta.titel, await WBK.toBuffer(c)); });
+      const id = await withStore('Lege Testgruppe an …', async () => store().create(c.meta.titel, await WBK.toBuffer(c)));
       setActive(id, true); course = c; await S.KV.set('course:' + id, c);
-      selDate = today(); clampDate(); refreshCourses(); toast('✓ Beispiel-Lehrgang angelegt', 3500);
+      selDate = today(); clampDate(); go('lehrgang'); toast('✓ ' + c.meta.titel + ' angelegt', 3500);
     } catch (e) { /* gemeldet */ }
+  }
+  // Plus bei „Lehrgänge“: neuer Lehrgang, Testgruppe oder geteilter Lehrgang
+  function plusAuswahl() {
+    TG.auswahl([
+      ['Neuer Lehrgang', 'leer, für einen echten Lehrgang', () => openCourseForm(false)],
+      ['Testgruppe erstellen', 'mit erfundenen Teams zum Ausprobieren', () => { if (kursGeaendert()) verlassen(() => TG.oeffnen()); else TG.oeffnen(); }],
+      ['Geteilten Lehrgang hinzufügen', 'von einem anderen Trainer', () => addShared(localStorage.getItem('baumprojekt.invite') || '')]
+    ]);
   }
   async function download() {
     if (!activeId) return toast('Kein Lehrgang gewählt.');
@@ -1323,9 +1339,7 @@
     initWeiter($('#courseForm'));
     $('#courseSelect').addEventListener('change', switchCourse);
     $('#courseSelectTop').addEventListener('change', switchCourse);
-    $('#newCourseBtn').addEventListener('click', () => openCourseForm(false));
-    $('#addSharedBtn').addEventListener('click', () => addShared(localStorage.getItem('baumprojekt.invite') || ''));
-    $('#beispielBtn').addEventListener('click', beispielAnlegen);
+    $('#newCourseBtn').addEventListener('click', plusAuswahl);
     $('#shareBox').addEventListener('click', e => { if (e.target.id === 'inviteBtn') invite(); const u = e.target.closest('[data-unshare]'); if (u) unshare(u.dataset.unshare); });
     $('#shareBox').addEventListener('change', e => { if (e.target.id === 'shareKey') toggleShareKey(e.target.checked); });
     $('#deleteCourseBtn').addEventListener('click', deleteCourse);

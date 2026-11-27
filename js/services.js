@@ -310,7 +310,7 @@
         const sub = async name => {
           const q = "mimeType='application/vnd.google-apps.folder' and name='" + name + "' and '" + folder + "' in parents and trashed=false";
           const found = folder ? await this.query(q, 'id') : [];
-          if (!found.length) throw Object.assign(new Error('Kein Zugriff auf den Ordner „' + name + '“ des geteilten Lehrgangs. Bitte unter Lehrgänge „Geteilten Lehrgang hinzufügen“ tippen und alles im Ordner auswählen.'), { noAccess: true });
+          if (!found.length) throw Object.assign(new Error('Kein Zugriff auf den Ordner „' + name + '“ des geteilten Lehrgangs. Bitte unter Lehrgänge auf Plus und „Geteilten Lehrgang hinzufügen“ tippen und alles im Ordner auswählen.'), { noAccess: true });
           return found[0].id;
         };
         const out = { folder, aufnahmen: await sub('Aufnahmen'), sicherungen: await sub('Sicherungen'), shared: true };
