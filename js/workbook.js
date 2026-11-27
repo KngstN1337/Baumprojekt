@@ -12,7 +12,9 @@
   const SHEET_TEAMS = 'Teams';
   const SHEET_META = '_baumprojekt';
   const SHEET_GLOSSAR = '_glossar';
-  const SHEET_STAND = '_uebersicht';
+  const SHEET_STAND = '_uebersicht'; // alte Dateien (Blatt „Übersicht“)
+  const SHEET_TP = 'Tagesprotokolle';
+  const SHEET_STAND_TP = '_tagesprotokoll'; // Abbild des Tagesprotokolls für Änderungen am PC
   // Spürhund-Lehrgänge: Zielgerüche, Belohnungen und Konditionierungsschritte
   const SHEET_ZG = 'Zielgerüche';
   const SHEET_ZG_ROH = 'Zielgerüche (Rohdaten)';
@@ -102,6 +104,62 @@
     return String(txt || '').split('\n').reduce((n, l) => n + Math.max(1, Math.ceil(l.length / per)), 0);
   }
 
+  // ---------- Gestaltung „Amtlich Blau“ (Entwurf A2) ----------
+  const A2 = { blau: 'FF0061A7', grau: 'FFF2F2F2', label: 'FFE3EEF7', gitter: 'FFBFCEDD', font: 'Arial' };
+  const fnt = o => Object.assign({ name: A2.font, size: 10, color: { argb: 'FF000000' } }, o || {});
+  const seite = (s, c) => ({ style: s, color: { argb: c || A2.gitter } });
+  // Spalten des Tagesprotokolls, die aus den Notizen kommen (Schlüssel = Feld in note.felder)
+  const FELDER = [['ort', 'Trainingsort'], ['zielgerueche', 'Zielgerüche'], ['inhalt', 'Trainingsinhalt / Aufbau'], ['motivation', 'Motivation'], ['anzeige', 'Anzeigeverhalten'],
+    ['beobachtung', 'Beobachtungen / nächster Schritt'], ['bemerkung', 'Bemerkungen / Wissenswertes']];
+  // Inhalt eines Feldes einer Notiz. Ältere Notizen (noch nicht aufgeteilt) stehen ganz unter „Beobachtungen“.
+  const feldVon = (n, k) => n.felder ? String(n.felder[k] || '').trim() : (k === 'beobachtung' ? n.text || '' : '');
+  const deKurz = iso => weekday(iso) + ' ' + isoToDe(iso).replace(/\.(\d\d)(\d\d)$/, '.$2');
+  let LOGO = null; // Base64 des LAFP-Logos (setzt die App beim Start)
+
+  function titelZeilen(ws, titel, unter, breite) {
+    ws.getCell('A1').value = titel; ws.getCell('A1').font = fnt({ size: 16, bold: true, color: { argb: A2.blau } });
+    ws.getRow(1).height = 26;
+    if (unter) { ws.getCell('A2').value = unter; ws.getCell('A2').font = fnt({ size: 9 }); }
+    for (let c = 1; c <= breite; c++) ws.getRow(2).getCell(c).border = { bottom: seite('medium', A2.blau) };
+  }
+  function kopfZeile(row, werte) {
+    werte.forEach((h, i) => {
+      const c = row.getCell(i + 1);
+      c.value = h; c.font = fnt({ bold: true, color: { argb: 'FFFFFFFF' } });
+      c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: A2.blau } };
+      c.alignment = { wrapText: true, vertical: 'middle', horizontal: 'center' };
+      const s = seite('thin', A2.blau); c.border = { left: s, right: s, top: s, bottom: seite('medium', A2.blau) };
+    });
+    row.height = 30;
+  }
+  // Datenzeile: Schrift schwarz, Zeilen abwechselnd grau/weiß, dünnes Gitter; neuerTag = dicke blaue Linie oben
+  function datenZeile(row, n, zebra, neuerTag, mitte) {
+    for (let c = 1; c <= n; c++) {
+      const cell = row.getCell(c);
+      cell.font = fnt(cell.font && cell.font.bold ? { bold: true } : {});
+      if (zebra) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: A2.grau } };
+      cell.alignment = { wrapText: true, vertical: 'top', horizontal: mitte && mitte.includes(c) ? 'center' : 'left', indent: mitte && mitte.includes(c) ? 0 : 1 };
+      cell.border = { left: seite('thin'), right: seite('thin'), bottom: seite('thin'), top: neuerTag ? seite('thick', A2.blau) : seite('thin') };
+    }
+  }
+  // Querformat, auf Seitenbreite skaliert, so viele Seiten wie nötig, Kopfzeile auf jeder Seite
+  function druck(ws, kopfReihe, blatt) {
+    ws.pageSetup = Object.assign(ws.pageSetup || {}, { paperSize: 9, orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0, horizontalCentered: true,
+      margins: { left: 0.4, right: 0.4, top: 0.6, bottom: 0.6, header: 0.25, footer: 0.25 } });
+    if (kopfReihe) ws.pageSetup.printTitlesRow = kopfReihe + ':' + kopfReihe;
+    ws.headerFooter = { oddHeader: '&L&"Arial"&8LTR · Lehrgangsdokumentation&R&"Arial"&8' + blatt, oddFooter: '&L&"Arial"&8Interne Dokumentation&C&"Arial,Fett"&8Seite &P von &N&R&"Arial"&8Gedruckt am &D' };
+  }
+  // Zeilenhöhe passend zum längsten Text (Excel macht das bei umgebrochenem Text nicht von selbst)
+  function hoehe(row, breiten) {
+    let z = 1;
+    breiten.forEach((w, i) => { z = Math.max(z, lineCount(cellText(row.getCell(i + 1).value) instanceof Date ? '' : cellText(row.getCell(i + 1).value), Math.max(4, w * 1.1))); });
+    row.height = Math.max(18, Math.min(409, z * 13 + 6));
+  }
+  function logoRein(wb, ws, spalte) {
+    if (!LOGO) return;
+    try { const id = wb.addImage({ base64: LOGO, extension: 'png' }); ws.addImage(id, { tl: { col: spalte, row: 0.2 }, ext: { width: 230, height: 78 }, editAs: 'oneCell' }); } catch (e) { /* ohne Logo weiter */ }
+  }
+
   // ---------- Schreiben ----------
   function build(course) {
     const wb = new ExcelJS.Workbook();
@@ -110,119 +168,108 @@
     const teams = course.teams.map(t => ({ ...t, name: teamName(t) }));
     const days = courseDays(course);
     const notes = sortNotes(course.notes);
+    const zg = course.zg || [];
+    const spuer = m.art === 'spuerhund' || zg.length > 0;
+    const bis = addDays(m.start, (Number(m.wochen) || 4) * 7 - 1);
 
-    // Übersicht
-    const ws = wb.addWorksheet(SHEET_UEB, { views: [{ state: 'frozen', xSplit: 1, ySplit: 3 }] });
-    ws.getCell('A1').value = 'Lehrgang: ' + (m.titel || '') + '  ·  Trainer: ' + (m.trainer || '___________') + (m.ort ? '  ·  Ort: ' + m.ort : '');
-    ws.getCell('A1').font = { bold: true, size: 13 };
-    const head = ws.getRow(3);
-    head.height = 32;
-    const headers = ['Team (Teilnehmer & Hund)', ...days.map(d => 'Tag ' + dayIndex(m.start, d) + '\n' + weekday(d) + ' ' + isoToDe(d)), 'Gesamteindruck'];
-    headers.forEach((h, i) => {
-      const c = head.getCell(i + 1);
-      c.value = h;
-      c.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-      c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: BLUE } };
-      c.alignment = { wrapText: true, vertical: 'middle', horizontal: 'center' };
-      c.border = BORDER;
+    // Start: Kopfdaten (aus den Einstellungen), Lehrgang, Bewertungsskala, Hinweise
+    const wsS = wb.addWorksheet('Start', { views: [{ showGridLines: false }] });
+    titelZeilen(wsS, 'LTR | Trainingsdokumentation', m.titel || '', 3);
+    const start = [['Behörde / Einrichtung', m.kopfBehoerde], ['Organisationseinheit', [m.kopfOe1, m.kopfOe2].filter(Boolean).join(' – ')], ['Lehrgang', m.titel], ['Zeitraum', isoToDe(m.start) + ' bis ' + isoToDe(bis) + ' (' + (Number(m.wochen) || 4) + ' Wochen)'],
+      ['Trainer/in', m.trainer], ['Teams', String(teams.length)],
+      ['Bewertung', 'Schulnoten, ausgeschrieben und so eingesprochen: sehr gut | gut | befriedigend | ausreichend | mangelhaft | ungenügend. Wird keine Note gesagt, bleibt sie leer.'],
+      ['Datenpflege', 'Diese Datei liegt im eigenen Google Drive und wird von LTR automatisch aktualisiert. Änderungen im Tagesprotokoll am PC werden übernommen.'],
+      ['Datenschutz', 'Nur dienstlich freigegebene Angaben eintragen und die geltenden Datenschutz- und Aufbewahrungsvorgaben beachten.']];
+    start.forEach(([k, v], i) => {
+      const row = wsS.getRow(4 + i);
+      row.getCell(1).value = k; row.getCell(2).value = v || '–';
+      row.getCell(1).font = fnt({ bold: true }); row.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: A2.label } };
+      row.getCell(2).font = fnt();
+      wsS.mergeCells(4 + i, 2, 4 + i, 3);
+      [1, 2, 3].forEach(c => { row.getCell(c).alignment = { wrapText: true, vertical: 'top', indent: 1 }; row.getCell(c).border = { left: seite('thin'), right: seite('thin'), top: seite('thin'), bottom: seite('thin') }; });
+      hoehe(row, [26, 90]);
     });
-    // Sprechen mehrere Trainer in den Lehrgang, steht in der Übersicht hinter jeder Notiz, von wem sie ist
-    const mehrere = new Set(notes.map(n => n.von).filter(Boolean)).size > 1;
-    const stand = [];
-    const allTeamNames = teams.map(t => t.name);
-    notes.forEach(n => { if (n.team && !allTeamNames.includes(n.team)) allTeamNames.push(n.team); });
-    allTeamNames.forEach((name, r) => {
-      const row = ws.getRow(4 + r);
-      row.getCell(1).value = name;
-      row.getCell(1).font = { bold: true };
-      days.forEach((d, i) => {
-        const segs = segments(notes, name, d, mehrere);
-        stand.push(...segs);
-        const txt = segs.map(render).join('\n');
-        if (txt) row.getCell(i + 2).value = txt;
-      });
-      const g = (course.gesamt || {})[name];
-      if (g) row.getCell(days.length + 2).value = g;
-      for (let c = 1; c <= days.length + 2; c++) {
-        const cell = row.getCell(c);
-        cell.alignment = { wrapText: true, vertical: 'top' };
-        cell.border = BORDER;
-      }
-    });
-    // Spaltenbreiten nach Inhalt, danach Zeilenhöhen passend zu den Breiten
-    const nCols = days.length + 2, nRows = allTeamNames.length;
-    const widths = [];
-    for (let c = 1; c <= nCols; c++) {
-      const vals = [];
-      for (let r = 0; r < nRows; r++) vals.push(ws.getRow(4 + r).getCell(c).value);
-      // Tagesspalten: mind. so breit wie „Mo 01.01.2026“, höchstens 50; Team- und Gesamteindruck-Spalte eigene Grenzen
-      const w = c === 1 ? fitWidth([...vals, 'Team (Teilnehmer'], 16, 30) : c === nCols ? fitWidth([...vals, 'Gesamteindruck'], 16, 40) : fitWidth(vals, 15, 50);
-      ws.getColumn(c).width = w;
-      widths.push(w);
-    }
-    for (let r = 0; r < nRows; r++) {
-      const row = ws.getRow(4 + r);
-      let maxLines = 1;
-      for (let c = 1; c <= nCols; c++) maxLines = Math.max(maxLines, lineCount(row.getCell(c).value, widths[c - 1]));
-      row.height = Math.max(30, Math.min(400, maxLines * 15 + 6));
-    }
+    // Logo in der eigenen Spalte C oben rechts (Werte stehen in B:C verbunden)
+    wsS.getColumn(1).width = 26; wsS.getColumn(2).width = 58; wsS.getColumn(3).width = 34;
+    wsS.getRow(3).height = 34;
+    logoRein(wb, wsS, 2);
+    druck(wsS, 0, 'Start');
 
-    // Notizen (Rohdaten)
-    const wn = wb.addWorksheet(SHEET_NOT, { views: [{ state: 'frozen', ySplit: 1 }] });
-    // Kategorien gibt es nicht mehr: Die Spalte wird nicht mehr geschrieben (alte Werte stehen noch in den Sicherungen).
-    const mitKat = false;
-    const COLS = [['Datum', 12, n => isoToDe(n.datum)], ['Lehrgangstag', 13, n => 'Tag ' + dayIndex(m.start, n.datum)], ['Uhrzeit', 9, n => n.uhrzeit || ''], ['Team', 18, n => n.team || ''],
-      ...(mitKat ? [['Kategorie', 17, n => n.kategorie || '']] : []), ['Notiz', 70, n => n.text || ''], ['Quelle', 13, n => n.quelle || 'Sprachnotiz'], ['Eingesprochen von', 20, n => n.von || '']];
-    COLS.forEach(([h, w], i) => {
-      const c = wn.getRow(1).getCell(i + 1);
-      c.value = h; c.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-      c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: BLUE } };
-      wn.getColumn(i + 1).width = w;
-    });
-    notes.forEach((n, i) => {
-      const row = wn.getRow(i + 2);
-      row.values = COLS.map(col => col[2](n));
-      row.eachCell(c => { c.alignment = { wrapText: true, vertical: 'top' }; });
-    });
-    // Breite nach Inhalt (Überschrift zählt mit); die Notiz-Spalte bricht ab 80 Zeichen um
-    COLS.forEach(([h, , f], i) => { wn.getColumn(i + 1).width = fitWidth([h, ...notes.map(f)], 8, h === 'Notiz' ? 80 : 30); });
-    wn.autoFilter = { from: 'A1', to: String.fromCharCode(64 + COLS.length) + Math.max(1, notes.length + 1) };
-
-    // Teams
-    const wt = wb.addWorksheet(SHEET_TEAMS);
-    // „Rasse / Alter“ wird nicht mehr abgefragt; Spalte bleibt nur, solange alte Teams einen Eintrag haben
+    // Teams (mit Gesamteindruck)
+    const wt = wb.addWorksheet(SHEET_TEAMS, { views: [{ state: 'frozen', ySplit: 4, showGridLines: false }] });
     const mitRasse = teams.some(t => t.rasse);
-    const TC = [['Team', 18, t => t.name], ['Teilnehmer/in', 18, t => t.teilnehmer || ''], ['Hund', 12, t => t.hund || ''], ['Behörde', 22, t => t.behoerde || ''],
-      ...(mitRasse ? [['Rasse / Alter', 22, t => t.rasse || '']] : []), ['Bemerkung', 30, t => t.bemerkung || '']];
-    TC.forEach(([h, w], i) => {
-      const c = wt.getRow(1).getCell(i + 1);
-      c.value = h; c.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-      c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: BLUE } };
-      wt.getColumn(i + 1).width = w;
+    const TC = [['Team', t => t.name], ['Hundeführer/in', t => t.teilnehmer || ''], ['Diensthund', t => t.hund || ''], ['Behörde', t => t.behoerde || ''],
+      ...(mitRasse ? [['Rasse / Alter', t => t.rasse || '']] : []), ['Zuständige/r Trainer/in', () => m.trainer || ''], ['Bemerkung', t => t.bemerkung || ''], ['Gesamteindruck', t => (course.gesamt || {})[t.name] || '']];
+    titelZeilen(wt, 'Teamstammdaten', (m.titel || '') + ' · ' + teams.length + ' Teams', TC.length);
+    kopfZeile(wt.getRow(4), TC.map(c => c[0]));
+    const tw = TC.map(([h, f]) => h === 'Gesamteindruck' || h === 'Bemerkung' ? 45 : fitWidth([h, ...teams.map(f)], 12, 30));
+    tw.forEach((w, i) => { wt.getColumn(i + 1).width = w; });
+    teams.forEach((t, i) => { const row = wt.getRow(5 + i); row.values = TC.map(c => c[1](t)); row.getCell(1).font = { bold: true }; datenZeile(row, TC.length, i % 2 === 1, false); hoehe(row, tw); });
+    druck(wt, 4, 'Teams');
+
+    // Tagesprotokolle: eine Zeile je Team und Tag, dicke blaue Linie vor jedem neuen Tag
+    const wp = wb.addWorksheet(SHEET_TP, { views: [{ state: 'frozen', xSplit: 2, ySplit: 4, showGridLines: false }] });
+    const mehrere = new Set(notes.map(n => n.von).filter(Boolean)).size > 1;
+    const PC = [['Datum', 13], ['Team', 18], ['Trainer/in', 14], ...FELDER.slice(0, 3).map(([k, h]) => [h, k === 'inhalt' ? 34 : 18, k]), ...(spuer ? [['Belohnungen', 12]] : []), ...FELDER.slice(3).map(([k, h]) => [h, k === 'bemerkung' ? 24 : 32, k])];
+    titelZeilen(wp, 'Tagesprotokolle', 'Eine Zeile je Team und Tag · dicke Linie bei jedem neuen Tag' + (spuer ? ' · Belohnungen kommen aus dem Zähler in der App' : '') + ' · Änderungen am PC werden übernommen', PC.length);
+    kopfZeile(wp.getRow(4), PC.map(c => c[0]));
+    PC.forEach(([, w], i) => { wp.getColumn(i + 1).width = w; });
+    const stand = [];
+    let r = 5, zeile = 0;
+    days.forEach(d => {
+      let erste = true;
+      teams.forEach(t => {
+        const ns = notes.filter(n => n.team === t.name && n.datum === d);
+        const bel = spuer ? zg.reduce((a, e) => a + (e.team === t.name && e.datum === d ? Number(e.anzahl) || 0 : 0), 0) : 0;
+        if (!ns.length && !bel) return;
+        const row = wp.getRow(r++);
+        row.getCell(1).value = isoToDate(d); row.getCell(1).numFmt = '[$-407]ddd dd.mm.yy';
+        row.getCell(2).value = t.name; row.getCell(2).font = { bold: true };
+        row.getCell(3).value = [...new Set(ns.map(n => (n.von || '').trim()).filter(Boolean))].join(', ') || m.trainer || '';
+        PC.forEach(([, , k], i) => {
+          if (!k) return;
+          const segs = ns.filter(n => feldVon(n, k)).map(n => ({ team: t.name, datum: d, spalte: k, uhrzeit: n.uhrzeit || '', von: n.von || '', text: feldVon(n, k), suf: mehrere && n.von ? n.von.trim().split(/\s+/)[0] : '' }));
+          segs.forEach(s => { s.bullet = segs.length > 1 && !/^\s*•/.test(s.text); stand.push(s); });
+          row.getCell(i + 1).value = segs.map(render).join('\n');
+        });
+        if (spuer) row.getCell(PC.findIndex(c => c[0] === 'Belohnungen') + 1).value = bel || '';
+        datenZeile(row, PC.length, zeile++ % 2 === 1, erste && r > 6, [PC.findIndex(c => c[0] === 'Belohnungen') + 1]);
+        hoehe(row, PC.map(c => c[1]));
+        erste = false;
+      });
     });
-    teams.forEach((t, i) => {
-      const row = wt.getRow(i + 2);
-      row.values = TC.map(col => col[2](t));
-      row.eachCell(c => { c.alignment = { wrapText: true, vertical: 'top' }; });
-    });
-    TC.forEach(([h, , f], i) => { wt.getColumn(i + 1).width = fitWidth([h, ...teams.map(f)], 8, 45); });
+    if (r === 5) { wp.getCell('A5').value = 'Noch keine Notizen.'; wp.getCell('A5').font = fnt({ italic: true }); }
+    wp.autoFilter = { from: { row: 4, column: 1 }, to: { row: Math.max(4, r - 1), column: PC.length } };
+    druck(wp, 4, 'Tagesprotokolle');
+
+    buildSpuer(wb, course, teams, days);
+
+    // Notizen (Rohdaten): jede Notiz eine Zeile, mit den aufgeteilten Feldern
+    const wn = wb.addWorksheet(SHEET_NOT, { views: [{ state: 'frozen', ySplit: 1 }] });
+    const COLS = [['Datum', n => isoToDe(n.datum)], ['Lehrgangstag', n => 'Tag ' + dayIndex(m.start, n.datum)], ['Uhrzeit', n => n.uhrzeit || ''], ['Team', n => n.team || ''],
+      ['Notiz', n => n.text || ''], ...FELDER.map(([k, h]) => [h, n => n.felder ? n.felder[k] || '' : '']), ['Aufgeteilt', n => n.felder ? 'ja' : ''], ['Quelle', n => n.quelle || 'Sprachnotiz'], ['Eingesprochen von', n => n.von || '']];
+    kopfZeile(wn.getRow(1), COLS.map(c => c[0]));
+    notes.forEach((n, i) => { const row = wn.getRow(i + 2); row.values = COLS.map(col => col[1](n)); row.eachCell(c => { c.font = fnt(); c.alignment = { wrapText: true, vertical: 'top' }; }); });
+    COLS.forEach(([h, f], i) => { wn.getColumn(i + 1).width = fitWidth([h, ...notes.map(f)], 8, h === 'Notiz' ? 80 : 40); });
+    wn.autoFilter = { from: { row: 1, column: 1 }, to: { row: Math.max(1, notes.length + 1), column: COLS.length } };
+    druck(wn, 1, 'Notizen (Rohdaten)');
 
     // Versteckte Einstellungen
     const wm = wb.addWorksheet(SHEET_META, { state: 'hidden' });
-    [['format', 'baumprojekt-1'], ['titel', m.titel || ''], ['trainer', m.trainer || ''], ['ort', m.ort || ''], ['start', m.start], ['wochen', Number(m.wochen) || 4],
+    [['format', 'baumprojekt-2'], ['titel', m.titel || ''], ['trainer', m.trainer || ''], ['ort', m.ort || ''], ['start', m.start], ['wochen', Number(m.wochen) || 4],
+      ['kopfBehoerde', m.kopfBehoerde || ''], ['kopfOe1', m.kopfOe1 || ''], ['kopfOe2', m.kopfOe2 || ''],
       ...(m.art ? [['art', m.art], ['geruchVorlage', m.geruchVorlage || ''], ['schrittVorlage', m.schrittVorlage || '']] : [])]
       .forEach((kv, i) => { wm.getRow(i + 1).values = kv; });
-    buildSpuer(wb, course, teams, days);
 
     // Verstecktes Glossar des Lehrgangs: Fachbegriffe beider Trainer (je Zeile Begriff | oft erkannt als | von)
     const wg = wb.addWorksheet(SHEET_GLOSSAR, { state: 'hidden' });
     wg.getRow(1).values = ['Begriff', 'Oft erkannt als', 'Von'];
     (course.glossar || []).forEach((g, i) => { wg.getRow(i + 2).values = [g.begriff, g.falsch || '', g.von || '']; });
 
-    // Verstecktes Abbild der Übersicht (je Abschnitt eine Zeile), damit Änderungen am PC erkannt werden
-    const wsn = wb.addWorksheet(SHEET_STAND, { state: 'hidden' });
-    wsn.getRow(1).values = ['Team', 'Datum', 'Uhrzeit', 'Von', 'Punkt', 'Kürzel', 'Text'];
-    stand.forEach((x, i) => { wsn.getRow(i + 2).values = [x.team, x.datum, x.uhrzeit, x.von, x.bullet ? '1' : '0', x.suf, x.text]; });
+    // Verstecktes Abbild des Tagesprotokolls (je Abschnitt eine Zeile), damit Änderungen am PC erkannt werden
+    const wsn = wb.addWorksheet(SHEET_STAND_TP, { state: 'hidden' });
+    wsn.getRow(1).values = ['Team', 'Datum', 'Uhrzeit', 'Von', 'Punkt', 'Kürzel', 'Text', 'Spalte'];
+    stand.forEach((x, i) => { wsn.getRow(i + 2).values = [x.team, x.datum, x.uhrzeit, x.von, x.bullet ? '1' : '0', x.suf, x.text, x.spalte]; });
 
     return wb;
   }
@@ -253,23 +300,28 @@
     const m = course.meta;
     const stoffe = sp.stoffe.slice();
     zg.forEach(e => { if (e.stoff && !stoffe.includes(e.stoff)) stoffe.push(e.stoff); });
-    // Übersicht: je Team und Stoff eine Zeile, Schritt, Summe und Belohnungen je Tag
-    const ws = wb.addWorksheet(SHEET_ZG, { views: [{ state: 'frozen', xSplit: 3, ySplit: 3 }] });
-    ws.getCell('A1').value = 'Zielgerüche: ' + (m.titel || '');
-    ws.getCell('A1').font = { bold: true, size: 13 };
-    head(ws.getRow(3), ['Team', 'Stoff', 'Belohnungen gesamt', ...days.map(d => 'Tag ' + dayIndex(m.start, d) + '\n' + isoToDe(d).slice(0, 6))],
-      [22, 18, 12, ...days.map(() => 8)], ws);
-    ws.getRow(3).height = 32;
-    let r = 4;
-    teams.forEach(t => stoffe.forEach(st => {
-      const row = ws.getRow(r++);
-      row.getCell(1).value = t.name; row.getCell(1).font = { bold: true };
-      row.getCell(2).value = st;
-      row.getCell(3).value = zgSumme(zg, t.name, st);
-      row.getCell(3).font = { bold: true };
-      days.forEach((d, i) => { const n = zgSumme(zg, t.name, st, d); if (n) row.getCell(i + 4).value = n; });
-      for (let c = 1; c <= days.length + 3; c++) { const cell = row.getCell(c); cell.border = BORDER; if (c > 2) cell.alignment = { horizontal: 'center' }; }
-    }));
+    // Übersicht: je Team und Stoff eine Zeile, Summe und Belohnungen je Tag (nur Tage mit Belohnungen)
+    const ws = wb.addWorksheet(SHEET_ZG, { views: [{ state: 'frozen', xSplit: 3, ySplit: 4, showGridLines: false }] });
+    const tage = days.filter(d => zg.some(e => e.datum === d && Number(e.anzahl)));
+    const kopf = ['Team', 'Zielgeruch', 'Gesamt', ...tage.map(d => weekday(d) + ' ' + isoToDe(d).slice(0, 6))];
+    titelZeilen(ws, 'Zielgerüche · Belohnungen je Team und Tag', (m.titel || '') + ' · aus dem Zähler in der App', kopf.length);
+    kopfZeile(ws.getRow(4), kopf);
+    const zw = [22, 18, 9, ...tage.map(() => 9)];
+    zw.forEach((w, i) => { ws.getColumn(i + 1).width = w; });
+    let r = 5, zz = 0;
+    teams.forEach(t => {
+      let erste = true;
+      stoffe.forEach(st => {
+        const row = ws.getRow(r++);
+        row.getCell(1).value = erste ? t.name : ''; row.getCell(1).font = { bold: true };
+        row.getCell(2).value = st;
+        row.getCell(3).value = zgSumme(zg, t.name, st) || ''; row.getCell(3).font = { bold: true };
+        tage.forEach((d, i) => { const n = zgSumme(zg, t.name, st, d); if (n) row.getCell(i + 4).value = n; });
+        datenZeile(row, kopf.length, zz++ % 2 === 1, erste && r > 6, kopf.map((_, i) => i + 1).filter(i => i > 2));
+        erste = false;
+      });
+    });
+    druck(ws, 4, 'Zielgerüche');
     // Rohdaten: jede Belohnung, Korrektur und jeder Schrittwechsel eine Zeile (Datenquelle)
     const wr = wb.addWorksheet(SHEET_ZG_ROH, { views: [{ state: 'frozen', ySplit: 1 }] });
     head(wr.getRow(1), ['Datum', 'Uhrzeit', 'Team', 'Stoff', 'Belohnungen', 'Schritt', 'Eingetragen von', 'ID'], [12, 9, 18, 18, 12, 9, 20, 12], wr);
@@ -387,6 +439,95 @@
     return count;
   }
 
+  // ---------- Änderungen aus dem Tagesprotokoll übernehmen ----------
+  // Wie bei der alten Übersicht, nur je Zelle (Team, Tag, Spalte): unveränderte Abschnitte bleiben, geänderter Text
+  // geht in das Feld der passenden Notiz, gelöschter Text leert das Feld, neuer Text wird eine neue Notiz.
+  function applyTpEdits(wb, course) {
+    const wsn = wb.getWorksheet(SHEET_STAND_TP), wp = wb.getWorksheet(SHEET_TP);
+    if (!wsn || !wp) return 0;
+    const t = (r, k) => k ? String(cellText(r.getCell(k).value) || '') : '';
+    const stand = new Map();
+    wsn.eachRow((r, i) => {
+      if (i === 1) return;
+      const x = { team: t(r, 1).trim(), datum: t(r, 2).trim(), uhrzeit: t(r, 3).trim(), von: t(r, 4).trim(), bullet: t(r, 5).trim() === '1', suf: t(r, 6).trim(), text: t(r, 7).trim(), spalte: t(r, 8).trim() };
+      const key = x.team + '|' + x.datum + '|' + x.spalte;
+      if (!stand.has(key)) stand.set(key, []);
+      stand.get(key).push(x);
+    });
+    let kopf = 0;
+    for (let i = 1; i <= 8; i++) if (String(cellText(wp.getRow(i).getCell(1).value) || '').trim() === 'Datum') { kopf = i; break; }
+    if (!kopf) return 0;
+    const spalten = [];
+    wp.getRow(kopf).eachCell((c, col) => { const h = String(cellText(c.value) || '').trim(); const f = FELDER.find(x => x[1] === h); if (f) spalten.push([col, f[0]]); });
+    const known = new Set([...course.teams.map(tm => tm.name), ...[...stand.values()].map(a => a[0].team)]);
+    let count = 0;
+    const find = (s, k) => course.notes.findIndex(n => n.datum === s.datum && n.team === s.team && (n.uhrzeit || '') === s.uhrzeit && (n.von || '') === s.von && feldVon(n, k) === s.text);
+    const clean = (s, piece) => {
+      let x = piece;
+      if (!s || s.bullet) x = x.replace(/^•\s*/, '');
+      if (s && s.suf && x.endsWith('(' + s.suf + ')')) x = x.slice(0, -(s.suf.length + 2));
+      return x.trim();
+    };
+    const markiere = n => { if (!(n.quelle || '').endsWith(AM_PC)) n.quelle = (n.quelle || 'Sprachnotiz').replace(/ \(bearbeitet\)$/, '') + AM_PC; };
+    const setze = (n, k, v) => {
+      if (!n.felder) { if (k === 'beobachtung') { n.text = v; return; } n.felder = { beobachtung: n.text || '' }; }
+      n.felder[k] = v;
+    };
+    const leer = n => n.felder ? FELDER.every(([k]) => !String(n.felder[k] || '').trim()) : !String(n.text || '').trim();
+    wp.eachRow((r, ri) => {
+      if (ri <= kopf) return;
+      const team = t(r, 2).trim(), datum = parseDateCell(r.getCell(1).value);
+      if (!team || !datum || !known.has(team)) return; // umbenannte/fremde Zeilen nicht anfassen
+      spalten.forEach(([col, k]) => {
+        const segs = stand.get(team + '|' + datum + '|' + k) || [];
+        const cur = norm(cellText(r.getCell(col).value));
+        if (cur === norm(segs.map(render).join('\n'))) return;
+        let pos = 0;
+        const hit = segs.map(s => {
+          const want = norm(render(s));
+          for (let q = cur.indexOf(want, pos); q >= 0; q = cur.indexOf(want, q + 1)) {
+            const e = q + want.length;
+            if ((q === 0 || cur[q - 1] === '\n') && (e === cur.length || cur[e] === '\n')) { pos = e; return [q, e]; }
+          }
+          return null;
+        });
+        const gap = (pending, raw, near) => {
+          const g = norm(raw);
+          if (!pending.length) {
+            if (g) { const f = {}; FELDER.forEach(([x]) => { f[x] = ''; }); f[k] = clean(null, g); course.notes.push({ datum, uhrzeit: near ? near.uhrzeit : '', team, text: f[k], felder: f, quelle: 'Am PC ergänzt', von: '' }); count++; }
+            return;
+          }
+          let pieces = [];
+          if (g) {
+            pieces = [g];
+            if (pending.length > 1) {
+              const p = g.split('\n').reduce((a, l) => { if (/^\s*•/.test(l) || !a.length) a.push(l); else a[a.length - 1] += '\n' + l; return a; }, []);
+              if (p.length === pending.length) pieces = p;
+            }
+          }
+          pending.forEach((s, j) => {
+            const idx = find(s, k);
+            const neu = j < pieces.length ? clean(s, pieces[j]) : '';
+            if (neu === s.text) return;
+            if (idx >= 0) {
+              const n = course.notes[idx];
+              setze(n, k, neu); markiere(n);
+              if (leer(n)) course.notes.splice(idx, 1);
+            } else if (neu) { const f = {}; FELDER.forEach(([x]) => { f[x] = ''; }); f[k] = neu; course.notes.push({ datum, uhrzeit: s.uhrzeit, team, text: neu, felder: f, quelle: 'Am PC ergänzt', von: '' }); }
+            count++;
+          });
+        };
+        let prev = 0, pending = [], near = null;
+        segs.forEach((s, i) => {
+          if (hit[i]) { gap(pending, cur.slice(prev, hit[i][0]), near || s); pending = []; prev = hit[i][1]; near = s; }
+          else pending.push(s);
+        });
+        gap(pending, cur.slice(prev), near);
+      });
+    });
+    return count;
+  }
+
   async function toBuffer(course) { return build(course).xlsx.writeBuffer(); }
 
   // ---------- Lesen ----------
@@ -401,15 +542,20 @@
     course.meta.wochen = Number(course.meta.wochen) || 4;
 
     const wt = wb.getWorksheet(SHEET_TEAMS);
+    // Überschriftenzeile: neue Dateien Zeile 4 (darüber Titel), alte Dateien Zeile 1
+    let tKopf = 1;
+    if (wt) for (let i = 1; i <= 6; i++) if (String(cellText(wt.getRow(i).getCell(1).value) || '').trim() === 'Team') { tKopf = i; break; }
     const tcol = {};
-    if (wt) wt.getRow(1).eachCell((c, k) => { tcol[String(cellText(c.value) || '').trim()] = k; });
-    const tat = (name, alt) => tcol[name] || (Object.keys(tcol).length ? 0 : alt);
+    if (wt) wt.getRow(tKopf).eachCell((c, k) => { tcol[String(cellText(c.value) || '').trim()] = k; });
+    const tat = (names, alt) => { for (const n of names) if (tcol[n]) return tcol[n]; return Object.keys(tcol).length ? 0 : alt; };
     const ttxt = (r, k) => k ? String(cellText(r.getCell(k).value) || '').trim() : '';
     if (wt) wt.eachRow((r, i) => {
-      if (i === 1) return;
-      const t = { name: ttxt(r, tat('Team', 1)), teilnehmer: ttxt(r, tat('Teilnehmer/in', 2)), hund: ttxt(r, tat('Hund', 3)), behoerde: ttxt(r, tat('Behörde', 0)), rasse: ttxt(r, tat('Rasse / Alter', 4)), bemerkung: ttxt(r, tat('Bemerkung', 5)) };
+      if (i <= tKopf) return;
+      const t = { name: ttxt(r, tat(['Team'], 1)), teilnehmer: ttxt(r, tat(['Hundeführer/in', 'Teilnehmer/in'], 2)), hund: ttxt(r, tat(['Diensthund', 'Hund'], 3)), behoerde: ttxt(r, tat(['Behörde'], 0)), rasse: ttxt(r, tat(['Rasse / Alter'], 4)), bemerkung: ttxt(r, tat(['Bemerkung'], 5)) };
       t.name = teamName(t);
       if (t.name) course.teams.push(t);
+      const g = ttxt(r, tat(['Gesamteindruck'], 0));
+      if (t.name && g) course.gesamt[t.name] = g;
     });
 
     const wg = wb.getWorksheet(SHEET_GLOSSAR);
@@ -428,7 +574,9 @@
     if (wn) wn.eachRow((r, i) => {
       if (i === 1) return;
       const n = { datum: parseDateCell(r.getCell(at('Datum', 1)).value), uhrzeit: parseTimeCell(r.getCell(at('Uhrzeit', 3) || 3).value), team: txt(r, at('Team', 4)), kategorie: txt(r, at('Kategorie', 5)), text: txt(r, at('Notiz', 6)), quelle: txt(r, at('Quelle', 7)), von: txt(r, at('Eingesprochen von', 8)) };
-      if (n.datum && n.text) course.notes.push(n);
+      // Aufgeteilte Felder fürs Tagesprotokoll (Motivation, Anzeigeverhalten …)
+      if (txt(r, at('Aufgeteilt', 0)) === 'ja') { n.felder = {}; FELDER.forEach(([k, hd]) => { n.felder[k] = txt(r, at(hd, 0)); }); }
+      if (n.datum && (n.text || n.felder)) course.notes.push(n);
     });
 
     const wu = wb.getWorksheet(SHEET_UEB);
@@ -444,11 +592,11 @@
       });
     }
     parseSpuer(wb, course);
-    course.amPcGeaendert = applyOverviewEdits(wb, course);
+    course.amPcGeaendert = wb.getWorksheet(SHEET_STAND_TP) ? applyTpEdits(wb, course) : applyOverviewEdits(wb, course);
     if (!course.meta.start) course.meta.start = course.notes.length ? sortNotes(course.notes)[0].datum : dateToIso(new Date());
     return course;
   }
 
-  const api = { zgSumme, zgSchritt, build, toBuffer, parse, teamName, courseDays, sortNotes, isoToDe, dateToIso, addDays, dayIndex, weekday };
+  const api = { FELDER, setLogo: b => { LOGO = b || null; }, zgSumme, zgSchritt, build, toBuffer, parse, teamName, courseDays, sortNotes, isoToDe, dateToIso, addDays, dayIndex, weekday };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else global.BaumprojektWorkbook = api;
 })(typeof window !== 'undefined' ? window : globalThis);
