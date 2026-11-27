@@ -561,6 +561,7 @@
   async function startRec(teamName, append) {
     if (needSetup()) return;
     if (rec && rec.state !== 'inactive') return;
+    S.tonKontext(); // noch im Tipp wecken, sonst bleibt die Welle auf dem iPhone flach
     if (!append || !job) { job = { team: teamName, datum: selDate, uhrzeit: nowTime() }; openSheet(teamName, 'rec'); }
     else { saveDraft(); job.append = true; sheetState('rec'); }
     elapsed = 0; paused = false; setPauseUi();
@@ -614,12 +615,7 @@
     const cv = $('#wave'), g = cv.getContext('2d'), red = getComputedStyle(document.documentElement).getPropertyValue('--red').trim() || '#ff3b30';
     const dpr = window.devicePixelRatio || 1;
     cv.width = Math.round(cv.clientWidth * dpr) || 600; cv.height = Math.round(cv.clientHeight * dpr) || 112;
-    try {
-      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      analyser = audioCtx.createAnalyser(); analyser.fftSize = 1024; analyser.smoothingTimeConstant = 0.6;
-      audioCtx.createMediaStreamSource(stream).connect(analyser);
-      if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
-    } catch (e) { analyser = null; }
+    audioCtx = S.tonPegel(stream, 1024); analyser = audioCtx && audioCtx.analyser;
     const data = new Uint8Array(analyser ? analyser.fftSize : 1);
     const STEP = 9 * dpr, BAR = 3 * dpr, SPEED = 0.06; // Balkenabstand, -breite, Pixel pro ms
     const n = Math.ceil(cv.width / STEP) + 2, bars = new Array(n).fill(0);
@@ -627,6 +623,7 @@
     const loop = now => {
       raf = requestAnimationFrame(loop);
       const dt = Math.min(64, now - last); last = now;
+      if (audioCtx) audioCtx.wach(now);
       let target = 0;
       if (!paused && analyser) { analyser.getByteTimeDomainData(data); let sum = 0; for (let i = 0; i < data.length; i++) { const v = data[i] - 128; sum += v * v; } target = Math.min(1, Math.sqrt(sum / data.length) / 28); }
       level += (target - level) * Math.min(1, dt / 60);
@@ -644,7 +641,7 @@
   function stopRec(cancel) {
     cancelled = !!cancel;
     clearInterval(recTimer); cancelAnimationFrame(raf);
-    if (audioCtx) { audioCtx.close().catch(() => {}); audioCtx = null; }
+    if (audioCtx) { audioCtx.ende(); audioCtx = null; }
     if (wakeLock) { wakeLock.release().catch(() => {}); wakeLock = null; }
     if (rec && rec.state !== 'inactive') rec.stop();
     paused = false; setPauseUi();
