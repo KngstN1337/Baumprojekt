@@ -71,7 +71,7 @@
             const anz = !spuer ? '' : gut ? g + ' zeigte sicher an der Quelle an, ruhiges Ablegen.' : { stuermisch: g + ' zeigte teils zu stürmisch an, kratzte zweimal.', zoegerlich: g + ' zeigte zögerlich, verweist erst nach Nachfrage.', ablenkbar: g + ' zeigte bei ' + heuteStoffe[0] + ' sicher, bei den anderen Gerüchen noch unsicher.', sicher: '' }[tm.typ];
             const note = gut ? NOTE[(ti + t) % 2] : NOTE[1 + (ti + t) % 2];
             const ohneNote = o.bewertungFehlt && (ti + tagNr(w, t)) % 3 === 0;
-            const bw = ohneNote ? '' : '\nBewertung: ' + note;
+            const bw = ohneNote ? '' : '\n' + note;
             const felder = {
               ort, zielgerueche: spuer ? heuteStoffe.join(', ') : '', inhalt,
               motivation: g + ' ' + MOT[tm.typ] + bw, anzeige: anz ? anz + bw : '', beobachtung: 'Nächster Schritt: ' + NAECHST[tm.typ],
@@ -104,7 +104,7 @@
       T.forEach((tm, ti) => {
         if (tm.name === ohne) return;
         const y = TEAMTEXT[tm.typ];
-        teams[tm.name] = { fortschritte: tm.hund + ' ' + y[0], defizite: y[1], foerderung: y[2], bewertung: o.bewertungFehlt && (ti + w) % 3 === 0 ? '' : phase === 3 && tm.typ === 'zoegerlich' ? 'gut' : y[3], hinweise: 'Keine besonderen Hinweise', bemerkungen: ti === 2 && w === 2 ? 'Linke Vorderpfote am Dienstag geschont.' : '' };
+        teams[tm.name] = { fortschritte: tm.hund + ' ' + y[0], defizite: y[1], foerderung: y[2], bewertung: o.bewertungFehlt && (ti + w) % 3 === 0 ? '' : phase === 3 && tm.typ === 'zoegerlich' ? 'gut' : y[3], hinweise: ti === 2 && w === 2 ? 'Linke Vorderpfote am Dienstag geschont.' : 'Keine besonderen Hinweise' };
       });
       wochenberichte[w] = { abschnitte: ab, teams };
     }

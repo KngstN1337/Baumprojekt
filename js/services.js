@@ -522,7 +522,7 @@
       '- beobachtung: weitere Beobachtungen und der nächste Schritt. Ein genannter nächster Schritt steht in einer eigenen Zeile "Nächster Schritt: …". Alles, was in keine andere Spalte passt, kommt hierher.\n' +
       '- bemerkung: Wissenswertes am Rande (Gesundheit, Pfote geschont, Organisatorisches, Hinweise an die Teilnehmenden).\n\n' +
       'Schulnoten: Nur wenn für Motivation oder Anzeigeverhalten ausdrücklich eine Note gesagt wurde (sehr gut, gut, befriedigend, ausreichend, mangelhaft, ungenügend), ' +
-      'hänge in dieser Spalte eine eigene letzte Zeile "Bewertung: <note>" an (Note klein geschrieben). Sonst keine Bewertung schreiben, nie eine Note schätzen.\n' +
+      'hänge in dieser Spalte eine eigene letzte Zeile an, die nur die Note enthält (klein geschrieben, z. B. "sehr gut", ohne "Bewertung:"). Sonst keine Bewertung schreiben, nie eine Note schätzen.\n' +
       'Stichpunkte („• “-Zeilen) bleiben Stichpunkte, verteile sie einzeln. Antworte nur mit dem JSON.';
     const props = {}; FELD_KEYS.forEach(k => { props[k] = { type: 'string' }; });
     const schema = { type: 'object', additionalProperties: false, required: FELD_KEYS, properties: props };
@@ -536,6 +536,7 @@
     const j = await res.json();
     const r = JSON.parse((j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content) || '{}');
     const f = {}; FELD_KEYS.forEach(k => { f[k] = String(r[k] || '').trim(); });
+    ['motivation', 'anzeige'].forEach(k => { f[k] = f[k].replace(/^[ \t]*Bewertung:[ \t]*/gim, '').trim(); });
     // Sicherheitsnetz: kam gar nichts zurück, steht die ganze Notiz unter Beobachtungen
     if (FELD_KEYS.every(k => !f[k])) f.beobachtung = text;
     return f;
@@ -548,9 +549,9 @@
   };
   const WB_TEAM_FELDER = 'fortschritte (was gut geklappt hat), defizite (Auffälligkeiten/Defizite, was noch hakt), foerderung (Fördermaßnahmen/nächste Schritte), ' +
     'bewertung (NUR wenn eine Schulnote gesagt wurde, ausgeschrieben und klein: sehr gut, gut, befriedigend, ausreichend, mangelhaft, ungenügend; sonst ""), ' +
-    'hinweise (besondere Hinweise an das Team), bemerkungen (Wissenswertes wie Gesundheit, Organisatorisches)';
-  const WB_T_SCHEMA = { type: 'object', additionalProperties: false, required: ['team', 'fortschritte', 'defizite', 'foerderung', 'bewertung', 'hinweise', 'bemerkungen'],
-    properties: { team: { type: 'string' }, fortschritte: { type: 'string' }, defizite: { type: 'string' }, foerderung: { type: 'string' }, bewertung: { type: 'string' }, hinweise: { type: 'string' }, bemerkungen: { type: 'string' } } };
+    'hinweise (besondere Hinweise an das Team, auch Wissenswertes wie Gesundheit oder Organisatorisches)';
+  const WB_T_SCHEMA = { type: 'object', additionalProperties: false, required: ['team', 'fortschritte', 'defizite', 'foerderung', 'bewertung', 'hinweise'],
+    properties: { team: { type: 'string' }, fortschritte: { type: 'string' }, defizite: { type: 'string' }, foerderung: { type: 'string' }, bewertung: { type: 'string' }, hinweise: { type: 'string' } } };
   // Eingesprochenen Wochenbericht (Schritt für Schritt: je Abschnitt bzw. Team eine Aufnahme) auf die Felder verteilen
   async function wochenDiktat(teile, opts) {
     const stil = stilVon(opts.stil);
@@ -589,9 +590,9 @@
       '- gesamt: Gesamtbewertung der Ausbildungsgruppe, 1–2 Sätze.\n- hinweise: Hinweise, die an die Ausbildungsgruppe gegeben wurden (nur wenn in den Protokollen genannt).\n' +
       '- teams: für JEDES genannte Team ein Eintrag mit team (exakt der Name aus der Liste), fortschritte, defizite (Auffälligkeiten/Defizite, mit Wochentagen in Klammern wie „(Di, Mi)“), ' +
       'foerderung (Fördermaßnahmen/nächste Schritte), bewertung (eine Schulnote ausgeschrieben, die die Bewertungen der Woche zusammenfasst: sehr gut, gut, befriedigend, ausreichend, mangelhaft, ungenügend; "" wenn keine Bewertungen vorkommen), ' +
-      'hinweise (besondere Hinweise, sonst "Keine besonderen Hinweise"), bemerkungen (Wissenswertes wie Gesundheit, sonst "").';
-    const T = { type: 'object', additionalProperties: false, required: ['team', 'fortschritte', 'defizite', 'foerderung', 'bewertung', 'hinweise', 'bemerkungen'],
-      properties: { team: { type: 'string' }, fortschritte: { type: 'string' }, defizite: { type: 'string' }, foerderung: { type: 'string' }, bewertung: { type: 'string' }, hinweise: { type: 'string' }, bemerkungen: { type: 'string' } } };
+      'hinweise (besondere Hinweise, auch Wissenswertes wie Gesundheit oder Organisatorisches; sonst "Keine besonderen Hinweise").';
+    const T = { type: 'object', additionalProperties: false, required: ['team', 'fortschritte', 'defizite', 'foerderung', 'bewertung', 'hinweise'],
+      properties: { team: { type: 'string' }, fortschritte: { type: 'string' }, defizite: { type: 'string' }, foerderung: { type: 'string' }, bewertung: { type: 'string' }, hinweise: { type: 'string' } } };
     const schema = { type: 'object', additionalProperties: false, required: ['inhalte', 'ueberblick', 'gesamt', 'hinweise', 'teams'],
       properties: { inhalte: { type: 'string' }, ueberblick: { type: 'string' }, gesamt: { type: 'string' }, hinweise: { type: 'string' }, teams: { type: 'array', items: T } } };
     const res = await fetch('https://api.openai.com/v1/chat/completions', {
