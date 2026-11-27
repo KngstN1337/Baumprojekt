@@ -92,7 +92,110 @@
     if (view === 'einst') fillSettings();
     if (view === 'glossar') renderGlossar();
     if (view === 'gerueche') SP.renderGerueche();
+    nav.gesehen.add(view); if (view === 'training') nav.trainingFuer = currentTeam;
+    adresseSetzen(view);
     window.scrollTo(0, 0);
+  }
+
+  // ---------------- Adresse im Browser (#/teams, #/einstellungen …) ----------------
+  // Jede Ansicht bekommt eine eigene Adresse. „Zurück“ im Browser (oder die Zurück-Geste bei Android) führt so zur vorherigen
+  // Ansicht, statt die App zu verlassen, und Bereiche lassen sich als Lesezeichen speichern. Die Google-Anmeldung
+  // (Rückkehr mit #access_token=…) bleibt unberührt, weil hier nur Adressen beachtet werden, die mit „#/“ beginnen.
+  const ROUTEN = { heute: 'heute', lehrgang: 'lehrgaenge', hilfe: 'hilfe', einst: 'einstellungen', glossar: 'einstellungen/glossar', gerueche: 'einstellungen/zielgerueche', wochen: 'wochenberichte', pdf: 'pdf', testgruppe: 'testgruppe' };
+  const TEAM_SEITEN = { team: '', notizen: '/notizen', aufnahmen: '/aufnahmen', zgteam: '/zielgerueche', training: '/training' };
+  const nav = { an: false, pos: 0, hash: '', still: 0, ersetzen: false, start: null, gesehen: new Set(), trainingFuer: null };
+  function adresseVon(view) {
+    if (view in TEAM_SEITEN) return currentTeam ? '#/team/' + encodeURIComponent(currentTeam) + TEAM_SEITEN[view] : '#/heute';
+    if (view === 'woche') return '#/wochenberichte/' + (WO.woche() || 1);
+    return '#/' + (ROUTEN[view] || 'heute');
+  }
+  function adresseLesen(hash) {
+    const m = /^#\/(.*)$/.exec(hash || ''); if (!m) return null;
+    const t = m[1].split('/').map(x => { try { return decodeURIComponent(x); } catch (e) { return x; } });
+    if (t[0] === 'team' && t[1]) return { view: Object.keys(TEAM_SEITEN).find(k => TEAM_SEITEN[k] === (t[2] ? '/' + t[2] : '')) || 'team', team: t[1] };
+    if (t[0] === 'wochenberichte' && Number(t[1]) > 0) return { view: 'woche', woche: Number(t[1]) };
+    return { view: Object.keys(ROUTEN).find(k => ROUTEN[k] === t.filter(Boolean).join('/')) || 'heute' };
+  }
+  // Neue Ansicht → neuer Eintrag im Browserverlauf. Führt ein Zurück-Knopf der App genau dorthin, wo man vorher war,
+  // geht die App im Verlauf zurück (sonst würde „Zurück“ im Browser danach wieder in die verlassene Ansicht führen).
+  // Tabs (Heute, Lehrgänge, Hilfe, Einstellungen) legen immer einen neuen Eintrag an.
+  function adresseSetzen(view) {
+    if (!nav.an) return;
+    const h = adresseVon(view); if (h === nav.hash) return;
+    const st = history.state || {};
+    const vonUnterseite = !/^#\/(heute|lehrgaenge|hilfe|einstellungen)$/.test(nav.hash);
+    if (nav.ersetzen) { history.replaceState({ ltr: nav.pos, vor: st.vor || null }, '', h); }
+    else if (nav.pos > 0 && st.vor === h && vonUnterseite) { nav.still++; nav.pos--; history.back(); }
+    else { nav.pos++; history.pushState({ ltr: nav.pos, vor: nav.hash }, '', h); }
+    nav.hash = h;
+  }
+  // Ansicht zu einer Adresse öffnen (Zurück/Vor im Browser, Lesezeichen, nach der Anmeldung)
+  function adresseOeffnen(r) {
+    const vorher = nav.ersetzen; nav.ersetzen = true;
+    try {
+      const jetzt = (document.querySelector('.view:not(.hidden)') || {}).id || '';
+      if (/^v-(team|zgteam|training)$/.test(jetzt) && !(r.view in TEAM_SEITEN && r.team === currentTeam)) SP.flush();
+      if (r.view in TEAM_SEITEN) {
+        if (!course || !teamByName(r.team)) { currentTeam = null; go('heute'); return; }
+        if (r.view === 'team' || currentTeam !== r.team) openTeam(r.team);
+        if (r.view === 'notizen') { renderTeamNotes(); go('notizen'); }
+        else if (r.view === 'aufnahmen') { go('aufnahmen'); renderRecordings($('#teamRecs'), x => x.team === currentTeam); }
+        else if (r.view === 'zgteam' || r.view === 'training') {
+          if (!SP.istSpuer()) { go('team'); return; }
+          const tr = r.view === 'training' && nav.gesehen.has('training') && nav.trainingFuer === r.team;
+          go(tr ? 'training' : 'zgteam'); SP.renderTeam(); if (tr) SP.renderTraining();
+        }
+        return;
+      }
+      if (r.view === 'heute') currentTeam = null;
+      if (r.view === 'woche') { if (course) WO.oeffnen(Math.min(r.woche, WO.anzahl ? WO.anzahl() : r.woche)); else go('lehrgang'); return; }
+      if (r.view === 'pdf' && !nav.gesehen.has('pdf')) { if (course) PDF.open(); else go('lehrgang'); return; }
+      if (r.view === 'testgruppe' && !nav.gesehen.has('testgruppe')) { TG.oeffnen(); return; }
+      go(r.view);
+    } finally { nav.ersetzen = vorher; }
+  }
+  window.addEventListener('popstate', e => {
+    if (!nav.an) return;
+    const ziel = e.state && typeof e.state.ltr === 'number' ? e.state.ltr : null;
+    if (nav.still) { nav.still--; if (ziel !== null) nav.pos = ziel; nav.hash = location.hash; return; }
+    const r = adresseLesen(location.hash); if (!r) return;
+    const schritte = ziel === null ? 0 : nav.pos - ziel;
+    // Im Verlauf dorthin zurück, wo man gerade ist (die Ansicht bleibt)
+    const bleiben = () => { if (schritte) { nav.still++; history.go(schritte); } else { history.replaceState({ ltr: nav.pos, vor: (history.state || {}).vor || null }, '', nav.hash); } };
+    const b = document.body.classList;
+    if (b.contains('locked')) { if (ziel !== null) nav.pos = ziel; nav.hash = location.hash; nav.start = r; return; }
+    // Offenes Fenster (Notiz, Rückfrage, Einsprechen) oder laufende Arbeit: „Zurück“ schließt erst das Fenster
+    if (!$('#busy').classList.contains('hidden') || b.contains('wb-open')) { bleiben(); return; }
+    if (b.contains('sheet-open')) { bleiben(); requestDismiss(); return; }
+    if (b.contains('modal-open')) { bleiben(); closeModal(); return; }
+    if (ziel === null) { nav.pos++; history.replaceState({ ltr: nav.pos, vor: nav.hash }, '', location.hash); }
+    else nav.pos = ziel;
+    // Ungespeicherte Änderungen: erst nachfragen (wie bei Tabs, Zurück-Knopf und Wischen)
+    if (ungespeichert() && adresseVon(r.view) !== nav.hash) {
+      const neu = location.hash, neuPos = nav.pos;
+      if (ziel !== null) { nav.pos += schritte; bleiben(); } else { nav.pos--; history.replaceState({ ltr: nav.pos }, '', nav.hash); }
+      verlassen(() => {
+        if (ziel !== null && nav.hash !== neu) { nav.still++; history.go(neuPos - nav.pos); nav.pos = neuPos; nav.hash = neu; }
+        adresseOeffnen(r);
+      });
+      return;
+    }
+    nav.hash = location.hash;
+    adresseOeffnen(r);
+  });
+  // Beim Start: Adresse aus dem Lesezeichen merken (auch über die Google-Anmeldung hinweg) und den Verlauf vorbereiten
+  function adresseStart() {
+    nav.start = adresseLesen(location.hash) || adresseLesen(localStorage.getItem('baumprojekt.adresse'));
+    localStorage.removeItem('baumprojekt.adresse');
+    const st = history.state || {};
+    nav.pos = typeof st.ltr === 'number' ? st.ltr : 0;
+    nav.hash = adresseLesen(location.hash) ? location.hash : '#/heute';
+    history.replaceState({ ltr: nav.pos, vor: st.vor || null }, '', nav.hash);
+    nav.an = true;
+  }
+  function startAdresseOeffnen() {
+    const r = nav.start; nav.start = null;
+    if (r && r.view !== 'heute') adresseOeffnen(r);
   }
   // Vom linken Rand nach rechts wischen = eine Ebene zurück (wie in iOS), auf Hauptseiten passiert nichts
   function zurueckKnopf() {
@@ -1257,9 +1360,11 @@
     }
     if (!openaiKey()) banner('<span>Fast fertig: Für die Spracherkennung brauchst du einmalig einen OpenAI-Schlüssel.</span><button>Zur Anleitung</button>', () => { banner(''); go('einst'); });
     else if (!course) { go('lehrgang'); }
+    if (course || (nav.start && !(nav.start.view in TEAM_SEITEN))) startAdresseOeffnen();
   }
   async function login(chooseAccount) {
     $('#loginMsg').textContent = '';
+    if (adresseLesen(location.hash)) localStorage.setItem('baumprojekt.adresse', location.hash); // nach der Google-Anmeldung wieder dorthin
     try { await S.Drive.connect(clientId(), chooseAccount); await afterLogin(); }
     catch (e) { $('#loginMsg').textContent = e.message; }
   }
@@ -1396,7 +1501,9 @@
     $('#appVersion').textContent = 'Version ' + (CFG.version || '');
     // Login-Knopf freigeben, sobald die Google-Bibliothek geladen ist
     const wait = setInterval(() => { if (S.Drive.ready() || CFG.loginRedirect) { clearInterval(wait); $('#loginBtn').disabled = false; } }, 200);
-    if (S.Drive.restore()) await afterLogin(); else { lock(true); $('#loginMsg').textContent = S.Drive.loginError; }
+    const angemeldet = S.Drive.restore(); // wertet eine Rückkehr von Google (#access_token=…) aus, erst danach die Adresse
+    adresseStart();
+    if (angemeldet) await afterLogin(); else { lock(true); $('#loginMsg').textContent = S.Drive.loginError; }
     updateSyncInfo();
   }
   init();

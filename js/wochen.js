@@ -328,6 +328,6 @@
       });
       $('#wbBody').addEventListener('input', e => { if (e.target.classList.contains('wb-ta')) groesse(e.target); });
     }
-    return { bind, renderListe, geaendert, verwerfen: () => { stand = JSON.stringify(lesen()); }, speichern: sichern };
+    return { bind, renderListe, geaendert, oeffnen, woche: () => woche, anzahl: () => wochen(), verwerfen: () => { stand = JSON.stringify(lesen()); }, speichern: sichern };
   };
 })(typeof window !== 'undefined' ? window : globalThis);
