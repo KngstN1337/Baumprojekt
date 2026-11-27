@@ -234,26 +234,33 @@
   function renderToday() {
     if (!course) {
       $('#dayTitle').textContent = 'Heute';
-      $('#courseBtn').textContent = 'Lehrgang wählen oder anlegen'; $('#weekInfo').textContent = '';
-      $('#days').innerHTML = ''; $('#teamsHead').textContent = 'Teams';
+      $('#courseBtn').textContent = 'Lehrgang wählen oder anlegen'; show('#weekNav', false);
+      $('#days').innerHTML = ''; $('#days').dataset.key = ''; $('#teamsHead').textContent = 'Teams';
       $('#teamList').innerHTML = '<div class="empty">Lege unter „Lehrgänge“ deinen ersten Lehrgang an.</div>';
       return;
     }
     const max = course.meta.wochen * 7, idx = WBK.dayIndex(course.meta.start, selDate), t = today();
     $('#dayTitle').textContent = selDate === t ? 'Heute' : longDate(selDate);
     $('#courseBtn').textContent = course.meta.titel || 'Lehrgang';
-    $('#weekInfo').textContent = ' · Woche ' + Math.ceil(idx / 7) + ' von ' + course.meta.wochen;
+    renderWeekNav(idx, max, t);
     const withNotes = new Set(course.notes.map(n => n.datum));
-    let html = '';
-    for (let i = 0; i < max; i++) {
-      const d = WBK.addDays(course.meta.start, i), dt = new Date(d + 'T12:00');
-      if (i && i % 7 === 0) html += '<span class="week-sep"></span>';
-      html += '<button class="day' + (d === selDate ? ' on' : '') + (d === t ? ' today' : '') + (withNotes.has(d) ? ' has' : '') + '" data-d="' + d + '" aria-label="' + esc(longDate(d)) + '"><small>' + WBK.weekday(d).slice(0, 2) + '</small><b>' + dt.getDate() + '</b><i></i></button>';
+    const days = $('#days'), key = activeId + '|' + course.meta.start + '|' + max + '|' + [...withNotes].join() + '|' + t;
+    // Leiste nur neu bauen, wenn sich Tage/Notizen geändert haben. Beim Antippen eines Tages wird nur die Markierung verschoben (ruckelfrei).
+    if (days.dataset.key !== key) {
+      let html = '';
+      for (let i = 0; i < max; i++) {
+        const d = WBK.addDays(course.meta.start, i), dt = new Date(d + 'T12:00');
+        if (i && i % 7 === 0) html += '<span class="week-sep"></span>';
+        html += '<button class="day' + (d === t ? ' today' : '') + (withNotes.has(d) ? ' has' : '') + '" data-d="' + d + '" aria-label="' + esc(longDate(d)) + '"><small>' + WBK.weekday(d).slice(0, 2) + '</small><b>' + dt.getDate() + '</b><i></i></button>';
+      }
+      days.innerHTML = html; days.dataset.key = key; days.dataset.sel = '';
     }
-    const days = $('#days');
-    if (days.dataset.key !== activeId + max + [...withNotes].join() + selDate + t) {
-      days.innerHTML = html; days.dataset.key = activeId + max + [...withNotes].join() + selDate + t;
-      const on = days.querySelector('.day.on'); if (on) days.scrollLeft = on.offsetLeft - days.clientWidth / 2 + on.clientWidth / 2;
+    if (days.dataset.sel !== selDate) {
+      const first = !days.dataset.sel;
+      days.querySelectorAll('.day.on').forEach(b => b.classList.remove('on'));
+      const on = days.querySelector('.day[data-d="' + selDate + '"]');
+      if (on) { on.classList.add('on'); scrollDays(on, !first); }
+      days.dataset.sel = selDate;
     }
     const notes = course.notes.filter(n => n.datum === selDate);
     const done = course.teams.filter(tm => notes.some(n => n.team === tm.name)).length;
@@ -264,6 +271,32 @@
         '<div class="cell-st">' + (n ? svg('i-check') + (n > 1 ? n : '') : '') + '</div><button class="mic" aria-label="Aufnahme für ' + esc(tm.name) + '">' + svg('i-mic') + '</button></div>';
     }).join('') || '<div class="empty">Dieser Lehrgang hat noch keine Teams.</div>';
     updateSyncInfo();
+  }
+  // Wochen-Navigation über der Tageleiste: Pfeile springen eine Woche vor/zurück (auch am PC mit der Maus)
+  function renderWeekNav(idx, max, t) {
+    const w = Math.ceil(idx / 7), n = course.meta.wochen;
+    const von = WBK.addDays(course.meta.start, (w - 1) * 7), bis = WBK.addDays(von, 6);
+    const kurz = d => { const x = new Date(d + 'T12:00'); return x.getDate() + '.' + (x.getMonth() + 1) + '.'; };
+    show('#weekNav', true);
+    $('#weekLbl').textContent = 'Woche ' + w + ' von ' + n;
+    $('#weekRange').textContent = kurz(von) + ' – ' + kurz(bis);
+    $('#weekPrev').disabled = w <= 1; $('#weekNext').disabled = w >= n;
+    const ti = WBK.dayIndex(course.meta.start, t);
+    show('#weekToday', ti >= 1 && ti <= max && selDate !== t);
+  }
+  function jumpWeek(delta) {
+    if (!course) return;
+    const max = course.meta.wochen * 7, i = WBK.dayIndex(course.meta.start, selDate) + delta * 7;
+    selDate = WBK.addDays(course.meta.start, Math.min(max, Math.max(1, i)) - 1);
+    renderToday();
+  }
+  // Die Woche des ausgewählten Tages ganz in die Leiste holen (Montag–Sonntag des Lehrgangs, links bündig)
+  function scrollDays(on, smooth) {
+    const days = $('#days'), i = WBK.dayIndex(course.meta.start, on.dataset.d);
+    const first = days.querySelector('.day[data-d="' + WBK.addDays(course.meta.start, Math.floor((i - 1) / 7) * 7) + '"]') || on;
+    const left = first.offsetLeft - days.offsetLeft - 12;
+    const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (smooth && !reduce && days.scrollTo) days.scrollTo({ left, behavior: 'smooth' }); else days.scrollLeft = left;
   }
   function teamByName(name) { return course && course.teams.find(t => t.name === name); }
 
@@ -1185,6 +1218,16 @@
   function bind() {
     document.querySelectorAll('[data-go]').forEach(b => b.addEventListener('click', () => go(b.dataset.go)));
     $('#days').addEventListener('click', e => { const b = e.target.closest('.day'); if (b) { selDate = b.dataset.d; renderToday(); } });
+    $('#weekPrev').addEventListener('click', () => jumpWeek(-1));
+    $('#weekNext').addEventListener('click', () => jumpWeek(1));
+    $('#weekToday').addEventListener('click', () => { selDate = today(); renderToday(); });
+    // Am PC: Mausrad über der Tageleiste blättert seitlich (sonst kommt man mit der Maus nicht an die anderen Wochen)
+    $('#days').addEventListener('wheel', e => {
+      const d = $('#days'); if (e.ctrlKey || Math.abs(e.deltaX) > Math.abs(e.deltaY) || d.scrollWidth <= d.clientWidth) return;
+      const vor = d.scrollLeft;
+      d.scrollLeft += e.deltaMode === 1 ? e.deltaY * 32 : e.deltaY;
+      if (d.scrollLeft !== vor) e.preventDefault();
+    }, { passive: false });
     $('#v-heute').addEventListener('click', e => {
       const cell = e.target.closest('.cell[data-team]'); if (!cell) return;
       if (e.target.closest('.mic') || cell.dataset.team === ALLE) startRec(cell.dataset.team); else openTeam(cell.dataset.team);
