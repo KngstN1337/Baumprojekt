@@ -195,3 +195,6 @@ body.wb-open .wd{transform:none}body.wb-open .dim{opacity:1;pointer-events:auto}
 .wd.paused .wd-time{color:var(--sec)}
 .wd-wave{height:40px;margin:2px 0 10px}
 .wd-hint{margin:8px 0 0}.wd-ende{display:block;margin:6px auto 0;font-size:15px}
+.wb-sec{display:flex;align-items:flex-end;gap:12px;padding:0 16px 6px 32px}.wb-sec .section-h{padding:0;flex:1;min-width:0}
+.wb-clear{font-size:15px;padding:4px 0}
+.wb-mic{width:32px;height:32px;border-radius:16px;border:0;background:color-mix(in srgb,var(--red) 14%,transparent);display:flex;align-items:center;justify-content:center;flex:0 0 auto;cursor:pointer}.wb-mic svg{width:17px;height:17px;fill:var(--red)}

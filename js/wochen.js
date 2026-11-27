@@ -38,6 +38,13 @@
 
     // ---------------- Bericht bearbeiten ----------------
     const feld = (key, label, wert, rows) => '<label class="wb-feld' + (neu.has(key) ? ' neu' : '') + '"><span>' + esc(label) + (neu.has(key) ? '<em>neu</em>' : '') + '</span><textarea class="wb-ta" data-f="' + key + '" rows="' + (rows || 2) + '">' + esc(wert || '') + '</textarea></label>';
+    // Abschnittskopf mit „Leeren“ und Mikrofon nur für diesen Abschnitt bzw. dieses Team
+    const secH = (text, keys) => '<div class="wb-sec"><div class="section-h">' + esc(text) + '</div><button type="button" class="text-btn wb-clear" data-leeren="' + esc(keys) + '">Leeren</button>' +
+      '<button type="button" class="wb-mic" data-nur="' + esc(keys) + '" aria-label="Nur diesen Teil einsprechen"><svg><use href="#i-mic"/></svg></button></div>';
+    function leeren(keys) {
+      const ks = keys.split(',');
+      document.querySelectorAll('#wbBody .wb-ta:not(.wb-x)').forEach(ta => { const f = ta.dataset.f; if (ks.some(k => f === k || f.startsWith(k + '.'))) { ta.value = ''; groesse(ta); } });
+    }
     function renderEditor() {
       const a = start(woche), ab = entwurf.abschnitte || {};
       $('#wbTitle').textContent = woche + '. Woche';
@@ -51,13 +58,13 @@
         '<div class="segmented wb-stil" role="radiogroup" aria-label="Schreibstil">' + S.STILE.map(x => '<button type="button" data-stil="' + x.id + '" class="' + (x.id === stil ? 'on' : '') + '">' + (x.id === 'beamtendeutsch' ? 'Amtlich' : esc(x.name)) + '</button>').join('') + '</div>' +
         (leer ? '<button type="button" class="cell link-cell" id="wbKi">Bericht schreiben lassen</button>' : '<p class="wb-stil-hint">Anderen Stil antippen, dann schreibt LTR den Vorschlag neu.</p>') + '</div>';
       if (offen) h += '<div class="group wb-offen"><label class="wb-feld"><span>Nicht zugeordnet – bitte selbst einsortieren (wird nicht gesichert, die Aufnahme liegt in Google Drive)</span><textarea class="wb-ta wb-x" rows="2">' + esc(offen) + '</textarea></label></div>';
-      h += '<div class="section-h">Gruppe</div><div class="group">' + ['inhalte', 'ueberblick'].map(k => feld('a.' + k, TITEL[k], ab[k], 3)).join('') + '</div>';
+      h += secH('Gruppe', 'a.inhalte,a.ueberblick') + '<div class="group">' + ['inhalte', 'ueberblick'].map(k => feld('a.' + k, TITEL[k], ab[k], 3)).join('') + '</div>';
       teams().forEach(t => {
         const tb = (entwurf.teams || {})[t.name] || {}, n = WBK.einheiten(course(), t.name, woche);
-        h += '<div class="section-h">' + esc(t.name) + ' · ' + n + (n === 1 ? ' Tagesprotokoll' : ' Tagesprotokolle') + '</div><div class="group">' +
+        h += secH(t.name + ' · ' + n + (n === 1 ? ' Tagesprotokoll' : ' Tagesprotokolle'), 't.' + t.name) + '<div class="group">' +
           WBK.WB_TEAM.map(([k, l]) => feld('t.' + t.name + '.' + k, l, tb[k], k === 'bewertung' ? 1 : 2)).join('') + '</div>';
       });
-      h += '<div class="section-h">Abschluss</div><div class="group">' + ['gesamt', 'hinweise'].map(k => feld('a.' + k, TITEL[k], ab[k], 2)).join('') + '</div>';
+      h += secH('Abschluss', 'a.gesamt,a.hinweise') + '<div class="group">' + ['gesamt', 'hinweise'].map(k => feld('a.' + k, TITEL[k], ab[k], 2)).join('') + '</div>';
       h += '<div class="actions wb-actions"><button type="button" class="btn-filled" id="wbSave2">Sichern</button></div>' +
         (da || !leer ? '<button type="button" class="text-btn danger-text" id="wbDel">Bericht löschen</button>' : '');
       $('#wbBody').innerHTML = h;
@@ -137,7 +144,7 @@
     }
 
     // ---------------- Bericht einsprechen: Schritt für Schritt, je Abschnitt bzw. Team eine Aufnahme ----------------
-    let schritte = [], si = 0, stream = null, rec = null, teile = [], timer = 0, raf = 0, actx = null, an = null, wake = null;
+    let einzeln = false, schritte = [], si = 0, stream = null, rec = null, teile = [], timer = 0, raf = 0, actx = null, an = null, wake = null;
     let modus = localStorage.getItem('ltr.wbModus') || 'schritt';
     let pausiert = false, laufzeit = 0, seit = 0, abbruch = false;
     const sekunden = () => Math.floor((laufzeit + (pausiert ? 0 : Date.now() - seit)) / 1000);
@@ -151,7 +158,7 @@
       return l;
     }
     function zeigeSchritt() {
-      const alle = modus === 'alle', x = schritte[si], letzt = alle || si === schritte.length - 1;
+      const alle = istAlle(), x = schritte[si], letzt = alle || si === schritte.length - 1;
       document.querySelectorAll('#wdModus [data-modus]').forEach(b => b.classList.toggle('on', b.dataset.modus === modus));
       show('#wdSchritt', !alle); show('#wdAlle', alle);
       if (alle) {
@@ -161,7 +168,8 @@
             .map(([t, f], i) => '<div class="wd-row"><span class="wd-num">' + (i + 1) + '</span><div><b>' + t + '</b><span>' + f + '</span>' + (i === 2 ? '<div class="wd-teams">' + tl.map(t => esc(t.name)).join('<br>') + '</div>' : '') + '</div></div>').join('');
       } else {
         $('#wdDots').innerHTML = schritte.map((_, i) => '<i class="' + (i < si ? 'ok' : i === si ? 'on' : '') + '"></i>').join('');
-        $('#wdStep').textContent = 'Schritt ' + (si + 1) + ' von ' + schritte.length;
+        $('#wdStep').textContent = schritte.length > 1 ? 'Schritt ' + (si + 1) + ' von ' + schritte.length : 'Ergänzen';
+        show('#wdDots', schritte.length > 1);
         $('#wdTitel').textContent = x.titel;
         $('#wdFragen').innerHTML = x.fragen.map(f => '<li>' + esc(f) + '</li>').join('');
       }
@@ -179,12 +187,15 @@
       zeigeSchritt(); if (rec) aufnahme(); if (p) await p;
     }
     const show = (sel, on) => $(sel).classList.toggle('hidden', !on);
-    async function diktatStart() {
+    const istAlle = () => !einzeln && modus === 'alle';
+    async function diktatStart(nur) {
       if (!ctx.openaiKey()) return ctx.toast('Zum Einsprechen wird der OpenAI-Schlüssel gebraucht (Einstellungen).', 5000);
       if (rec) return;
       try { stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: false, noiseSuppression: false, autoGainControl: true } }); }
       catch (e) { return ctx.toast('Kein Zugriff aufs Mikrofon: ' + e.message, 5000); }
-      schritte = schrittListe(); si = 0; teile = []; abbruch = false;
+      const ks = nur ? nur.split(',') : null; einzeln = !!ks;
+      schritte = schrittListe().filter(x => !ks || ks.includes(x.key)); si = 0; teile = []; abbruch = false;
+      show('#wdModus', !einzeln);
       $('#wdSub').textContent = woche + '. Woche · KW ' + WBK.isoKW(start(woche));
       document.body.classList.add('wb-open');
       zeigeSchritt(); aufnahme(); welle();
@@ -201,7 +212,7 @@
     }
     // Aktuellen Schritt beenden: Aufnahme sofort sichern (Gerät → Google Drive) und Spracherkennung im Hintergrund starten
     function schrittEnde() {
-      const r = rec, x = modus === 'alle' ? { key: 'alle', titel: 'Ganzer Bericht' } : schritte[si], dauer = sekunden();
+      const r = rec, x = istAlle() ? { key: 'alle', titel: 'Ganzer Bericht' } : schritte[si], dauer = sekunden();
       return new Promise(ok => {
         r.onstop = async () => {
           if (abbruch || dauer < 2) return ok();
@@ -217,7 +228,7 @@
     async function weiter(sofortFertig) {
       if (!rec) return;
       const p = schrittEnde();
-      if (!sofortFertig && modus !== 'alle' && si < schritte.length - 1) { si++; zeigeSchritt(); aufnahme(); await p; return; }
+      if (!sofortFertig && !istAlle() && si < schritte.length - 1) { si++; zeigeSchritt(); aufnahme(); await p; return; }
       await p; beenden(); auswerten();
     }
     function beenden() {
@@ -308,6 +319,8 @@
           return;
         }
         if (e.target.closest('#wbDiktat')) diktatStart();
+        const nu = e.target.closest('[data-nur]'); if (nu) diktatStart(nu.dataset.nur);
+        const le = e.target.closest('[data-leeren]'); if (le) leeren(le.dataset.leeren);
         if (e.target.closest('#wbSave2')) sichern();
         if (e.target.closest('#wbDel')) loeschen();
         if (e.target.closest('#wbKi')) vorschlagen();
