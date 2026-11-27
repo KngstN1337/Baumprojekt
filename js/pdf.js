@@ -136,6 +136,22 @@
     // headlineLevel: Hauptüberschrift; steht sie unten auf einer Seite ohne Text darunter, rutscht sie mit auf die nächste Seite (siehe pageBreakBefore)
     const balken = text => ({ table: { widths: ['*'], body: [[{ text, bold: true, color: '#FFFFFF', fillColor: BLAU, margin: [2, 1, 2, 1], ueberschrift: true }]] }, layout: 'noBorders', margin: [0, 8, 0, 6], headlineLevel: 1 });
     const kopf = l => l.map(t => ({ text: t, style: 'th' }));
+    // Spaltenbreiten auf die volle Seitenbreite verteilen: feste Spalten (Zahl) bleiben, Textspalten (0) bekommen Platz
+    // nach Textmenge (mindestens minB). Die Textspalte mit dem meisten Text bekommt '*' und füllt den Rest bis zum Rand.
+    const BREITE = 773;
+    const txtLaenge = c => c == null ? 0 : typeof c === 'string' ? c.length : c.text != null ? (Array.isArray(c.text) ? c.text.map(txtLaenge).reduce((a, b) => a + b, 0) : String(c.text).length) : c.stack ? c.stack.map(txtLaenge).reduce((a, b) => a + b, 0) : 0;
+    function verteile(spec, zeilen, gesamt, minB) {
+      const n = spec.length, frei = (gesamt || BREITE) - spec.reduce((a, b) => a + b, 0) - n * 8 - (n + 1) * 0.5 - 4;
+      const idx = spec.map((b, i) => b ? -1 : i).filter(i => i >= 0);
+      const len = idx.map(i => Math.max(20, zeilen.reduce((a, r) => a + txtLaenge(r[i]), 0)));
+      const summe = len.reduce((a, b) => a + b, 0), mn = minB || 70;
+      let br = len.map(l => Math.max(mn, frei * l / summe));
+      const zuviel = br.reduce((a, b) => a + b, 0) - frei; // Mindestbreiten wieder bei den breiten Spalten abziehen
+      if (zuviel > 0) { const gross = br.reduce((a, b) => a + (b > mn ? b - mn : 0), 0); br = br.map(b => b > mn ? b - zuviel * (b - mn) / gross : b); }
+      const w = spec.slice(), groesste = br.indexOf(Math.max(...br));
+      idx.forEach((i, k) => { w[i] = k === groesste ? '*' : Math.floor(br[k]); });
+      return w;
+    }
     // Liste mit blauer Kopfzeile (auf jeder Seite wiederholt), Zeilen grau/weiß, dicke blaue Linie vor jedem neuen Tag
     function liste(widths, body, neueTage) {
       const dick = new Set(neueTage || []);
@@ -231,13 +247,18 @@
       return { text: zeilen.map((z, i) => ({ text: z + (i < zeilen.length - 1 ? '\n' : ''), bold: NOTEN.test(z.trim()) })) };
     };
     function tageA(tl, tage, ns, zelle, nurTeam) {
-      const OBEN = [['ort', 'Trainingsort', 82], ['zielgerueche', 'Zielgerüche', 84], ['inhalt', 'Trainingsinhalt / Aufbau', '*'], ['motivation', 'Motivation', 110], ['anzeige', 'Anzeigeverhalten', 110]];
+      const OBEN = [['ort', 'Trainingsort'], ['zielgerueche', 'Zielgerüche'], ['inhalt', 'Trainingsinhalt / Aufbau'], ['motivation', 'Motivation'], ['anzeige', 'Anzeigeverhalten']];
+      // Breiten nach Textmenge in diesem Abschnitt: Spalten mit viel Text werden breiter, die Tabelle reicht immer bis zum rechten Rand
+      const proben = [];
+      tage.forEach(d => tl.forEach(t => { const l = ns.filter(x => x.datum === d && x.team === t.name); if (l.length) proben.push(OBEN.map(([k]) => zelle(l, k))); }));
+      const innenBreite = BREITE - 62 - (nurTeam ? 0 : 80) - 2;
+      const wInnen = verteile(OBEN.map(() => 0), proben, innenBreite, 84);
       const UNTEN = WBK.FELDER.filter(f => f[0] === 'beobachtung' || f[0] === 'bemerkung');
       const vorn = nurTeam ? 1 : 2; // Datum (und Team) als eigene Spalten, der Rest steckt in einer inneren Tabelle
       // Innere Tabelle: oben die kurzen Angaben, darunter die langen Texte über die ganze Breite.
       // So bleibt ein Eintrag beim Seitenwechsel zusammen und die Spalten stehen bei allen Einträgen gleich.
       const innen = (zeilen, kopfzeile) => ({
-        table: { widths: OBEN.map(o => o[2]), body: zeilen },
+        table: { widths: wInnen, body: zeilen },
         layout: {
           hLineWidth: i => !kopfzeile && i === 1 && zeilen.length > 1 ? 0.5 : 0, hLineColor: () => LINIE,
           vLineWidth: i => i > 0 && i < OBEN.length ? 0.5 : 0, vLineColor: () => LINIE,
@@ -258,7 +279,7 @@
           const r = [{ text: deKurz(d), bold: true, noWrap: true }];
           if (!nurTeam) r.push({ stack: [{ text: teamLabel(t), bold: true }, ...(t.hund && t.name.indexOf(t.hund) < 0 ? [{ text: 'mit ' + t.hund }] : [])] });
           const oben = OBEN.map(([k]) => { const v = zelle(l, k); return k === 'motivation' || k === 'anzeige' ? mitNote(v) : (v || '–'); });
-          const zeilen = [oben.map(x => typeof x === 'string' ? { text: x, border: [false, false, false, false] } : Object.assign(x, { border: [false, false, false, false] }))];
+          const zeilen = [oben];
           const unten = UNTEN.map(([k, h]) => [h, zelle(l, k)]).filter(x => x[1]);
           const stack = [];
           unten.forEach(([h, v], i) => stack.push({ text: h.toUpperCase(), bold: true, color: BLAU, fontSize: 7, characterSpacing: 0.3, margin: [0, i ? 3 : 0, 0, 1] }, { text: v }));
@@ -383,7 +404,7 @@
         const teil = [...titel((m.titel ? m.titel + ' | ' : '') + 'Gemeinsamer interner Wochenbericht', '', true),
           kv([['Dienststelle', m.kopfBehoerde], ['Organisationseinheit', [m.kopfOe1, m.kopfOe2].filter(Boolean).join(' – ')], ['Trainer', m.trainer], ['Lehrgangswoche', w + '. Lehrgangswoche'], ['Kalenderwoche', kw(a) + '. KW'], ['Zeitraum', WBK.isoToDe(a) + ' bis ' + WBK.isoToDe(WBK.addDays(a, 6))]], 2),
           balken('1 | Ausbildungsinhalte / Schwerpunkte'), { text: ab.inhalte || '–' }, balken('2 | Gesamtüberblick der Ausbilder'), { text: ab.ueberblick || '–' },
-          balken('3 | Individuelle Entwicklung der Mensch-Hund-Teams'), liste([110, 58, '*', '*', '*', 58, 80, 80], body),
+          balken('3 | Individuelle Entwicklung der Mensch-Hund-Teams'), liste(verteile([110, 50, ...WBK.WB_TEAM.map(([k]) => k === 'bewertung' ? 58 : 0)], body.slice(1)), body),
           balken('4 | Gesamtbewertung der Ausbildungsgruppe'), { text: ab.gesamt || '–' }, balken('5 | Hinweise für die Ausbildungsgruppe'), { text: ab.hinweise || '–' }];
         out.push(...(i ? neueSeite(teil) : teil));
       });
@@ -394,7 +415,7 @@
       if (!ws.length) return [balken('Entwicklung je Woche'), leer('Noch kein Wochenbericht vorhanden.')];
       const body = [kopf(['Woche', 'Fortschritte', 'Auffälligkeiten / Defizite', 'Fördermaßnahmen / nächste Schritte', 'Ausbilder-\nbewertung'])];
       ws.forEach(w => { const tb = course().wochenberichte[w].teams[t.name]; body.push([w + '. Woche\nKW ' + kw(wocheStart(w)), tb.fortschritte || '', tb.defizite || '', tb.foerderung || '', { text: tb.bewertung || '', alignment: 'center' }]); });
-      return [balken('Entwicklung je Woche'), liste([60, '*', '*', '*', 70], body)];
+      return [balken('Entwicklung je Woche'), liste(verteile([60, 0, 0, 0, 58], body.slice(1)), body)];
     }
     // Teilnehmerakte eines Teams
     function akte(teile) {
