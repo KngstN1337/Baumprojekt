@@ -195,12 +195,12 @@
         $('#wdStep').textContent = schritte.length > 1 ? 'Schritt ' + (si + 1) + ' von ' + schritte.length : 'Ergänzen';
         show('#wdDots', schritte.length > 1);
         $('#wdTitel').textContent = x.titel;
-        $('#wdFragen').innerHTML = x.fragen.map(f => '<li>' + esc(f) + '</li>').join('');
+        $('#wdFragen').innerHTML = x.fragen.filter(f => !(einzeln && /für alle/.test(f))).map(f => '<li>' + esc(f) + '</li>').join('');
       }
       $('#wdNextLbl').textContent = letzt ? 'Fertig' : 'Weiter';
       $('#wdNext').setAttribute('aria-label', letzt ? 'Fertig' : 'Weiter zum nächsten Punkt');
       show('#wdEnde', !letzt);
-      $('#wdHint').textContent = alle ? 'Reihenfolge egal. Am Ende „Fertig“ tippen.' : '„Weiter“ geht zum nächsten Punkt. Nichts zu sagen? Einfach „Weiter“ tippen.';
+      $('#wdHint').textContent = einzeln ? 'Am Ende „Fertig“ tippen. Der Text wird an das Vorhandene angehängt.' : alle ? 'Reihenfolge egal. Am Ende „Fertig“ tippen.' : '„Weiter“ geht zum nächsten Punkt. Nichts zu sagen? Einfach „Weiter“ tippen.';
     }
     // Umschalten während der Aufnahme: Bisheriges bleibt als eigener Teil erhalten, dann geht es im neuen Modus weiter
     async function modusWechsel(m) {
