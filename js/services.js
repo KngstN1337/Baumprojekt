@@ -39,6 +39,30 @@
     const j = await res.json();
     return (j.text || '').trim();
   }
+  // Tonpegel für die rote Welle. iOS lässt Ton nur anlaufen, wenn das direkt im Tipp passiert (nicht erst nach der
+  // Mikrofon-Freigabe), und kennt nur wenige gleichzeitige Audio-Kontexte. Deshalb: EIN gemeinsamer Kontext, der im Tipp
+  // geweckt und nie geschlossen wird. Die Aufnahme selbst hängt nicht davon ab, nur die Anzeige.
+  let tonCtx = null;
+  function tonKontext() {
+    const AC = global.AudioContext || global.webkitAudioContext;
+    if (!AC) return null;
+    if (!tonCtx || tonCtx.state === 'closed') { try { tonCtx = new AC(); } catch (e) { tonCtx = null; return null; } }
+    if (tonCtx.state !== 'running') tonCtx.resume().catch(() => {});
+    return tonCtx;
+  }
+  // Mikrofon an den Pegelmesser hängen. Gibt { analyser, ende } zurück (ende trennt wieder, ohne den Kontext zu schließen).
+  function tonPegel(stream, fft) {
+    const c = tonKontext(); if (!c) return null;
+    try {
+      const an = c.createAnalyser(); an.fftSize = fft || 1024; an.smoothingTimeConstant = 0.6;
+      const q = c.createMediaStreamSource(stream); q.connect(an);
+      let zuletzt = 0;
+      return { analyser: an, ctx: c,
+        // im Zeichen-Takt aufrufen: hängt der Kontext (z. B. nach Anruf „interrupted“), regelmäßig neu wecken
+        wach(now) { if (c.state !== 'running' && now - zuletzt > 800) { zuletzt = now; c.resume().catch(() => {}); } },
+        ende() { try { q.disconnect(); an.disconnect(); } catch (e) { /* schon getrennt */ } } };
+    } catch (e) { return null; }
+  }
   // Kontext für die Spracherkennung: ein kurzer, korrekt geschriebener Vortext mit allen Namen und Fachwörtern des Lehrgangs.
   // So schreibt die Erkennung „Detlef“, „Semtex“ oder „Malinois“ richtig, statt ähnlich klingende Wörter zu raten.
   function sttHinweis(teams, glossar, stoffe) {
@@ -626,5 +650,5 @@
     });
   }
 
-  global.BaumprojektServices = { glossarHinweis, sttHinweis, splitPunkte, alsStichpunkte, pick, transcribe, assign, formulate, aufteilen, wochenbericht, wochenDiktat, STILE, Drive, KV, Outbox, KATEGORIEN, XLSX_MIME };
+  global.BaumprojektServices = { tonKontext, tonPegel, glossarHinweis, sttHinweis, splitPunkte, alsStichpunkte, pick, transcribe, assign, formulate, aufteilen, wochenbericht, wochenDiktat, STILE, Drive, KV, Outbox, KATEGORIEN, XLSX_MIME };
 })(window);
