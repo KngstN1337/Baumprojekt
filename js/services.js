@@ -39,6 +39,30 @@
     const j = await res.json();
     return (j.text || '').trim();
   }
+  // Tonpegel für die rote Welle. iOS lässt Ton nur anlaufen, wenn das direkt im Tipp passiert (nicht erst nach der
+  // Mikrofon-Freigabe), und kennt nur wenige gleichzeitige Audio-Kontexte. Deshalb: EIN gemeinsamer Kontext, der im Tipp
+  // geweckt und nie geschlossen wird. Die Aufnahme selbst hängt nicht davon ab, nur die Anzeige.
+  let tonCtx = null;
+  function tonKontext() {
+    const AC = global.AudioContext || global.webkitAudioContext;
+    if (!AC) return null;
+    if (!tonCtx || tonCtx.state === 'closed') { try { tonCtx = new AC(); } catch (e) { tonCtx = null; return null; } }
+    if (tonCtx.state !== 'running') tonCtx.resume().catch(() => {});
+    return tonCtx;
+  }
+  // Mikrofon an den Pegelmesser hängen. Gibt { analyser, ende } zurück (ende trennt wieder, ohne den Kontext zu schließen).
+  function tonPegel(stream, fft) {
+    const c = tonKontext(); if (!c) return null;
+    try {
+      const an = c.createAnalyser(); an.fftSize = fft || 1024; an.smoothingTimeConstant = 0.6;
+      const q = c.createMediaStreamSource(stream); q.connect(an);
+      let zuletzt = 0;
+      return { analyser: an, ctx: c,
+        // im Zeichen-Takt aufrufen: hängt der Kontext (z. B. nach Anruf „interrupted“), regelmäßig neu wecken
+        wach(now) { if (c.state !== 'running' && now - zuletzt > 800) { zuletzt = now; c.resume().catch(() => {}); } },
+        ende() { try { q.disconnect(); an.disconnect(); } catch (e) { /* schon getrennt */ } } };
+    } catch (e) { return null; }
+  }
   // Kontext für die Spracherkennung: ein kurzer, korrekt geschriebener Vortext mit allen Namen und Fachwörtern des Lehrgangs.
   // So schreibt die Erkennung „Detlef“, „Semtex“ oder „Malinois“ richtig, statt ähnlich klingende Wörter zu raten.
   function sttHinweis(teams, glossar, stoffe) {
@@ -522,7 +546,7 @@
       '- beobachtung: weitere Beobachtungen und der nächste Schritt. Ein genannter nächster Schritt steht in einer eigenen Zeile "Nächster Schritt: …". Alles, was in keine andere Spalte passt, kommt hierher.\n' +
       '- bemerkung: Wissenswertes am Rande (Gesundheit, Pfote geschont, Organisatorisches, Hinweise an die Teilnehmenden).\n\n' +
       'Schulnoten: Nur wenn für Motivation oder Anzeigeverhalten ausdrücklich eine Note gesagt wurde (sehr gut, gut, befriedigend, ausreichend, mangelhaft, ungenügend), ' +
-      'hänge in dieser Spalte eine eigene letzte Zeile "Bewertung: <note>" an (Note klein geschrieben). Sonst keine Bewertung schreiben, nie eine Note schätzen.\n' +
+      'hänge in dieser Spalte eine eigene letzte Zeile an, die nur die Note enthält (klein geschrieben, z. B. "sehr gut", ohne "Bewertung:"). Sonst keine Bewertung schreiben, nie eine Note schätzen.\n' +
       'Stichpunkte („• “-Zeilen) bleiben Stichpunkte, verteile sie einzeln. Antworte nur mit dem JSON.';
     const props = {}; FELD_KEYS.forEach(k => { props[k] = { type: 'string' }; });
     const schema = { type: 'object', additionalProperties: false, required: FELD_KEYS, properties: props };
@@ -536,6 +560,7 @@
     const j = await res.json();
     const r = JSON.parse((j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content) || '{}');
     const f = {}; FELD_KEYS.forEach(k => { f[k] = String(r[k] || '').trim(); });
+    ['motivation', 'anzeige'].forEach(k => { f[k] = f[k].replace(/^[ \t]*Bewertung:[ \t]*/gim, '').trim(); });
     // Sicherheitsnetz: kam gar nichts zurück, steht die ganze Notiz unter Beobachtungen
     if (FELD_KEYS.every(k => !f[k])) f.beobachtung = text;
     return f;
@@ -548,9 +573,9 @@
   };
   const WB_TEAM_FELDER = 'fortschritte (was gut geklappt hat), defizite (Auffälligkeiten/Defizite, was noch hakt), foerderung (Fördermaßnahmen/nächste Schritte), ' +
     'bewertung (NUR wenn eine Schulnote gesagt wurde, ausgeschrieben und klein: sehr gut, gut, befriedigend, ausreichend, mangelhaft, ungenügend; sonst ""), ' +
-    'hinweise (besondere Hinweise an das Team), bemerkungen (Wissenswertes wie Gesundheit, Organisatorisches)';
-  const WB_T_SCHEMA = { type: 'object', additionalProperties: false, required: ['team', 'fortschritte', 'defizite', 'foerderung', 'bewertung', 'hinweise', 'bemerkungen'],
-    properties: { team: { type: 'string' }, fortschritte: { type: 'string' }, defizite: { type: 'string' }, foerderung: { type: 'string' }, bewertung: { type: 'string' }, hinweise: { type: 'string' }, bemerkungen: { type: 'string' } } };
+    'hinweise (besondere Hinweise an das Team, auch Wissenswertes wie Gesundheit oder Organisatorisches)';
+  const WB_T_SCHEMA = { type: 'object', additionalProperties: false, required: ['team', 'fortschritte', 'defizite', 'foerderung', 'bewertung', 'hinweise'],
+    properties: { team: { type: 'string' }, fortschritte: { type: 'string' }, defizite: { type: 'string' }, foerderung: { type: 'string' }, bewertung: { type: 'string' }, hinweise: { type: 'string' } } };
   // Eingesprochenen Wochenbericht (Schritt für Schritt: je Abschnitt bzw. Team eine Aufnahme) auf die Felder verteilen
   async function wochenDiktat(teile, opts) {
     const stil = stilVon(opts.stil);
@@ -558,7 +583,7 @@
       'Schreibe daraus die Felder des Wochenberichts.\n\n' + namensListe(opts.teams, opts.stoffe) +
       'Regeln (Schreibstil „' + stil.name + '“):\n' + stil.regeln.join('\n') + '\n' + GEMEINSAM + '\n' + GLOSSAR_REGELN.split('\n')[0] + '\n' +
       '- Abschnitte inhalte, ueberblick, gesamt, hinweise: der Text der jeweiligen Aufnahme.\n' +
-      '- Team-Aufnahmen: verteile den Inhalt auf die Felder ' + WB_TEAM_FELDER + '. team genau wie in der Überschrift. Jeder Satz kommt in genau ein Feld, nichts doppelt.\n' +
+      '- Team-Aufnahmen: verteile den Inhalt auf die Felder ' + WB_TEAM_FELDER + '. team: der Teamname genau wie in der Namensliste bzw. nach „Team:“ in der Überschrift (z. B. „Markus & Juna“). Eine Aufnahme mit Überschrift „Team: …“ gehört immer zu diesem Team, auch wenn der Name darin nicht genannt wird. Jeder Satz kommt in genau ein Feld, nichts doppelt.\n' +
       '- Aufnahme „Ganzer Bericht“: der Trainer spricht alles am Stück und sagt jeweils an, worum es geht (Abschnitt oder Team-Name, auch nur Teilnehmer- oder Hundename). Ordne jeden Satz dem angesagten Abschnitt bzw. Team zu.\n' +
       '- Ansagen für mehrere Teams umsetzen: Sagt der Trainer z. B. „übernimm das für alle anderen Teams“, „gilt für alle Teams“ oder „bei Sabine genauso wie bei Detlef“, ' +
       'dann trage die betreffenden Felder bei diesen Teams genauso ein (Namen von Teilnehmer und Hund passend ersetzen, Note mit übernehmen). Was danach für ein Team einzeln gesagt wird, ergänzt bzw. ersetzt das Übernommene bei diesem Team. Die Ansage selbst nicht in den Text schreiben.\n' +
@@ -568,7 +593,7 @@
       'Glossar (Begriff, dahinter typische Fehlerkennungen der Spracherkennung):\n' + glossarListe(opts.glossar);
     const schema = { type: 'object', additionalProperties: false, required: ['inhalte', 'ueberblick', 'gesamt', 'hinweise', 'teams', 'nicht_zugeordnet'],
       properties: { inhalte: { type: 'string' }, ueberblick: { type: 'string' }, gesamt: { type: 'string' }, hinweise: { type: 'string' }, teams: { type: 'array', items: WB_T_SCHEMA }, nicht_zugeordnet: { type: 'string' } } };
-    const user = teile.map(t => '## ' + t.titel + '\n' + t.text).join('\n\n');
+    const user = 'Teamnamen für das Feld team (genau so schreiben): ' + (opts.teamNamen || []).join('; ') + '\n\n' + teile.map(t => '## ' + t.titel + '\n' + t.text).join('\n\n');
     const res = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: { Authorization: 'Bearer ' + opts.key, 'Content-Type': 'application/json' },
@@ -589,9 +614,9 @@
       '- gesamt: Gesamtbewertung der Ausbildungsgruppe, 1–2 Sätze.\n- hinweise: Hinweise, die an die Ausbildungsgruppe gegeben wurden (nur wenn in den Protokollen genannt).\n' +
       '- teams: für JEDES genannte Team ein Eintrag mit team (exakt der Name aus der Liste), fortschritte, defizite (Auffälligkeiten/Defizite, mit Wochentagen in Klammern wie „(Di, Mi)“), ' +
       'foerderung (Fördermaßnahmen/nächste Schritte), bewertung (eine Schulnote ausgeschrieben, die die Bewertungen der Woche zusammenfasst: sehr gut, gut, befriedigend, ausreichend, mangelhaft, ungenügend; "" wenn keine Bewertungen vorkommen), ' +
-      'hinweise (besondere Hinweise, sonst "Keine besonderen Hinweise"), bemerkungen (Wissenswertes wie Gesundheit, sonst "").';
-    const T = { type: 'object', additionalProperties: false, required: ['team', 'fortschritte', 'defizite', 'foerderung', 'bewertung', 'hinweise', 'bemerkungen'],
-      properties: { team: { type: 'string' }, fortschritte: { type: 'string' }, defizite: { type: 'string' }, foerderung: { type: 'string' }, bewertung: { type: 'string' }, hinweise: { type: 'string' }, bemerkungen: { type: 'string' } } };
+      'hinweise (besondere Hinweise, auch Wissenswertes wie Gesundheit oder Organisatorisches; sonst "Keine besonderen Hinweise").';
+    const T = { type: 'object', additionalProperties: false, required: ['team', 'fortschritte', 'defizite', 'foerderung', 'bewertung', 'hinweise'],
+      properties: { team: { type: 'string' }, fortschritte: { type: 'string' }, defizite: { type: 'string' }, foerderung: { type: 'string' }, bewertung: { type: 'string' }, hinweise: { type: 'string' } } };
     const schema = { type: 'object', additionalProperties: false, required: ['inhalte', 'ueberblick', 'gesamt', 'hinweise', 'teams'],
       properties: { inhalte: { type: 'string' }, ueberblick: { type: 'string' }, gesamt: { type: 'string' }, hinweise: { type: 'string' }, teams: { type: 'array', items: T } } };
     const res = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -625,5 +650,5 @@
     });
   }
 
-  global.BaumprojektServices = { glossarHinweis, sttHinweis, splitPunkte, alsStichpunkte, pick, transcribe, assign, formulate, aufteilen, wochenbericht, wochenDiktat, STILE, Drive, KV, Outbox, KATEGORIEN, XLSX_MIME };
+  global.BaumprojektServices = { tonKontext, tonPegel, glossarHinweis, sttHinweis, splitPunkte, alsStichpunkte, pick, transcribe, assign, formulate, aufteilen, wochenbericht, wochenDiktat, STILE, Drive, KV, Outbox, KATEGORIEN, XLSX_MIME };
 })(window);

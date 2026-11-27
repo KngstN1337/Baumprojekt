@@ -7,7 +7,7 @@
     const $ = s => document.querySelector(s);
     const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
     const TITEL = { inhalte: 'Ausbildungsinhalte / Schwerpunkte', ueberblick: 'Gesamtüberblick der Ausbilder', gesamt: 'Gesamtbewertung der Ausbildungsgruppe', hinweise: 'Hinweise für die Ausbildungsgruppe' };
-    let woche = 0, entwurf = null, stand = '', vorschlagStand = '', stil = '', offen = '', neu = new Set();
+    let woche = 0, entwurf = null, stand = '', stil = '', offen = '', neu = new Set();
     const istLeer = b => !Object.values((b && b.abschnitte) || {}).some(Boolean) && !Object.values((b && b.teams) || {}).some(t => Object.values(t || {}).some(Boolean));
     const course = () => ctx.course();
     const start = w => WBK.addDays(course().meta.start, (w - 1) * 7);
@@ -45,6 +45,10 @@
       const ks = keys.split(',');
       document.querySelectorAll('#wbBody .wb-ta:not(.wb-x)').forEach(ta => { const f = ta.dataset.f; if (ks.some(k => f === k || f.startsWith(k + '.'))) { ta.value = ''; groesse(ta); } });
     }
+    // Bericht als vollständige Feldliste (auch Teams ohne Eintrag), um leere Felder zu finden
+    const lesenAus = e => { const b = { abschnitte: Object.assign({}, e.abschnitte), teams: {} }; teams().forEach(t => { b.teams[t.name] = Object.assign({}, (e.teams || {})[t.name]); }); return b; };
+    const ABS = ['inhalte', 'ueberblick', 'gesamt', 'hinweise'];
+    const hatLuecken = b => ABS.some(k => !String(b.abschnitte[k] || '').trim()) || teams().some(t => WBK.WB_TEAM.some(([k]) => !String((b.teams[t.name] || {})[k] || '').trim()));
     function renderEditor() {
       const a = start(woche), ab = entwurf.abschnitte || {};
       $('#wbTitle').textContent = woche + '. Woche';
@@ -53,10 +57,10 @@
       const leer = istLeer(entwurf);
       let h = '<div class="group"><button type="button" class="cell mic-cell" id="wbDiktat"><span class="mc"><svg><use href="#i-mic"/></svg></span><span>Bericht einsprechen<small>Schritt für Schritt, LTR füllt die Felder</small></span></button>' +
         (da ? '<button type="button" class="cell link-cell" id="wbPdf">Wochenbericht als PDF …</button>' : '') + '</div>';
-      if (!da) h += '<div class="section-h">' + (leer ? 'Oder von LTR schreiben lassen' : 'Stil des Vorschlags') + '</div><div class="group">' +
-        (leer ? '<div class="cell"><div class="cell-tx wrap"><b>Aus den Tagesprotokollen</b><span>LTR fasst die Woche zusammen und füllt alle Felder. Du prüfst nur noch und tippst „Sichern“.</span></div></div>' : '') +
+      const luecken = !leer && hatLuecken(lesenAus(entwurf)) && notizenDerWoche(woche).length;
+      h += '<div class="section-h">Schreibstil</div><div class="group">' +
         '<div class="segmented wb-stil" role="radiogroup" aria-label="Schreibstil">' + S.STILE.map(x => '<button type="button" data-stil="' + x.id + '" class="' + (x.id === stil ? 'on' : '') + '">' + (x.id === 'beamtendeutsch' ? 'Amtlich' : esc(x.name)) + '</button>').join('') + '</div>' +
-        (leer ? '<button type="button" class="cell link-cell" id="wbKi">Bericht schreiben lassen</button>' : '<p class="wb-stil-hint">Anderen Stil antippen, dann schreibt LTR den Vorschlag neu.</p>') + '</div>';
+        (leer ? '<button type="button" class="cell link-cell" id="wbKi">Aus den Tagesprotokollen schreiben lassen</button>' : luecken ? '<button type="button" class="cell link-cell" id="wbLuecken">Leere Felder aus den Tagesprotokollen füllen</button>' : '') + '</div>';
       if (offen) h += '<div class="group wb-offen"><label class="wb-feld"><span>Nicht zugeordnet – bitte selbst einsortieren (wird nicht gesichert, die Aufnahme liegt in Google Drive)</span><textarea class="wb-ta wb-x" rows="2">' + esc(offen) + '</textarea></label></div>';
       h += secH('Gruppe', 'a.inhalte,a.ueberblick') + '<div class="group">' + ['inhalte', 'ueberblick'].map(k => feld('a.' + k, TITEL[k], ab[k], 3)).join('') + '</div>';
       teams().forEach(t => {
@@ -82,7 +86,7 @@
     }
     const geaendert = () => !$('#v-woche').classList.contains('hidden') && JSON.stringify(lesen()) !== stand;
 
-    async function vorschlagen() {
+    async function vorschlagen(nurLeere) {
       if (!ctx.openaiKey()) return ctx.toast('Für den Vorschlag wird der OpenAI-Schlüssel gebraucht (Einstellungen).', 5000);
       const ns = notizenDerWoche(woche);
       if (!ns.length) return ctx.toast('In dieser Woche gibt es noch keine Notizen.', 4000);
@@ -105,14 +109,34 @@
       try {
         const fuer = woche, r = await S.wochenbericht(txt, { key: ctx.openaiKey(), model: ctx.llmModel(), stil });
         if (fuer !== woche || $('#v-woche').classList.contains('hidden')) return; // Seite inzwischen verlassen
-        entwurf = { abschnitte: { inhalte: r.inhalte || '', ueberblick: r.ueberblick || '', gesamt: r.gesamt || '', hinweise: r.hinweise || '' }, teams: {} };
-        (r.teams || []).forEach(x => { const t = tl.find(y => y.name === x.team); if (t) { const tb = {}; WBK.WB_TEAM.forEach(([k]) => { tb[k] = x[k] || ''; }); entwurf.teams[t.name] = tb; } });
-        neu = new Set(); offen = ''; renderEditor(); vorschlagStand = JSON.stringify(lesen());
-        ctx.toast('Vorschlag fertig. Bitte prüfen und dann „Sichern“ tippen.', 4000);
+        const r2 = { abschnitte: { inhalte: r.inhalte || '', ueberblick: r.ueberblick || '', gesamt: r.gesamt || '', hinweise: r.hinweise || '' }, teams: {} };
+        (r.teams || []).forEach(x => { const t = tl.find(y => y.name === x.team); if (t) { const tb = {}; WBK.WB_TEAM.forEach(([k]) => { tb[k] = x[k] || ''; }); r2.teams[t.name] = tb; } });
+        neu = new Set();
+        if (nurLeere) {
+          // Nur leere Felder füllen, Vorhandenes bleibt unangetastet
+          const b = lesen();
+          ABS.forEach(k => { if (!String(b.abschnitte[k] || '').trim() && r2.abschnitte[k]) { b.abschnitte[k] = r2.abschnitte[k]; neu.add('a.' + k); } });
+          tl.forEach(t => { const tb = b.teams[t.name] = b.teams[t.name] || {}, nt = r2.teams[t.name] || {}; WBK.WB_TEAM.forEach(([k]) => { if (!String(tb[k] || '').trim() && nt[k]) { tb[k] = nt[k]; neu.add('t.' + t.name + '.' + k); } }); });
+          entwurf = b;
+        } else { entwurf = r2; offen = ''; }
+        renderEditor();
+        await speichernStill(nurLeere ? neu.size + (neu.size === 1 ? ' leeres Feld' : ' leere Felder') + ' gefüllt und gespeichert.' : 'Wochenbericht aus den Tagesprotokollen erstellt und gespeichert. Du kannst ihn jetzt ändern.');
       } catch (e) { ctx.toast('Vorschlag fehlgeschlagen: ' + e.message, 6000); }
       finally { ctx.busy(''); }
     }
     const ohneLeere = o => JSON.stringify(Object.keys(o || {}).sort().filter(k => o[k]).map(k => [k, o[k]]));
+    // Ohne Seitenwechsel speichern (nach Vorschlag und Einsprechen), damit nichts doppelt erzeugt wird oder verloren geht
+    async function speichernStill(meldung) {
+      const b = lesen(), w = woche;
+      if (istLeer(b)) return;
+      try {
+        await ctx.withStore('Speichere Wochenbericht …', () => ctx.modifyCourse(c => { c.wochenberichte = c.wochenberichte || {}; c.wochenberichte[w] = b; },
+          c => ohneLeere(((c.wochenberichte || {})[w] || {}).abschnitte) === ohneLeere(b.abschnitte)));
+        if (w !== woche) return;
+        stand = JSON.stringify(b); renderEditor();
+        ctx.toast('✓ ' + meldung, 4500);
+      } catch (e) { /* gemeldet */ }
+    }
     async function sichern() {
       const b = lesen(), w = woche;
       if (istLeer(b)) return loeschen(true);
@@ -191,6 +215,7 @@
     async function diktatStart(nur) {
       if (!ctx.openaiKey()) return ctx.toast('Zum Einsprechen wird der OpenAI-Schlüssel gebraucht (Einstellungen).', 5000);
       if (rec) return;
+      S.tonKontext(); // noch im Tipp wecken, sonst bleibt die Welle auf dem iPhone flach
       try { stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: false, noiseSuppression: false, autoGainControl: true } }); }
       catch (e) { return ctx.toast('Kein Zugriff aufs Mikrofon: ' + e.message, 5000); }
       const ks = nur ? nur.split(',') : null; einzeln = !!ks;
@@ -218,7 +243,7 @@
           if (abbruch || dauer < 2) return ok();
           const blob = new Blob(r._ch, { type: r.mimeType || 'audio/webm' });
           const aid = await ctx.aufnahmeSichern(blob, 'Wochenbericht ' + woche + '. Woche · ' + x.titel);
-          teile.push({ key: x.key, team: x.team, titel: x.key === 'alle' ? 'Ganzer Bericht (Abschnitte und Teams werden angesagt)' : x.team ? 'Team ' + x.titel : x.titel, text: S.transcribe(blob, { key: ctx.openaiKey(), model: ctx.sttModel(), hint: ctx.sttHint() })
+          teile.push({ key: x.key, team: x.team, titel: x.key === 'alle' ? 'Ganzer Bericht (Abschnitte und Teams werden angesagt)' : x.team ? 'Team: ' + x.team : x.titel, text: S.transcribe(blob, { key: ctx.openaiKey(), model: ctx.sttModel(), hint: ctx.sttHint() })
             .then(t => { if (t) ctx.rohtextSichern(aid, t); return t; }) });
           ok();
         };
@@ -233,7 +258,7 @@
     }
     function beenden() {
       clearInterval(timer); cancelAnimationFrame(raf);
-      if (actx) { actx.close().catch(() => {}); actx = null; }
+      if (actx) { actx.ende(); actx = null; }
       if (wake) { wake.release().catch(() => {}); wake = null; }
       if (rec && rec.state !== 'inactive') rec.stop();
       if (stream) stream.getTracks().forEach(t => t.stop());
@@ -258,12 +283,13 @@
     function welle() {
       const cv = $('#wdWave'), g = cv.getContext('2d'), rot = getComputedStyle(document.documentElement).getPropertyValue('--red').trim() || '#ff3b30', dpr = global.devicePixelRatio || 1;
       cv.width = Math.round(cv.clientWidth * dpr) || 600; cv.height = Math.round(cv.clientHeight * dpr) || 80;
-      try { actx = new (global.AudioContext || global.webkitAudioContext)(); an = actx.createAnalyser(); an.fftSize = 1024; actx.createMediaStreamSource(stream).connect(an); if (actx.state === 'suspended') actx.resume().catch(() => {}); } catch (e) { an = null; }
+      actx = S.tonPegel(stream, 1024); an = actx && actx.analyser;
       const d = new Uint8Array(an ? an.fftSize : 1), STEP = 9 * dpr, BAR = 3 * dpr, n = Math.ceil(cv.width / STEP) + 2, bars = new Array(n).fill(0);
       let lvl = 0, off = 0, last = performance.now();
       const loop = now => {
         raf = requestAnimationFrame(loop);
         const dt = Math.min(64, now - last); last = now; let z = 0;
+        if (actx) actx.wach(now);
         if (!pausiert && an) { an.getByteTimeDomainData(d); let q = 0; for (let i = 0; i < d.length; i++) { const v = d[i] - 128; q += v * v; } z = Math.min(1, Math.sqrt(q / d.length) / 28); }
         lvl += (z - lvl) * Math.min(1, dt / 60);
         if (!pausiert) { off += dt * 0.06 * dpr; while (off >= STEP) { off -= STEP; bars.push(lvl); bars.shift(); } }
@@ -281,18 +307,30 @@
         for (const t of teile) { try { const x = await t.text; if (x) fertig.push({ titel: t.titel, text: x }); } catch (e) { ctx.toast('Ein Teil wurde nicht erkannt (' + t.titel + '). Die Aufnahme ist in Google Drive gesichert.', 6000); } }
         if (!fertig.length) { ctx.toast('Es wurde nichts verstanden.', 4000); return; }
         ctx.busy('Verteile auf die Felder …');
-        const r = await S.wochenDiktat(fertig, { key: ctx.openaiKey(), model: ctx.llmModel(), stil, teams: course().teams, glossar: ctx.glossar(), stoffe: ctx.stoffe() });
+        const r = await S.wochenDiktat(fertig, { key: ctx.openaiKey(), model: ctx.llmModel(), stil, teams: course().teams, teamNamen: teams().map(t => t.name), glossar: ctx.glossar(), stoffe: ctx.stoffe() });
         const b = lesen(), dazu = (alt, x) => { x = String(x || '').trim(); return !x ? alt : alt ? alt + '\n' + x : x; };
         neu = new Set();
         ['inhalte', 'ueberblick', 'gesamt', 'hinweise'].forEach(k => { if (String(r[k] || '').trim()) { b.abschnitte[k] = dazu(b.abschnitte[k], r[k]); neu.add('a.' + k); } });
+        // Teamnamen tolerant zuordnen („Team: Markus & Juna“, „markus und juna“, nur Hund oder nur Vorname)
+        const norm = v => String(v || '').toLowerCase().replace(/^team\s*:?\s*/, '').replace(/\s+und\s+/g, ' & ').replace(/\s+/g, ' ').trim();
+        const findeTeam = n => { const z = norm(n); if (!z) return null; const tl = teams();
+          return tl.find(y => norm(y.name) === z) || tl.find(y => z.includes(norm(y.name)) || norm(y.name).includes(z)) ||
+            tl.find(y => [y.hund, String(y.teilnehmer || '').split(/\s+/)[0]].some(w => w && z.split(/[\s&,]+/).includes(norm(w)))) || null; };
         (r.teams || []).forEach(x => {
-          const t = teams().find(y => y.name === x.team); if (!t) return;
+          const t = findeTeam(x.team); if (!t) { offen = dazu(offen, WBK.WB_TEAM.map(([k]) => x[k]).filter(Boolean).join(' ')); return; }
           const tb = b.teams[t.name] = b.teams[t.name] || {};
           WBK.WB_TEAM.forEach(([k]) => { if (!String(x[k] || '').trim()) return; tb[k] = k === 'bewertung' ? String(x[k]).trim() : dazu(tb[k], x[k]); neu.add('t.' + t.name + '.' + k); });
         });
         offen = dazu(offen, r.nicht_zugeordnet);
+        // Sicherheitsnetz: Konnte nichts zugeordnet werden, steht der erkannte Text im orangen Kasten (nichts geht verloren)
+        if (!neu.size) {
+          offen = dazu(offen, fertig.map(f => f.titel.replace(/ \(.*\)$/, '') + ': ' + f.text).join('\n'));
+          entwurf = b; renderEditor();
+          ctx.toast('LTR konnte das Gesagte keinem Feld zuordnen. Der erkannte Text steht oben im orangen Kasten, die Aufnahme liegt in Google Drive.', 8000);
+          return;
+        }
         entwurf = b; renderEditor();
-        ctx.toast(neu.size + (neu.size === 1 ? ' Feld' : ' Felder') + ' gefüllt. Bitte prüfen und „Sichern“ tippen.', 5000);
+        await speichernStill(neu.size + (neu.size === 1 ? ' Feld' : ' Felder') + ' gefüllt und gespeichert. Bitte kurz prüfen.');
       } catch (e) { ctx.toast('Verteilen fehlgeschlagen: ' + e.message + '. Die Aufnahmen sind in Google Drive gesichert.', 7000); }
       finally { ctx.busy(''); }
     }
@@ -310,24 +348,18 @@
       $('#wdModus').addEventListener('click', e => { const b = e.target.closest('[data-modus]'); if (b) modusWechsel(b.dataset.modus); });
       $('#wbBody').addEventListener('click', async e => {
         const st = e.target.closest('[data-stil]');
-        if (st) {
-          if (st.dataset.stil === stil) return;
-          const hatText = !istLeer(lesen());
-          if (hatText && JSON.stringify(lesen()) !== vorschlagStand && !confirm('Der Vorschlag wird im Stil „' + st.textContent + '“ neu geschrieben. Deine Änderungen in den Feldern gehen dabei verloren. Weiter?')) return;
-          stil = st.dataset.stil; document.querySelectorAll('.wb-stil [data-stil]').forEach(x => x.classList.toggle('on', x === st));
-          if (hatText) vorschlagen();
-          return;
-        }
+        if (st) { stil = st.dataset.stil; document.querySelectorAll('.wb-stil [data-stil]').forEach(x => x.classList.toggle('on', x === st)); return; }
         if (e.target.closest('#wbDiktat')) diktatStart();
         const nu = e.target.closest('[data-nur]'); if (nu) diktatStart(nu.dataset.nur);
         const le = e.target.closest('[data-leeren]'); if (le) leeren(le.dataset.leeren);
         if (e.target.closest('#wbSave2')) sichern();
         if (e.target.closest('#wbDel')) loeschen();
-        if (e.target.closest('#wbKi')) vorschlagen();
+        if (e.target.closest('#wbKi')) vorschlagen(false);
+        if (e.target.closest('#wbLuecken')) vorschlagen(true);
         if (e.target.closest('#wbPdf')) { const w = woche; if (geaendert()) { await sichern(); if (geaendert()) return; } ctx.pdfWoche(w); }
       });
       $('#wbBody').addEventListener('input', e => { if (e.target.classList.contains('wb-ta')) groesse(e.target); });
     }
-    return { bind, renderListe, geaendert, verwerfen: () => { stand = JSON.stringify(lesen()); }, speichern: sichern };
+    return { bind, renderListe, geaendert, oeffnen, woche: () => woche, anzahl: () => wochen(), verwerfen: () => { stand = JSON.stringify(lesen()); }, speichern: sichern };
   };
 })(typeof window !== 'undefined' ? window : globalThis);

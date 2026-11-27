@@ -136,6 +136,22 @@
     // headlineLevel: Hauptüberschrift; steht sie unten auf einer Seite ohne Text darunter, rutscht sie mit auf die nächste Seite (siehe pageBreakBefore)
     const balken = text => ({ table: { widths: ['*'], body: [[{ text, bold: true, color: '#FFFFFF', fillColor: BLAU, margin: [2, 1, 2, 1], ueberschrift: true }]] }, layout: 'noBorders', margin: [0, 8, 0, 6], headlineLevel: 1 });
     const kopf = l => l.map(t => ({ text: t, style: 'th' }));
+    // Spaltenbreiten auf die volle Seitenbreite verteilen: feste Spalten (Zahl) bleiben, Textspalten (0) bekommen Platz
+    // nach Textmenge (mindestens minB). Die Textspalte mit dem meisten Text bekommt '*' und füllt den Rest bis zum Rand.
+    const BREITE = 773;
+    const txtLaenge = c => c == null ? 0 : typeof c === 'string' ? c.length : c.text != null ? (Array.isArray(c.text) ? c.text.map(txtLaenge).reduce((a, b) => a + b, 0) : String(c.text).length) : c.stack ? c.stack.map(txtLaenge).reduce((a, b) => a + b, 0) : 0;
+    function verteile(spec, zeilen, gesamt, minB) {
+      const n = spec.length, frei = (gesamt || BREITE) - spec.reduce((a, b) => a + b, 0) - n * 8 - (n + 1) * 0.5 - 4;
+      const idx = spec.map((b, i) => b ? -1 : i).filter(i => i >= 0);
+      const len = idx.map(i => Math.max(20, zeilen.reduce((a, r) => a + txtLaenge(r[i]), 0)));
+      const summe = len.reduce((a, b) => a + b, 0), mn = minB || 70;
+      let br = len.map(l => Math.max(mn, frei * l / summe));
+      const zuviel = br.reduce((a, b) => a + b, 0) - frei; // Mindestbreiten wieder bei den breiten Spalten abziehen
+      if (zuviel > 0) { const gross = br.reduce((a, b) => a + (b > mn ? b - mn : 0), 0); br = br.map(b => b > mn ? b - zuviel * (b - mn) / gross : b); }
+      const w = spec.slice(), groesste = br.indexOf(Math.max(...br));
+      idx.forEach((i, k) => { w[i] = k === groesste ? '*' : Math.floor(br[k]); });
+      return w;
+    }
     // Liste mit blauer Kopfzeile (auf jeder Seite wiederholt), Zeilen grau/weiß, dicke blaue Linie vor jedem neuen Tag
     function liste(widths, body, neueTage) {
       const dick = new Set(neueTage || []);
@@ -217,12 +233,98 @@
     }
     function teamsBlatt() {
       const g = course().gesamt || {};
-      const body = [kopf(['Team', 'Teilnehmer/in', 'Hund', 'Behörde', 'Rasse / Alter', 'Bemerkung', 'Gesamteindruck'])].concat(teams().map(t => [{ text: t.name, bold: true }, t.teilnehmer || '–', t.hund || '–', t.behoerde || '–', t.rasse || '–', t.bemerkung || '–', g[t.name] || '–']));
-      return [...titel('Teamstammdaten', (course().meta.titel || '') + ' · ' + teams().length + ' Teams'), liste([95, 95, 70, 95, 75, '*', '*'], body)];
+      // Steht der Name der Teilnehmerin / des Teilnehmers schon als Team da, fällt die doppelte Spalte weg
+      const mitTn = teams().some(t => t.teilnehmer && t.teilnehmer !== t.name);
+      const body = [kopf(['Team', ...(mitTn ? ['Teilnehmer/in'] : []), 'Hund', 'Behörde', 'Rasse / Alter', 'Bemerkung', 'Gesamteindruck'])].concat(teams().map(t => [{ text: t.name, bold: true }, ...(mitTn ? [t.teilnehmer || '–'] : []), t.hund || '–', t.behoerde || '–', t.rasse || '–', t.bemerkung || '–', g[t.name] || '–']));
+      return [...titel('Teamstammdaten', (course().meta.titel || '') + ' · ' + teams().length + ' Teams'), liste([95, ...(mitTn ? [95] : []), 70, 95, 75, '*', '*'], body)];
+    }
+    // Tagesprotokoll im PDF (Layout A): oben eine Zeile mit den kurzen Angaben, darunter Beobachtungen / nächster Schritt
+    // und Bemerkungen über die ganze Breite. Leere Teile fallen weg, Noten stehen fett, dicke blaue Linie nur vor einem neuen Tag.
+    const NOTEN = /^(sehr gut|gut|befriedigend|ausreichend|mangelhaft|ungenügend)\.?$/i;
+    const mitNote = v => {
+      if (!v) return '–';
+      const zeilen = v.split('\n');
+      return { text: zeilen.map((z, i) => ({ text: z + (i < zeilen.length - 1 ? '\n' : ''), bold: NOTEN.test(z.trim()) })) };
+    };
+    function tageA(tl, tage, ns, zelle, nurTeam) {
+      const OBEN = [['ort', 'Trainingsort'], ['zielgerueche', 'Zielgerüche'], ['inhalt', 'Trainingsinhalt / Aufbau'], ['motivation', 'Motivation'], ['anzeige', 'Anzeigeverhalten']];
+      // Breiten nach Textmenge in diesem Abschnitt: Spalten mit viel Text werden breiter, die Tabelle reicht immer bis zum rechten Rand
+      const proben = [];
+      tage.forEach(d => tl.forEach(t => { const l = ns.filter(x => x.datum === d && x.team === t.name); if (l.length) proben.push(OBEN.map(([k]) => zelle(l, k))); }));
+      const innenBreite = BREITE - 62 - (nurTeam ? 0 : 80) - 2;
+      const wInnen = verteile(OBEN.map(() => 0), proben, innenBreite, 84);
+      const UNTEN = WBK.FELDER.filter(f => f[0] === 'beobachtung' || f[0] === 'bemerkung');
+      const vorn = nurTeam ? 1 : 2; // Datum (und Team) als eigene Spalten, der Rest steckt in einer inneren Tabelle
+      // Innere Tabelle: oben die kurzen Angaben, darunter die langen Texte über die ganze Breite.
+      // So bleibt ein Eintrag beim Seitenwechsel zusammen und die Spalten stehen bei allen Einträgen gleich.
+      const innen = (zeilen, kopfzeile) => ({
+        table: { widths: wInnen, body: zeilen },
+        layout: {
+          hLineWidth: i => !kopfzeile && i === 1 && zeilen.length > 1 ? 0.5 : 0, hLineColor: () => LINIE,
+          vLineWidth: i => i > 0 && i < OBEN.length ? 0.5 : 0, vLineColor: () => LINIE,
+          // Außen hat schon die umgebende Zelle Abstand oben/unten; so stehen alle Texte einer Zeile auf gleicher Höhe
+          paddingLeft: () => 4, paddingRight: () => 4, paddingTop: i => i === 0 ? 0 : 3, paddingBottom: i => i === zeilen.length - 1 ? 0 : 3
+        }
+      });
+      const ws = [54, ...(nurTeam ? [] : [72]), '*'];
+      const head = [...kopf(['Datum', ...(nurTeam ? [] : ['Team'])]), innen([kopf(OBEN.map(o => o[1]))], true)];
+      const body = [head];
+      const dick = new Set(), ohne = new Set(), tagStart = new Set(), fuell = [null];
+      let eintrag = 0;
+      tage.forEach(d => {
+        tl.forEach(t => {
+          const l = ns.filter(x => x.datum === d && x.team === t.name); if (!l.length) return;
+          if (!tagStart.has(d)) { tagStart.add(d); if (body.length > 1) dick.add(body.length); }
+          fuell.push(eintrag++ % 2 ? GRAU : null);
+          const r = [{ text: deKurz(d), bold: true, noWrap: true }];
+          if (!nurTeam) r.push({ stack: [{ text: teamLabel(t), bold: true }, ...(t.hund && t.name.indexOf(t.hund) < 0 ? [{ text: 'mit ' + t.hund }] : [])] });
+          const oben = OBEN.map(([k]) => { const v = zelle(l, k); return k === 'motivation' || k === 'anzeige' ? mitNote(v) : (v || '–'); });
+          const zeilen = [oben];
+          const unten = UNTEN.map(([k, h]) => [h, zelle(l, k)]).filter(x => x[1]);
+          const stack = [];
+          unten.forEach(([h, v], i) => stack.push({ text: h.toUpperCase(), bold: true, color: BLAU, fontSize: 7, characterSpacing: 0.3, margin: [0, i ? 3 : 0, 0, 1] }, { text: v }));
+          // Ein Eintrag bleibt zusammen auf einer Seite. Sehr lange Texte kommen in eine eigene Zeile über die ganze Breite,
+          // die über mehrere Seiten laufen darf (eine zu hohe, nicht teilbare Zeile würde sonst verschluckt).
+          const lang = unten.map(x => x[1]).join('').length > 1500;
+          if (unten.length && !lang) zeilen.push([{ stack, colSpan: OBEN.length, margin: [0, 1, 0, 1] }, ...Array(OBEN.length - 1).fill('')]);
+          r.push(innen(zeilen));
+          body.push(r.map(x => Object.assign(typeof x === 'string' ? { text: x } : x, { unbreakable: true })));
+          if (lang) {
+            // In Stücke von höchstens etwa einer halben Seite teilen, damit jede Zeile auf eine Seite passt
+            const stuecke = [];
+            unten.forEach(([h, v]) => {
+              let rest = v, erstes = true;
+              while (rest) {
+                let cut = rest.length <= 2500 ? rest.length : rest.lastIndexOf(' ', 2500);
+                if (cut <= 0) cut = Math.min(2500, rest.length);
+                stuecke.push([erstes ? h : '', rest.slice(0, cut).trim()]); rest = rest.slice(cut).trim(); erstes = false;
+              }
+            });
+            stuecke.forEach(([h, v], si) => {
+              if (si) ohne.add(body.length); // keine Linie zwischen den Stücken eines Textes
+              fuell.push(fuell[fuell.length - 1]);
+              body.push([{ stack: [...(h ? [{ text: h.toUpperCase(), bold: true, color: BLAU, fontSize: 7, characterSpacing: 0.3, margin: [0, 0, 0, 1] }] : []), { text: v }], colSpan: ws.length }, ...Array(ws.length - 1).fill('')]);
+            });
+          }
+        });
+      });
+      return {
+        table: { headerRows: 1, keepWithHeaderRows: 1, widths: ws, body, dontBreakRows: true },
+        fontSize: 8.5, lineHeight: 1.05,
+        layout: {
+          fillColor: i => i === 0 ? BLAU : fuell[i],
+          hLineWidth: i => dick.has(i) ? 1.8 : ohne.has(i) ? 0 : 0.5,
+          hLineColor: i => dick.has(i) ? BLAU : LINIE,
+          vLineWidth: () => 0.5, vLineColor: () => LINIE,
+          // Die Zelle mit der inneren Tabelle bekommt keinen eigenen Abstand, den hat die innere Tabelle
+          paddingLeft: i => i >= vorn ? 0 : 4, paddingRight: i => i >= vorn ? 0 : 4,
+          paddingTop: () => 3, paddingBottom: () => 3
+        }
+      };
     }
     // Tagesprotokolle: eine Zeile je Team und Tag, Abschnitt (neue Seite) je Woche
     function tageBlatt(nurTeam) {
-      const tl = teams().filter(t => !nurTeam || t.name === nurTeam), mitZg = spuer();
+      const tl = teams().filter(t => !nurTeam || t.name === nurTeam);
       const alle = notizen(nurTeam);
       if (!alle.length) return [...titel(nurTeam ? 'Tagesprotokolle' : 'Tagesprotokolle', zeitraumText()), leer('Im gewählten Zeitraum gibt es keine Notizen.')];
       const proWoche = new Map();
@@ -234,34 +336,23 @@
         const spalten = ns.some(n => n.felder);
         const F = WBK.FELDER, feld = (n, k) => n.felder ? String(n.felder[k] || '').trim() : (k === 'beobachtung' ? n.text || '' : '');
         const zelle = (l, k) => { const v = l.map(n => feld(n, k)).filter(Boolean); return v.length > 1 ? v.map(x => /^\s*•/.test(x) ? x : '• ' + x).join('\n') : v[0] || ''; };
-        const head = ['Datum', ...(nurTeam ? [] : ['Team'])];
-        if (spalten) head.push(...F.slice(0, 3).map(f => f[1]), ...(mitZg ? ['Belohn.'] : []), ...F.slice(3).map(f => f[1]));
-        else { head.push('Notizen'); if (mitZg) head.push('Belohnungen'); }
-        const body = [kopf(head)], neu = [];
-        tage.forEach(d => {
-          let erste = true;
-          tl.forEach(t => {
-            const l = ns.filter(n => n.datum === d && n.team === t.name); if (!l.length) return;
-            if (erste) neu.push(body.length);
-            const r = [{ text: erste || nurTeam ? deKurz(d) : '', bold: true }];
-            if (!nurTeam) r.push({ text: teamLabel(t), bold: true });
-            const z = stoffe().map(s => [s, zgSumme(t.name, s, d)]).filter(x => x[1]), summe = z.reduce((a, x) => a + x[1], 0);
-            if (spalten) {
-              r.push(...F.slice(0, 3).map(f => zelle(l, f[0])));
-              if (mitZg) r.push({ text: summe ? String(summe) : '', alignment: 'center' });
-              r.push(...F.slice(3).map(f => zelle(l, f[0])));
-            } else {
-              r.push(notizText(l));
-              if (mitZg) r.push(z.length ? z.map(x => x[0] + ': ' + x[1]).join('\n') + '\nGesamt: ' + summe : '–');
-            }
-            body.push(r); erste = false;
-          });
-        });
-        const widths = [52, ...(nurTeam ? [] : [80])];
-        if (spalten) widths.push(60, 60, '*', ...(mitZg ? [34] : []), '*', '*', '*', 70);
-        else { widths.push('*'); if (mitZg) widths.push(110); }
         const unter = WBK.isoToDe(wocheStart(w)) + ' bis ' + WBK.isoToDe(WBK.addDays(wocheStart(w), 6));
-        const teil = [...titel('Tagesprotokolle · ' + wocheText(w) + (nurTeam ? ' · ' + nurTeam : ''), unter), liste(widths, body, neu)];
+        const ueber = 'Tagesprotokolle · ' + wocheText(w) + (nurTeam ? ' · ' + nurTeam : '');
+        let teil;
+        if (spalten) teil = [...titel(ueber, unter), tageA(tl, tage, ns, zelle, nurTeam)];
+        else {
+          // Ältere, nicht aufgeteilte Notizen: einfache Liste
+          const body = [kopf(['Datum', ...(nurTeam ? [] : ['Team']), 'Notizen'])], neu = [];
+          tage.forEach(d => {
+            let erste = true;
+            tl.forEach(t => {
+              const l = ns.filter(n => n.datum === d && n.team === t.name); if (!l.length) return;
+              if (erste) neu.push(body.length);
+              body.push([{ text: deKurz(d), bold: true, noWrap: true }, ...(nurTeam ? [] : [{ text: teamLabel(t), bold: true }]), notizText(l)]); erste = false;
+            });
+          });
+          teil = [...titel(ueber, unter), Object.assign(liste([52, ...(nurTeam ? [] : [66]), '*'], body, neu), { fontSize: 8.5, lineHeight: 1.05 })];
+        }
         out.push(...(wi ? neueSeite(teil) : teil));
       });
       return out;
@@ -313,7 +404,7 @@
         const teil = [...titel((m.titel ? m.titel + ' | ' : '') + 'Gemeinsamer interner Wochenbericht', '', true),
           kv([['Dienststelle', m.kopfBehoerde], ['Organisationseinheit', [m.kopfOe1, m.kopfOe2].filter(Boolean).join(' – ')], ['Trainer', m.trainer], ['Lehrgangswoche', w + '. Lehrgangswoche'], ['Kalenderwoche', kw(a) + '. KW'], ['Zeitraum', WBK.isoToDe(a) + ' bis ' + WBK.isoToDe(WBK.addDays(a, 6))]], 2),
           balken('1 | Ausbildungsinhalte / Schwerpunkte'), { text: ab.inhalte || '–' }, balken('2 | Gesamtüberblick der Ausbilder'), { text: ab.ueberblick || '–' },
-          balken('3 | Individuelle Entwicklung der Mensch-Hund-Teams'), liste([110, 58, '*', '*', '*', 58, 80, 80], body),
+          balken('3 | Individuelle Entwicklung der Mensch-Hund-Teams'), liste(verteile([110, 50, ...WBK.WB_TEAM.map(([k]) => k === 'bewertung' ? 58 : 0)], body.slice(1)), body),
           balken('4 | Gesamtbewertung der Ausbildungsgruppe'), { text: ab.gesamt || '–' }, balken('5 | Hinweise für die Ausbildungsgruppe'), { text: ab.hinweise || '–' }];
         out.push(...(i ? neueSeite(teil) : teil));
       });
@@ -324,13 +415,13 @@
       if (!ws.length) return [balken('Entwicklung je Woche'), leer('Noch kein Wochenbericht vorhanden.')];
       const body = [kopf(['Woche', 'Fortschritte', 'Auffälligkeiten / Defizite', 'Fördermaßnahmen / nächste Schritte', 'Ausbilder-\nbewertung'])];
       ws.forEach(w => { const tb = course().wochenberichte[w].teams[t.name]; body.push([w + '. Woche\nKW ' + kw(wocheStart(w)), tb.fortschritte || '', tb.defizite || '', tb.foerderung || '', { text: tb.bewertung || '', alignment: 'center' }]); });
-      return [balken('Entwicklung je Woche'), liste([60, '*', '*', '*', 70], body)];
+      return [balken('Entwicklung je Woche'), liste(verteile([60, 0, 0, 0, 58], body.slice(1)), body)];
     }
     // Teilnehmerakte eines Teams
     function akte(teile) {
       const t = teams().find(x => x.name === st.team), m = course().meta, g = (course().gesamt || {})[t.name];
       const out = [...titel('Teilnehmerakte · ' + teamLabel(t), [teamUnter(t), m.titel, st.woche ? wocheText(st.woche) : 'alle Wochen'].filter(Boolean).join(' · '), true)];
-      if (teile.includes('stamm')) out.push(balken('Stammdaten'), kv([['Team', t.name], ['Lehrgang', m.titel], ['Hundeführer/in', t.teilnehmer], ['Zeitraum', zeitraumText()], ['Diensthund', t.hund], ['Trainer/in', m.trainer], ['Behörde', t.behoerde], ['Notizen', String(notizen(t.name).length)], ['Rasse / Alter', t.rasse], ['Bemerkung', t.bemerkung]], 2),
+      if (teile.includes('stamm')) out.push(balken('Stammdaten'), kv([['Team', t.name], ['Lehrgang', m.titel], ...(t.teilnehmer && t.teilnehmer !== t.name ? [['Hundeführer/in', t.teilnehmer]] : []), ['Zeitraum', zeitraumText()], ['Diensthund', t.hund], ['Trainer/in', m.trainer], ['Behörde', t.behoerde], ['Notizen', String(notizen(t.name).length)], ['Rasse / Alter', t.rasse], ['Bemerkung', t.bemerkung]], 2),
         balken('Gesamteindruck'), g ? { text: g } : leer('Noch kein Gesamteindruck eingetragen (Excel-Datei, Blatt „Teams“, Spalte „Gesamteindruck“).'));
       if (teile.includes('entw')) out.push(...entwicklung(t));
       if (teile.includes('zgdia')) { const w = werteVon(t.name); out.push({ stack: [balken('Zielgerüche'), { columns: [{ width: 200, stack: [donutSvg(w, 180)] }, { width: 320, stack: [legende(w)], margin: [0, 30, 0, 0] }], columnGap: 20 }], unbreakable: true }); }

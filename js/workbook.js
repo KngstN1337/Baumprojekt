@@ -110,8 +110,13 @@
   const seite = (s, c) => ({ style: s, color: { argb: c || A2.gitter } });
   // Spalten des Tagesprotokolls, die aus den Notizen kommen (Schlüssel = Feld in note.felder)
   const FELDER = [['ort', 'Trainingsort'], ['zielgerueche', 'Zielgerüche'], ['inhalt', 'Trainingsinhalt / Aufbau'], ['motivation', 'Motivation'], ['anzeige', 'Anzeigeverhalten'],
-    ['beobachtung', 'Beobachtungen / nächster Schritt'], ['bemerkung', 'Bemerkungen / Wissenswertes']];
+    ['beobachtung', 'Beobachtungen / nächster Schritt'], ['bemerkung', 'Bemerkungen', ['Bemerkungen / Wissenswertes']]];
+  // Spalte zu einer Überschrift finden (auch alte Überschriften aus früheren Dateien)
+  const feldZuKopf = h => FELDER.find(x => x[1] === h || (x[2] || []).includes(h));
   // Inhalt eines Feldes einer Notiz. Ältere Notizen (noch nicht aufgeteilt) stehen ganz unter „Beobachtungen“.
+  // Früher stand vor der Note „Bewertung: “, jetzt nur die Note (z. B. „sehr gut“). Alte Einträge werden beim Einlesen angepasst.
+  const BEW_FELDER = ['motivation', 'anzeige'];
+  const ohneBew = v => String(v || '').replace(/^[ \t]*Bewertung:[ \t]*/gim, '');
   const feldVon = (n, k) => n.felder ? String(n.felder[k] || '').trim() : (k === 'beobachtung' ? n.text || '' : '');
   const deKurz = iso => weekday(iso) + ' ' + isoToDe(iso).replace(/\.(\d\d)(\d\d)$/, '.$2');
   let LOGO = null;
@@ -164,7 +169,9 @@
   // Das Blatt selbst ist die Datenquelle: Was am PC geändert wird, liest die App beim nächsten Öffnen wieder ein.
   function isoKW(iso) { const d = isoToDate(iso); const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())); const wd = t.getUTCDay() || 7; t.setUTCDate(t.getUTCDate() + 4 - wd); const y0 = new Date(Date.UTC(t.getUTCFullYear(), 0, 1)); return Math.ceil(((t - y0) / 86400000 + 1) / 7); }
   const WB_ABSCHNITTE = [['inhalte', '1 | Ausbildungsinhalte / Schwerpunkte'], ['ueberblick', '2 | Gesamtüberblick der Ausbilder'], ['gesamt', '4 | Gesamtbewertung der Ausbildungsgruppe'], ['hinweise', '5 | Hinweise für die Ausbildungsgruppe']];
-  const WB_TEAM = [['fortschritte', 'Fortschritte'], ['defizite', 'Auffälligkeiten / Defizite'], ['foerderung', 'Fördermaßnahmen / nächste Schritte'], ['bewertung', 'Ausbilderbewertung'], ['hinweise', 'Hinweise'], ['bemerkungen', 'Bemerkungen / Wissenswertes']];
+  const WB_TEAM = [['fortschritte', 'Fortschritte'], ['defizite', 'Auffälligkeiten / Defizite'], ['foerderung', 'Fördermaßnahmen / nächste Schritte'], ['bewertung', 'Ausbilderbewertung'], ['hinweise', 'Hinweise']];
+  // Ältere Dateien hatten noch „Bemerkungen / Wissenswertes“ je Team; der Inhalt wird beim Einlesen an die Hinweise angehängt.
+  const WB_ALT_BEM = 'Bemerkungen / Wissenswertes';
   const WB_TEAMKOPF = '3 | Individuelle Entwicklung der Mensch-Hund-Teams';
   const wocheStart = (m, w) => addDays(m.start, (w - 1) * 7);
   // Tage mit Notizen eines Teams in einer Woche (= dokumentierte Einheiten)
@@ -229,10 +236,12 @@
         if (ab) { modus = ab[0]; continue; }
         if (a === WB_TEAMKOPF) { modus = 'teams'; spalten = null; continue; }
         if (modus === 'teams') {
-          if (!spalten) { if (a === 'Team') { spalten = {}; row.eachCell((c, k) => { const h = s(c).replace(/\s+/g, ' '); const f = WB_TEAM.find(x => x[1] === h); if (f) spalten[f[0]] = k; }); } continue; }
+          if (!spalten) { if (a === 'Team') { spalten = {}; row.eachCell((c, k) => { const h = s(c).replace(/\s+/g, ' '); const f = WB_TEAM.find(x => x[1] === h); if (f) spalten[f[0]] = k; else if (h === WB_ALT_BEM) spalten._bem = k; }); } continue; }
           if (!a) { modus = ''; continue; }
           const tm = teams.find(t => a === t.name || a.indexOf(t.name + ',') === 0); if (!tm) continue;
-          const tb = {}; Object.keys(spalten).forEach(k => { tb[k] = s(row.getCell(spalten[k])); });
+          const tb = {}; Object.keys(spalten).forEach(k => { if (k !== '_bem') tb[k] = s(row.getCell(spalten[k])); });
+          const bem = spalten._bem ? s(row.getCell(spalten._bem)) : '';
+          if (bem) tb.hinweise = !tb.hinweise || /^keine besonderen hinweise\.?$/i.test(tb.hinweise) ? bem : tb.hinweise + '\n' + bem;
           b.teams[tm.name] = tb;
         } else if (modus && a && !b.abschnitte[modus]) { b.abschnitte[modus] = a; }
       }
@@ -279,7 +288,9 @@
     // Teams (mit Gesamteindruck)
     const wt = wb.addWorksheet(SHEET_TEAMS, { views: [{ state: 'frozen', ySplit: 4, showGridLines: false }] });
     const mitRasse = teams.some(t => t.rasse);
-    const TC = [['Team', t => t.name], ['Hundeführer/in', t => t.teilnehmer || ''], ['Diensthund', t => t.hund || ''], ['Behörde', t => t.behoerde || ''],
+    // Hundeführer/in nur, wenn der Name nicht schon als Team dasteht (sonst doppelt)
+    const mitTn = teams.some(t => t.teilnehmer && t.teilnehmer !== t.name);
+    const TC = [['Team', t => t.name], ...(mitTn ? [['Hundeführer/in', t => t.teilnehmer || '']] : []), ['Diensthund', t => t.hund || ''], ['Behörde', t => t.behoerde || ''],
       ...(mitRasse ? [['Rasse / Alter', t => t.rasse || '']] : []), ['Zuständige/r Trainer/in', () => m.trainer || ''], ['Bemerkung', t => t.bemerkung || ''], ['Gesamteindruck', t => (course.gesamt || {})[t.name] || '']];
     titelZeilen(wt, 'Teamstammdaten', (m.titel || '') + ' · ' + teams.length + ' Teams', TC.length);
     kopfZeile(wt.getRow(4), TC.map(c => c[0]));
@@ -533,6 +544,7 @@
     wsn.eachRow((r, i) => {
       if (i === 1) return;
       const x = { team: t(r, 1).trim(), datum: t(r, 2).trim(), uhrzeit: t(r, 3).trim(), von: t(r, 4).trim(), bullet: t(r, 5).trim() === '1', suf: t(r, 6).trim(), text: t(r, 7).trim(), spalte: t(r, 8).trim() };
+      if (BEW_FELDER.includes(x.spalte)) x.text = ohneBew(x.text).trim();
       const key = x.team + '|' + x.datum + '|' + x.spalte;
       if (!stand.has(key)) stand.set(key, []);
       stand.get(key).push(x);
@@ -541,7 +553,7 @@
     for (let i = 1; i <= 8; i++) if (String(cellText(wp.getRow(i).getCell(1).value) || '').trim() === 'Datum') { kopf = i; break; }
     if (!kopf) return 0;
     const spalten = [];
-    wp.getRow(kopf).eachCell((c, col) => { const h = String(cellText(c.value) || '').trim(); const f = FELDER.find(x => x[1] === h); if (f) spalten.push([col, f[0]]); });
+    wp.getRow(kopf).eachCell((c, col) => { const h = String(cellText(c.value) || '').trim(); const f = feldZuKopf(h); if (f) spalten.push([col, f[0]]); });
     const known = new Set([...course.teams.map(tm => tm.name), ...[...stand.values()].map(a => a[0].team)]);
     let count = 0;
     const find = (s, k) => course.notes.findIndex(n => n.datum === s.datum && n.team === s.team && (n.uhrzeit || '') === s.uhrzeit && (n.von || '') === s.von && feldVon(n, k) === s.text);
@@ -563,7 +575,7 @@
       if (!team || !datum || !known.has(team)) return; // umbenannte/fremde Zeilen nicht anfassen
       spalten.forEach(([col, k]) => {
         const segs = stand.get(team + '|' + datum + '|' + k) || [];
-        const cur = norm(cellText(r.getCell(col).value));
+        const cur = norm(BEW_FELDER.includes(k) ? ohneBew(cellText(r.getCell(col).value)) : cellText(r.getCell(col).value));
         if (cur === norm(segs.map(render).join('\n'))) return;
         let pos = 0;
         const hit = segs.map(s => {
@@ -636,6 +648,7 @@
       if (i <= tKopf) return;
       const t = { name: ttxt(r, tat(['Team'], 1)), teilnehmer: ttxt(r, tat(['Hundeführer/in', 'Teilnehmer/in'], 2)), hund: ttxt(r, tat(['Diensthund', 'Hund'], 3)), behoerde: ttxt(r, tat(['Behörde'], 0)), rasse: ttxt(r, tat(['Rasse / Alter'], 4)), bemerkung: ttxt(r, tat(['Bemerkung'], 5)) };
       t.name = teamName(t);
+      if (!t.teilnehmer && Object.keys(tcol).length && !tat(['Hundeführer/in', 'Teilnehmer/in'], 2)) t.teilnehmer = t.name; // Spalte weggelassen, weil gleich dem Team
       if (t.name) course.teams.push(t);
       const g = ttxt(r, tat(['Gesamteindruck'], 0));
       if (t.name && g) course.gesamt[t.name] = g;
@@ -658,7 +671,7 @@
       if (i === 1) return;
       const n = { datum: parseDateCell(r.getCell(at('Datum', 1)).value), uhrzeit: parseTimeCell(r.getCell(at('Uhrzeit', 3) || 3).value), team: txt(r, at('Team', 4)), kategorie: txt(r, at('Kategorie', 5)), text: txt(r, at('Notiz', 6)), quelle: txt(r, at('Quelle', 7)), von: txt(r, at('Eingesprochen von', 8)) };
       // Aufgeteilte Felder fürs Tagesprotokoll (Motivation, Anzeigeverhalten …)
-      if (txt(r, at('Aufgeteilt', 0)) === 'ja') { n.felder = {}; FELDER.forEach(([k, hd]) => { n.felder[k] = txt(r, at(hd, 0)); }); }
+      if (txt(r, at('Aufgeteilt', 0)) === 'ja') { n.felder = {}; FELDER.forEach(([k, hd, alt]) => { n.felder[k] = txt(r, at(hd, 0) || (alt || []).map(a => at(a, 0)).find(Boolean) || 0); }); BEW_FELDER.forEach(k => { n.felder[k] = ohneBew(n.felder[k]).trim(); }); }
       if (n.datum && (n.text || n.felder)) course.notes.push(n);
     });
 
