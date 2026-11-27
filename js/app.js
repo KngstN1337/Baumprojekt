@@ -105,7 +105,7 @@
     document.addEventListener('touchstart', e => {
       d = null;
       if (e.touches.length !== 1 || e.touches[0].clientX > 28) return;
-      if (document.body.classList.contains('sheet-open') || document.body.classList.contains('modal-open')) return;
+      if (document.body.classList.contains('sheet-open') || document.body.classList.contains('modal-open') || document.body.classList.contains('wb-open')) return;
       const btn = zurueckKnopf(); if (!btn) return;
       d = { x0: e.touches[0].clientX, y0: e.touches[0].clientY, x: 0, t0: Date.now(), on: false, btn, v: btn.closest('.view') };
     }, { passive: true });
@@ -142,7 +142,16 @@
   // Wochenberichte je Lehrgangswoche – eigener Baustein in js/wochen.js
   const WO = window.BaumprojektWochen({
     course: () => course, toast, busy: m => busy(m), go: v => go(v), openaiKey: () => openaiKey(), llmModel: () => settings.llmModel,
-    withStore: (l, f) => withStore(l, f), modifyCourse: (f, c) => modifyCourse(f, c), pdfWoche: w => PDF.wochenbericht(w)
+    withStore: (l, f) => withStore(l, f), modifyCourse: (f, c) => modifyCourse(f, c), pdfWoche: w => PDF.wochenbericht(w),
+    openModal: h => openModal(h), closeModal: () => closeModal(), stil: () => settings.stil, sttModel: () => settings.sttModel,
+    glossar: () => glossarAktiv(), stoffe: () => stoffeAktiv(), sttHint: () => S.sttHinweis(course.teams, glossarAktiv(), stoffeAktiv()),
+    // Aufnahme sofort sichern wie beim Team-Diktat: erst auf dem Gerät, dann in Google Drive (Ordner „Aufnahmen“)
+    aufnahmeSichern: async (blob, team) => {
+      const item = { aid: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), courseId: activeId, datum: today(), uhrzeit: nowTime(), team, von: myName(),
+        mime: blob.type || 'audio/webm', blob, transcript: null, created: Date.now() };
+      await S.Outbox.put(item); syncOutbox(); return item.aid;
+    },
+    rohtextSichern: (aid, text) => keepTranscript(aid, text)
   });
   // Spürhund-Lehrgänge (Zielgerüche, Belohnungen, Schritte) – eigener Baustein in js/spuerhund.js
   const SP = window.BaumprojektSpuerhund({

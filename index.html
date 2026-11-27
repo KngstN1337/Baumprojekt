@@ -14,8 +14,8 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/icon-192.png">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-  <link rel="stylesheet" href="css/design.css?v=47">
-  <link rel="stylesheet" href="css/style.css?v=47">
+  <link rel="stylesheet" href="css/design.css?v=48">
+  <link rel="stylesheet" href="css/style.css?v=48">
 </head>
 <body class="locked">
   <section id="login" class="login">
@@ -433,6 +433,25 @@
     <div id="sheetErrBtns" class="actions hidden"><button class="btn-gray" id="errClose">Später</button><button class="btn-filled" id="retryBtn">Erneut versuchen</button></div>
   </div>
 
+  <!-- Wochenbericht einsprechen (ganze Seite): Schritt für Schritt oder alles auf einmal -->
+  <div id="wbSheet" class="wd" role="dialog" aria-modal="true" aria-labelledby="wdH">
+    <h3 id="wdH">Wochenbericht einsprechen</h3><p class="sheet-sub" id="wdSub"></p>
+    <div class="segmented" id="wdModus" role="radiogroup" aria-label="Art des Einsprechens"><button type="button" data-modus="schritt">Schritt für Schritt</button><button type="button" data-modus="alle">Alles auf einmal</button></div>
+    <div class="wd-inhalt">
+      <div id="wdSchritt"><div class="wd-dots" id="wdDots"></div><div class="wd-k" id="wdStep"></div><div class="wd-t" id="wdTitel"></div><ul class="wd-fragen" id="wdFragen"></ul></div>
+      <div id="wdAlle" class="hidden"></div>
+    </div>
+    <div class="wd-time" id="wdTime">● 0:00</div>
+    <canvas id="wdWave" class="wave wd-wave" width="600" height="80"></canvas>
+    <div class="rec-ctrl">
+      <div class="ctrl"><button class="round" id="wdPause" aria-label="Pause"><svg><use href="#i-pause"/></svg></button><span id="wdPauseLbl">Pause</span></div>
+      <div class="ctrl"><button class="stop" id="wdNext" aria-label="Weiter"><i></i></button><span id="wdNextLbl">Weiter</span></div>
+      <div class="ctrl"><button class="round" id="wdCancel" aria-label="Abbrechen"><svg><use href="#i-x"/></svg></button><span>Abbrechen</span></div>
+    </div>
+    <p class="rec-hint wd-hint" id="wdHint"></p>
+    <button type="button" class="text-btn wd-ende" id="wdEnde">Jetzt fertig, Rest überspringen</button>
+  </div>
+
   <svg width="0" height="0" style="position:absolute" aria-hidden="true">
     <symbol id="i-share" viewBox="0 0 24 24"><path d="M12 2l4.5 4.5-1.4 1.4L13 5.8V15h-2V5.8L8.9 7.9 7.5 6.5zM5 10h3v2H6v8h12v-8h-2v-2h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V11a1 1 0 0 1 1-1z"/></symbol>
     <symbol id="i-mic" viewBox="0 0 24 24"><path d="M12 15a4 4 0 0 0 4-4V5a4 4 0 0 0-8 0v6a4 4 0 0 0 4 4zm7-4a1 1 0 1 0-2 0 5 5 0 0 1-10 0 1 1 0 1 0-2 0 7 7 0 0 0 6 6.93V20H8.5a1 1 0 1 0 0 2h7a1 1 0 1 0 0-2H13v-2.07A7 7 0 0 0 19 11z"/></symbol>
@@ -457,15 +476,15 @@
   <div id="busy" class="busy hidden"><div class="spinner"></div><div id="busyText">Bitte warten …</div></div>
   <div id="toast" class="toast hidden"></div>
 
-  <script src="config.js?v=47" defer></script>
+  <script src="config.js?v=48" defer></script>
   <script src="vendor/exceljs.min.js" defer></script>
-  <script src="js/workbook.js?v=47" defer></script>
-  <script src="js/services.js?v=47" defer></script>
-  <script src="js/vordefiniert.js?v=47" defer></script>
-  <script src="js/spuerhund.js?v=47" defer></script>
-  <script src="js/pdf.js?v=47" defer></script>
-  <script src="js/wochen.js?v=47" defer></script>
-  <script src="js/app.js?v=47" defer></script>
+  <script src="js/workbook.js?v=48" defer></script>
+  <script src="js/services.js?v=48" defer></script>
+  <script src="js/vordefiniert.js?v=48" defer></script>
+  <script src="js/spuerhund.js?v=48" defer></script>
+  <script src="js/pdf.js?v=48" defer></script>
+  <script src="js/wochen.js?v=48" defer></script>
+  <script src="js/app.js?v=48" defer></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 </body>
 </html>
