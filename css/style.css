@@ -167,3 +167,31 @@ body:has(#v-training:not(.hidden)) .tabs{display:none}
 .wb-feld{display:block;position:relative;padding:8px 16px 4px}.wb-feld+.wb-feld::before{content:"";position:absolute;top:0;left:16px;right:0;height:.5px;background:var(--sep)}
 .wb-feld span{display:block;font-size:13px;color:var(--sec)}
 .wb-ta{display:block;width:100%;font:inherit;font-size:16px;line-height:1.4;background:none;color:var(--label);border:0;padding:2px 0 6px;resize:none;outline:none;min-height:44px;overflow:hidden}
+
+/* Wochenbericht: Einsprechen (ganze Seite) und Felder */
+.mic-cell{display:flex;align-items:center;gap:12px;color:var(--tint);font-weight:600;text-align:left}
+.mic-cell .mc{width:34px;height:34px;border-radius:17px;background:var(--red);display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+.mic-cell .mc svg{width:18px;height:18px;fill:#fff}
+.mic-cell small{display:block;font-weight:400;color:var(--sec);font-size:13px}
+.wb-stil{margin:4px 16px 12px}.wb-stil-hint{font-size:13px;color:var(--sec);margin:-4px 16px 12px}
+.wb-feld.neu{box-shadow:inset 3px 0 0 var(--tint)}.wb-feld em{font-style:normal;color:var(--tint);font-weight:600;margin-left:6px}
+.wb-offen{background:color-mix(in srgb,var(--orange) 16%,var(--card))}
+.wb-actions{margin-top:22px}
+.wd{position:fixed;inset:0;z-index:12;background:var(--sheet);display:flex;flex-direction:column;max-width:640px;margin:0 auto;padding:calc(24px + env(safe-area-inset-top)) 20px calc(16px + env(safe-area-inset-bottom));transform:translateY(105%);transition:transform .38s cubic-bezier(.3,.7,.2,1)}
+body.wb-open .wd{transform:none}body.wb-open .dim{opacity:1;pointer-events:auto}
+.wd h3{font-size:17px;font-weight:600;text-align:center;margin:0}
+.wd .segmented{margin:12px 0 6px}
+.wd-inhalt{flex:1;overflow:auto;min-height:0;overscroll-behavior:contain}
+.wd-dots{display:flex;gap:6px;justify-content:center;margin:12px 0 4px}.wd-dots i{width:8px;height:8px;border-radius:4px;background:var(--fill)}.wd-dots i.on{background:var(--tint)}.wd-dots i.ok{background:color-mix(in srgb,var(--tint) 45%,transparent)}
+.wd-k{text-align:center;font-size:13px;color:var(--sec);text-transform:uppercase;margin:14px 0 2px}
+.wd-t{text-align:center;font-size:26px;font-weight:700;letter-spacing:-.01em;margin:0 0 10px}
+.wd-fragen{list-style:none;padding:0;margin:0 auto 6px;max-width:320px}.wd-fragen li{font-size:17px;padding:8px 0;border-bottom:.5px solid var(--sep);display:flex;gap:10px}.wd-fragen li:last-child{border:0}.wd-fragen li::before{content:"";flex:0 0 6px;height:6px;border-radius:3px;background:var(--tint);margin-top:9px}
+.wd-say{font-size:14px;color:var(--sec);text-align:center;margin:4px 0 6px}
+.wd-row{display:flex;gap:12px;padding:9px 4px;border-bottom:.5px solid var(--sep)}.wd-row:last-child{border:0}
+.wd-row b{display:block;font-size:17px;font-weight:600}.wd-row span:not(.wd-num){display:block;font-size:15px;color:var(--sec)}
+.wd-num{flex:0 0 24px;height:24px;border-radius:12px;background:var(--fill);font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center;color:var(--sec)}
+.wd-teams{font-size:15px;line-height:1.6;margin-top:6px}
+.wd-time{text-align:center;color:var(--red);font-size:15px;font-variant-numeric:tabular-nums;margin:8px 0 0}
+.wd.paused .wd-time{color:var(--sec)}
+.wd-wave{height:40px;margin:2px 0 10px}
+.wd-hint{margin:8px 0 0}.wd-ende{display:block;margin:6px auto 0;font-size:15px}

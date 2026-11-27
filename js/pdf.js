@@ -368,8 +368,30 @@
       return sauber(was + (st.woche && !nurWb ? ' ' + st.woche + '. Woche' : '') + ' ' + d) + '.pdf';
     }
 
-    async function erstellen() {
+    // Fehlende oder unvollständige Wochenberichte im gewählten Zeitraum (nur Wochen, die schon begonnen haben)
+    function wbLuecken() {
+      const c = course(), mitWb = st.modus === 'akte' ? auswahl().includes('entw') : auswahl().includes('wochen');
+      if (!mitWb) return [];
+      const n = Math.max(1, Number(c.meta.wochen) || 4), ws = st.woche ? [st.woche] : Array.from({ length: n }, (_, i) => i + 1);
+      const tl = st.modus === 'akte' ? teams().filter(t => t.name === st.team) : teams();
+      return ws.filter(w => wocheStart(w) <= ctx.today()).map(w => {
+        const b = (c.wochenberichte || {})[w];
+        if (!b) return w + '. Woche (KW ' + kw(wocheStart(w)) + '): kein Bericht';
+        const ab = b.abschnitte || {};
+        let leer = st.modus === 'akte' ? 0 : ['inhalte', 'ueberblick', 'gesamt', 'hinweise'].filter(k => !String(ab[k] || '').trim()).length;
+        tl.forEach(t => { const tb = (b.teams || {})[t.name] || {}; leer += ['fortschritte', 'defizite', 'foerderung', 'bewertung'].filter(k => !String(tb[k] || '').trim()).length; });
+        return leer ? w + '. Woche (KW ' + kw(wocheStart(w)) + '): ' + leer + (leer === 1 ? ' Feld leer' : ' Felder leer') : '';
+      }).filter(Boolean);
+    }
+    async function erstellen(trotzdem) {
       if (!course() || !auswahl().length) return;
+      const luecken = trotzdem === true ? [] : wbLuecken();
+      if (luecken.length) {
+        ctx.openModal('<h3>Wochenberichte nicht vollständig</h3><p class="modal-sub">' + luecken.map(esc).join('<br>') + '</p><p class="modal-sub">Du kannst sie unter Lehrgänge → Wochenberichte ergänzen.</p>' +
+          '<div class="actions"><button class="btn-gray" data-m="close">Abbrechen</button><button class="btn-filled" id="pdfTrotzdem">Trotzdem erstellen</button></div>');
+        $('#pdfTrotzdem').onclick = () => { ctx.closeModal(); erstellen(true); };
+        return;
+      }
       ctx.busy('PDF wird erstellt …');
       let blob;
       try {
@@ -415,7 +437,7 @@
     async function wochenbericht(w) {
       const alt = JSON.stringify(st);
       st.modus = 'kurs'; st.woche = w; Object.keys(st.kurs).forEach(k => { st.kurs[k] = k === 'wochen'; });
-      try { await erstellen(); } finally { Object.assign(st, JSON.parse(alt)); }
+      try { await erstellen(true); } finally { Object.assign(st, JSON.parse(alt)); }
     }
     return { bind, render, open, tab, wochenbericht, dokument: () => dokument(), laden, _st: st };
   };

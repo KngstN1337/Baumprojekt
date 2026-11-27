@@ -540,10 +540,47 @@
     if (FELD_KEYS.every(k => !f[k])) f.beobachtung = text;
     return f;
   }
+  // Schreibstil für Wochenberichte (Zusammenfassung, daher nicht wörtlich)
+  const WB_STIL = {
+    fliesstext: 'Schreibstil „Fließtext“: schlicht und sachlich, nah an den Formulierungen des Trainers, ohne Behördensprache.',
+    buchtext: 'Schreibstil „Buchtext“: gut lesbarer, geordneter Fachtext in der Ich-Form des Trainers (ich, nicht wir), ganze Sätze.',
+    beamtendeutsch: 'Schreibstil „Amtlich“: sachlich und unpersönlich im Behördenstil („Es wurde …“, nie „ich“, nie „der Ausbilder“ oder „der Trainer“).'
+  };
+  const WB_TEAM_FELDER = 'fortschritte (was gut geklappt hat), defizite (Auffälligkeiten/Defizite, was noch hakt), foerderung (Fördermaßnahmen/nächste Schritte), ' +
+    'bewertung (NUR wenn eine Schulnote gesagt wurde, ausgeschrieben und klein: sehr gut, gut, befriedigend, ausreichend, mangelhaft, ungenügend; sonst ""), ' +
+    'hinweise (besondere Hinweise an das Team), bemerkungen (Wissenswertes wie Gesundheit, Organisatorisches)';
+  const WB_T_SCHEMA = { type: 'object', additionalProperties: false, required: ['team', 'fortschritte', 'defizite', 'foerderung', 'bewertung', 'hinweise', 'bemerkungen'],
+    properties: { team: { type: 'string' }, fortschritte: { type: 'string' }, defizite: { type: 'string' }, foerderung: { type: 'string' }, bewertung: { type: 'string' }, hinweise: { type: 'string' }, bemerkungen: { type: 'string' } } };
+  // Eingesprochenen Wochenbericht (Schritt für Schritt: je Abschnitt bzw. Team eine Aufnahme) auf die Felder verteilen
+  async function wochenDiktat(teile, opts) {
+    const stil = stilVon(opts.stil);
+    const system = 'Ein Diensthundetrainer hat seinen Wochenbericht Schritt für Schritt eingesprochen. Jede Aufnahme gehört zu einem Abschnitt (in der Überschrift genannt). ' +
+      'Schreibe daraus die Felder des Wochenberichts.\n\n' + namensListe(opts.teams, opts.stoffe) +
+      'Regeln (Schreibstil „' + stil.name + '“):\n' + stil.regeln.join('\n') + '\n' + GEMEINSAM + '\n' + GLOSSAR_REGELN.split('\n')[0] + '\n' +
+      '- Abschnitte inhalte, ueberblick, gesamt, hinweise: der Text der jeweiligen Aufnahme.\n' +
+      '- Team-Aufnahmen: verteile den Inhalt auf die Felder ' + WB_TEAM_FELDER + '. team genau wie in der Überschrift. Jeder Satz kommt in genau ein Feld, nichts doppelt.\n' +
+      '- Aufnahme „Ganzer Bericht“: der Trainer spricht alles am Stück und sagt jeweils an, worum es geht (Abschnitt oder Team-Name, auch nur Teilnehmer- oder Hundename). Ordne jeden Satz dem angesagten Abschnitt bzw. Team zu.\n' +
+      '- Erwähnt eine Aufnahme ausdrücklich etwas, das zu einem anderen Abschnitt oder Team gehört, ordne es dort ein.\n' +
+      '- nicht_zugeordnet: Sätze, die in kein Feld passen. Sonst "". Felder ohne Inhalt bleiben "".\n' +
+      '- Keine Überschriften, keine Aufzählungszeichen, keine Feldnamen im Text.\n\n' +
+      'Glossar (Begriff, dahinter typische Fehlerkennungen der Spracherkennung):\n' + glossarListe(opts.glossar);
+    const schema = { type: 'object', additionalProperties: false, required: ['inhalte', 'ueberblick', 'gesamt', 'hinweise', 'teams', 'nicht_zugeordnet'],
+      properties: { inhalte: { type: 'string' }, ueberblick: { type: 'string' }, gesamt: { type: 'string' }, hinweise: { type: 'string' }, teams: { type: 'array', items: WB_T_SCHEMA }, nicht_zugeordnet: { type: 'string' } } };
+    const user = teile.map(t => '## ' + t.titel + '\n' + t.text).join('\n\n');
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + opts.key, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: opts.model || 'gpt-4.1-mini', messages: [{ role: 'system', content: system }, { role: 'user', content: user }],
+        response_format: { type: 'json_schema', json_schema: { name: 'wochendiktat', strict: true, schema } } })
+    });
+    if (!res.ok) throw await oaiError(res);
+    const j = await res.json();
+    return JSON.parse((j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content) || '{}');
+  }
   // Wochenbericht aus den Tagesprotokollen einer Woche vorschlagen (Trainer prüft und ändert danach)
   async function wochenbericht(woche, opts) {
     const system = 'Du schreibst für einen Diensthundetrainer den internen Wochenbericht eines Lehrgangs aus seinen Tagesprotokollen. ' +
-      'Sachlich und unpersönlich im Behördenstil („Es wurde …“, nie „ich“ oder „der Ausbilder“), knapp, vollständige Sätze. ' +
+      WB_STIL[stilVon(opts.stil).id] + ' Knapp, vollständige Sätze. ' +
       'Nur verwenden, was in den Protokollen steht, nichts erfinden, keine Namen von Trainern. Leere Felder ("") wenn es nichts dazu gibt.\n\n' +
       'Felder:\n- inhalte: Ausbildungsinhalte und Schwerpunkte der Woche (was wurde wo mit welchen Zielgerüchen geübt), 1–3 Sätze.\n' +
       '- ueberblick: Gesamtüberblick über die Gruppe in dieser Woche, 1–3 Sätze.\n' +
@@ -586,5 +623,5 @@
     });
   }
 
-  global.BaumprojektServices = { glossarHinweis, sttHinweis, splitPunkte, alsStichpunkte, pick, transcribe, assign, formulate, aufteilen, wochenbericht, STILE, Drive, KV, Outbox, KATEGORIEN, XLSX_MIME };
+  global.BaumprojektServices = { glossarHinweis, sttHinweis, splitPunkte, alsStichpunkte, pick, transcribe, assign, formulate, aufteilen, wochenbericht, wochenDiktat, STILE, Drive, KV, Outbox, KATEGORIEN, XLSX_MIME };
 })(window);
