@@ -94,8 +94,9 @@
       <div class="title-row"><h1 class="large-title">Lehrgänge</h1><button class="nav-icon" id="newCourseBtn" aria-label="Neuer Lehrgang" title="Neuer Lehrgang"><svg><use href="#i-plus"/></svg></button></div>
       <div class="section-h">Aktueller Lehrgang</div>
       <div class="group">
-        <label class="cell picker"><div class="cell-tx"><b id="courseName">–</b><span id="courseInfo"></span></div><span class="val">Wechseln<svg><use href="#i-updown"/></svg></span><select id="courseSelect" aria-label="Lehrgang wählen"></select></label>
+        <label class="cell picker"><div class="cell-tx"><b><span id="courseName">–</span><span class="test-tag hidden" id="testTag">TEST</span></b><span id="courseInfo"></span></div><span class="val">Wechseln<svg><use href="#i-updown"/></svg></span><select id="courseSelect" aria-label="Lehrgang wählen"></select></label>
       </div>
+      <p class="test-ban hidden" id="testBan">Erfundene Daten zum Ausprobieren. Du kannst alles ändern, einsprechen und löschen, ohne dass ein echter Lehrgang betroffen ist.</p>
       <div class="group">
         <button class="cell link-cell" id="editCourseBtn">Aktuellen Lehrgang bearbeiten</button>
         <button class="cell link-cell" id="downloadBtn">Excel herunterladen</button>
@@ -105,8 +106,7 @@
       </div>
       <div id="shareSec" class="hidden"><div class="section-h">Gemeinsam mit anderen Trainern</div>
       <div class="group" id="shareBox"></div></div>
-      <div class="group"><button class="cell link-cell" id="addSharedBtn">Geteilten Lehrgang hinzufügen</button><button class="cell link-cell" id="beispielBtn">Beispiel-Lehrgang zum Ausprobieren anlegen</button></div>
-      <details id="allRecs" class="group disclosure"><summary class="cell">Alle Aufnahmen dieses Lehrgangs</summary><div id="allRecList"></div></details>
+            <details id="allRecs" class="group disclosure"><summary class="cell">Alle Aufnahmen dieses Lehrgangs</summary><div id="allRecList"></div></details>
       <div class="group"><button class="cell danger-cell hidden" id="deleteCourseBtn">Lehrgang löschen</button></div>
 
       <form id="courseForm" class="hidden">
@@ -142,6 +142,14 @@
       <div id="pdfBody"></div>
       <p class="group-foot">A4 quer, so viele Seiten wie nötig. Danach öffnet sich das Teilen-Menü (Mail, WhatsApp, AirDrop, Dateien, Drucken). Eine Kopie landet im Lehrgangsordner in Google Drive.</p>
       <div class="actions"><button type="button" class="btn-filled" id="pdfGo"><svg><use href="#i-share"/></svg>PDF erstellen und teilen</button></div>
+    </section>
+
+    <!-- Testgruppe zum Ausprobieren erstellen (js/testgruppe.js) -->
+    <section id="v-testgruppe" class="view hidden">
+      <div class="navbar"><button class="nav-btn back" data-back="lehrgang"><svg class="chev-l"><use href="#i-back"/></svg>Lehrgänge</button><span></span></div>
+      <h1 class="large-title">Testgruppe</h1><span class="subtitle">Lehrgang mit erfundenen Teams zum Ausprobieren</span>
+      <div id="tgBody"></div>
+      <div class="actions"><button type="button" class="btn-filled" id="tgGo">Testgruppe erstellen</button></div>
     </section>
 
     <!-- Wochenberichte: Liste der Wochen und Bericht bearbeiten (js/wochen.js) -->
@@ -485,6 +493,7 @@
   <script src="js/pdf.js?v=52" defer></script>
   <script src="js/wochen.js?v=52" defer></script>
   <script src="js/beispiel.js?v=52" defer></script>
+  <script src="js/testgruppe.js?v=52" defer></script>
   <script src="js/app.js?v=52" defer></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 </body>

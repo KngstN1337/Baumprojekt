@@ -198,3 +198,29 @@ body.wb-open .wd{transform:none}body.wb-open .dim{opacity:1;pointer-events:auto}
 .wb-sec{display:flex;align-items:flex-end;gap:12px;padding:0 16px 6px 32px}.wb-sec .section-h{padding:0;flex:1;min-width:0}
 .wb-clear{font-size:15px;padding:4px 0}
 .wb-mic{width:32px;height:32px;border-radius:16px;border:0;background:color-mix(in srgb,var(--red) 14%,transparent);display:flex;align-items:center;justify-content:center;flex:0 0 auto;cursor:pointer}.wb-mic svg{width:17px;height:17px;fill:var(--red)}
+/* Testgruppe (js/testgruppe.js): TEST-Marke, Hinweis, Stand-Kacheln, Zähler, Aktionsblatt beim Plus */
+.test-tag{display:inline-block;font-size:11px;font-weight:700;color:#fff;background:var(--orange);padding:2px 6px;border-radius:5px;margin-left:8px;vertical-align:2px;letter-spacing:.03em}
+.cell-tx b>span{display:inline;font-size:inherit;color:inherit}.cell-tx b>.test-tag{font-size:11px;color:#fff;white-space:nowrap}
+.test-ban{margin:0 16px 28px;background:color-mix(in srgb,var(--orange) 14%,var(--card));border-radius:12px;padding:11px 14px;font-size:14px;line-height:1.35;color:var(--label)}
+.tg-tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0 16px 28px}
+.tg-tile{background:var(--card);border-radius:14px;padding:12px;min-height:118px;border:2px solid transparent;text-align:left;display:flex;flex-direction:column;gap:3px;color:var(--label)}
+.tg-tile.on{border-color:var(--tint)}
+.tg-tile .tg-ic{font-size:24px;line-height:1.1}.tg-tile b{font-size:15px;margin-top:4px}.tg-tile span:last-child{font-size:13px;color:var(--sec);line-height:1.3}
+.tg-row{min-height:48px}.tg-row .cell-tx b{white-space:normal}
+.tg-aus{opacity:.4}
+.tg-seg{margin:0;flex:0 0 auto}.tg-seg button{padding:6px 10px;white-space:nowrap}
+.tg-step{display:flex;align-items:center;background:var(--fill);border-radius:9px;flex:0 0 auto}
+.tg-step button{border:0;background:none;color:var(--tint);font-size:20px;width:40px;height:32px;padding:0}
+.tg-step b{min-width:28px;text-align:center;font-weight:600;font-size:15px;white-space:nowrap}
+#tgWeitere .cell{min-height:48px}
+.tg-as{position:fixed;inset:0;z-index:25;background:rgba(0,0,0,0);pointer-events:none;transition:background .25s}
+.tg-as.offen{background:rgba(0,0,0,.32);pointer-events:auto}
+.tg-as-box{position:absolute;left:8px;right:8px;bottom:calc(10px + env(safe-area-inset-bottom));max-width:620px;margin:0 auto;transform:translateY(110%);transition:transform .3s cubic-bezier(.2,.8,.2,1)}
+.tg-as.offen .tg-as-box{transform:none}
+.tg-as-grp{background:var(--sheet);border-radius:14px;overflow:hidden;margin-bottom:8px}
+.tg-as-grp button{display:block;width:100%;border:0;border-top:.5px solid var(--sep);background:none;color:var(--tint);font-size:19px;padding:14px 16px}
+.tg-as-grp button:first-of-type{border-top:0}
+.tg-as-h+button{border-top:.5px solid var(--sep)!important}
+.tg-as-grp small{display:block;font-size:13px;color:var(--sec);margin-top:2px}
+.tg-as-h{font-size:13px;color:var(--sec);text-align:center;padding:12px}
+.tg-as-c{font-weight:600}

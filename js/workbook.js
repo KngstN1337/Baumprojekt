@@ -340,6 +340,7 @@
     const wm = wb.addWorksheet(SHEET_META, { state: 'hidden' });
     [['format', 'baumprojekt-2'], ['titel', m.titel || ''], ['trainer', m.trainer || ''], ['ort', m.ort || ''], ['start', m.start], ['wochen', Number(m.wochen) || 4],
       ['kopfBehoerde', m.kopfBehoerde || ''], ['kopfOe1', m.kopfOe1 || ''], ['kopfOe2', m.kopfOe2 || ''],
+      ...(m.test ? [['test', 'ja']] : []),
       ...(m.art ? [['art', m.art], ['geruchVorlage', m.geruchVorlage || ''], ['schrittVorlage', m.schrittVorlage || '']] : [])]
       .forEach((kv, i) => { wm.getRow(i + 1).values = kv; });
 
