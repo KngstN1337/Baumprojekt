@@ -182,7 +182,7 @@
       // Am PC in der Übersicht geändert: übernehmen und gleich sauber zurückschreiben (vorher wird gesichert)
       if (course.amPcGeaendert) {
         const n = course.amPcGeaendert;
-        toast('✓ ' + n + (n > 1 ? ' Änderungen' : ' Änderung') + ' aus der Excel-Übersicht übernommen', 5000);
+        toast('✓ ' + n + (n > 1 ? ' Änderungen' : ' Änderung') + ' aus der Excel-Datei übernommen', 5000);
         modifyCourse(() => {}).then(() => { renderToday(); if (currentTeam) renderTeamNotes(); SP.renderAll(); }).catch(e => console.warn('Übernahme später erneut', e));
       }
       await loadInfo();
@@ -212,11 +212,18 @@
   // Lesen – ändern – zurückschreiben. So bleiben Änderungen, die am PC in Excel oder vom zweiten Trainer gemacht wurden, erhalten.
   // fn muss mehrfach aufrufbar sein: Hat in der Zwischenzeit jemand anderes gespeichert, wird neu eingelesen und wiederholt.
   // check prüft nach dem Speichern, ob die Änderung wirklich in der Datei steht.
+  // Kopfdaten aus den Einstellungen (Behörde, Organisationseinheit) für das Blatt „Start“
+  function kopfInKurs(c) {
+    const k = settings.kopf || {};
+    if (k.behoerde || k.oe1 || k.oe2) Object.assign(c.meta, { kopfBehoerde: k.behoerde || '', kopfOe1: k.oe1 || '', kopfOe2: k.oe2 || '' });
+  }
+  // LAFP-Logo für das Blatt „Start“ einmal laden
+  fetch('icons/logo-lafp.png').then(r => r.ok ? r.blob() : null).then(b => b && new Promise(ok => { const f = new FileReader(); f.onload = () => ok(String(f.result).split(',')[1]); f.readAsDataURL(b); })).then(b => WBK.setLogo(b)).catch(() => {});
   async function modifyCourse(fn, check) {
     for (let i = 0; i < 5; i++) {
       const rev = await store().revision(activeId);
       const c = await WBK.parse(await store().load(activeId));
-      fn(c);
+      fn(c); kopfInKurs(c);
       try { await store().save(activeId, await WBK.toBuffer(c), rev); }
       catch (e) { if (e.conflict) { await new Promise(r => setTimeout(r, 800 + Math.random() * 1500)); continue; } throw e; }
       if (check) {
@@ -684,13 +691,23 @@
     const me = myName() || 'Trainer';
     c.glossar = (c.glossar || []).filter(g => g.von !== me).concat(settings.glossar.map(g => ({ begriff: g.begriff, falsch: g.falsch || '', von: me })));
   }
+  // Notiz für das Tagesprotokoll auf die Spalten verteilen. Klappt das nicht (kein Netz, kein Schlüssel),
+  // wird trotzdem gespeichert: Die Notiz steht dann ganz unter „Beobachtungen / nächster Schritt“.
+  async function felderVon(text) {
+    if (!openaiKey()) return null;
+    busy('Ordne die Notiz dem Tagesprotokoll zu …');
+    try { return await S.aufteilen(text, { key: openaiKey(), model: settings.llmModel }); }
+    catch (e) { console.warn('Aufteilen', e); return null; }
+    finally { busy(''); }
+  }
   async function saveNote() {
     saveDraft();
     const text = job.text.trim();
     if (!text) { toast('Kein Text vorhanden.'); return; }
     if (job.editOf) return saveEdit(text);
     const teams = job.team === ALLE ? course.teams.map(t => t.name) : [job.team];
-    const neu = teams.map(team => ({ datum: job.datum, uhrzeit: job.uhrzeit, team, text, quelle: job.transcript ? 'Sprachnotiz' : 'Eingetippt', von: myName() }));
+    const felder = await felderVon(text);
+    const neu = teams.map(team => Object.assign({ datum: job.datum, uhrzeit: job.uhrzeit, team, text, quelle: job.transcript ? 'Sprachnotiz' : 'Eingetippt', von: myName() }, felder ? { felder: Object.assign({}, felder) } : {}));
     const drin = (c, n) => c.notes.some(m => m.datum === n.datum && m.uhrzeit === n.uhrzeit && m.team === n.team && m.text === n.text.trim());
     try {
       await withStore('Speichere im Lehrgang …', () => modifyCourse(c => { c.notes.push(...neu.filter(n => !drin(c, n))); glossarInKurs(c); }, c => neu.every(n => drin(c, n))));
@@ -713,11 +730,12 @@
     const alt = job.editOf;
     if (text === alt.text.trim()) { closeSheet(); return; }
     let gefunden = true;
+    const felder = await felderVon(text);
     try {
       await withStore('Speichere Änderung …', () => modifyCourse(c => {
         const n = c.notes.find(m => gleich(m, alt));
-        if (n) { n.text = text; n.quelle = (n.quelle || 'Sprachnotiz').replace(/ \(bearbeitet\)$/, '') + ' (bearbeitet)'; gefunden = true; }
-        else if (!c.notes.some(m => m.datum === alt.datum && m.uhrzeit === alt.uhrzeit && m.team === alt.team && m.text === text)) { gefunden = false; c.notes.push({ datum: alt.datum, uhrzeit: alt.uhrzeit, team: alt.team, text, quelle: 'Bearbeitet', von: myName() }); }
+        if (n) { n.text = text; if (felder) n.felder = Object.assign({}, felder); else delete n.felder; n.quelle = (n.quelle || 'Sprachnotiz').replace(/ \(bearbeitet\)$/, '') + ' (bearbeitet)'; gefunden = true; }
+        else if (!c.notes.some(m => m.datum === alt.datum && m.uhrzeit === alt.uhrzeit && m.team === alt.team && m.text === text)) { gefunden = false; c.notes.push(Object.assign({ datum: alt.datum, uhrzeit: alt.uhrzeit, team: alt.team, text, quelle: 'Bearbeitet', von: myName() }, felder ? { felder: Object.assign({}, felder) } : {})); }
       }, c => c.notes.some(m => m.datum === alt.datum && m.team === alt.team && m.text === text)));
       closeSheet();
       toast(gefunden ? '✓ Änderung gespeichert' : 'Die Notiz wurde inzwischen woanders geändert. Deine Fassung ist zusätzlich gespeichert.', gefunden ? 3000 : 6000);
@@ -1066,7 +1084,7 @@
         if (oldTitel !== meta.titel) await S.Drive.rename(activeId, meta.titel).catch(e => toast('Ordner konnte nicht umbenannt werden: ' + e.message, 5000));
       } else {
         const c = { meta, teams, notes: [], gesamt: {}, spuer: sp.spuer || { stoffe: [], schritte: [] }, zg: [] };
-        const id = await withStore('Lege Lehrgang an …', async () => store().create(meta.titel, await WBK.toBuffer(c)));
+        const id = await withStore('Lege Lehrgang an …', async () => { kopfInKurs(c); return store().create(meta.titel, await WBK.toBuffer(c)); });
         setActive(id, true); course = c; await S.KV.set('course:' + id, c);
       }
       selDate = today(); clampDate();
@@ -1097,6 +1115,7 @@
     $('#keyGuide').open = !settings.openaiKey;
     if (!settings.openaiKey) { $('#keyStatus').className = 'key-status warn'; $('#keyStatus').textContent = '⚠ Noch kein Schlüssel eingetragen.'; }
     updateDriveStatus(); renderGlossar(); SP.renderEinst();
+    document.querySelectorAll('[data-kopf]').forEach(el => { el.value = (settings.kopf || {})[el.dataset.kopf] || ''; });
   }
   function updateDriveStatus() {
     const u = S.Drive.user;
@@ -1121,7 +1140,7 @@
     if (kind !== 'busy') toast(text, 5000);
   }
   async function syncSettingsToDrive(leise) {
-    try { await S.Drive.saveSettings({ openaiKey: settings.openaiKey, sttModel: settings.sttModel, llmModel: settings.llmModel, glossar: settings.glossar, gerueche: settings.gerueche, geruchVorlagen: settings.geruchVorlagen, schrittVorlagen: settings.schrittVorlagen, aktiverLehrgang: activeId || '', ausgeblendet: settings.ausgeblendet || [] }); }
+    try { await S.Drive.saveSettings({ openaiKey: settings.openaiKey, sttModel: settings.sttModel, llmModel: settings.llmModel, glossar: settings.glossar, kopf: settings.kopf || {}, gerueche: settings.gerueche, geruchVorlagen: settings.geruchVorlagen, schrittVorlagen: settings.schrittVorlagen, aktiverLehrgang: activeId || '', ausgeblendet: settings.ausgeblendet || [] }); }
     catch (e) { if (!leise) toast('Einstellungen nur auf diesem Gerät gespeichert (Google Drive nicht erreichbar).', 5000); }
   }
   // Nach dem Login: Einstellungen aus Google Drive holen (oder dorthin übertragen, falls nur hier vorhanden)
@@ -1134,6 +1153,7 @@
       if (remote.aktiverLehrgang) setActive(remote.aktiverLehrgang); // zuletzt gewählter Lehrgang, auch von einem anderen Gerät
       if (remote.openaiKey) Object.assign(settings, { openaiKey: remote.openaiKey, sttModel: sttAktuell(remote.sttModel || settings.sttModel), llmModel: remote.llmModel || settings.llmModel });
       else if (settings.openaiKey) hochladen = true;
+      if (remote.kopf && typeof remote.kopf === 'object') settings.kopf = remote.kopf; else if (settings.kopf && Object.values(settings.kopf).some(Boolean)) hochladen = true;
       if (Array.isArray(remote.glossar)) settings.glossar = remote.glossar.filter(g => g && g.begriff);
       else if (settings.glossar.length) hochladen = true;
       SP.KEYS.forEach(k => { if (Array.isArray(remote[k])) settings[k] = remote[k]; else if (settings[k] && settings[k].length) hochladen = true; });
@@ -1289,6 +1309,7 @@
     $('#courseForm').addEventListener('click', e => { if (SP.formClick(e)) e.preventDefault(); });
     $('#courseForm').addEventListener('change', e => { if (SP.formChange(e)) return; if (e.target.name === 'wochen') { show('#wochenX', e.target.value === 'x'); if (e.target.value === 'x') $('#courseForm').wochenX.focus(); } });
     $('#downloadBtn').addEventListener('click', download);
+    $('#kopfForm').addEventListener('change', e => { const el = e.target.closest('[data-kopf]'); if (!el) return; settings.kopf = Object.assign({}, settings.kopf, { [el.dataset.kopf]: el.value.trim() }); localStorage.setItem('baumprojekt.settings', JSON.stringify(settings)); syncSettingsToDrive(true); toast('✓ Kopfdaten gespeichert', 1500); });
     $('#pdfOpen').addEventListener('click', () => PDF.open());
     $('#akteOpen').addEventListener('click', () => { SP.flush(); PDF.open(currentTeam); });
     PDF.bind();
