@@ -98,6 +98,7 @@
       };
       requestAnimationFrame(() => el.classList.add('offen'));
     }
+    if (!$('#tgBody')) return { oeffnen: () => location.reload(), auswahl: e => e[0][2]() }; // alte index.html im Cache: Start nicht abbrechen
     $('#tgBody').addEventListener('click', klick);
     $('#tgBody').addEventListener('change', schalter);
     $('#tgGo').addEventListener('click', erstellen);
