@@ -54,7 +54,7 @@
   }
   // tonPegel(stream, fft, beiProblem) → { pegel(dt) 0…1, wach(now), ende() } oder null
   function tonPegel(stream, fft, beiProblem) {
-    let c = null, an = null, q = null, g = null, kopie = null, data = null, weg = 0, flach = 0, gehoert = false, zuletzt = 0, gemeldet = false;
+    let c = null, an = null, q = null, g = null, kopie = null, data = null, weg = 0, flach = 0, gehoert = false, zuletzt = 0, gemeldet = false, lo = null, hi = null;
     const trennen = () => { [q, an, g].forEach(n => { try { n && n.disconnect(); } catch (e) { /* schon getrennt */ } }); if (kopie) kopie.stop(); q = an = g = kopie = null; };
     const verbinden = () => {
       trennen();
@@ -88,11 +88,14 @@
             else if (!gemeldet) { gemeldet = true; if (beiProblem) beiProblem(info()); }
           }
         }
-        // Lautstärke in Dezibel statt linear: Das iPhone liefert ohne Telefonfilter sehr leisen Ton, der linear kaum
-        // sichtbar ist. −58 dB (Raumrauschen) = flach, −18 dB (laut gesprochen) = voller Ausschlag.
+        // Lautstärke in Dezibel, und die Skala passt sich selbst an: unten das Raumrauschen (lo), oben das zuletzt
+        // Lauteste (hi). So schlägt die Welle bei leisem iPhone-Ton genauso deutlich aus wie bei lautem Mikrofon.
         if (!an || !sum) return 0;
         const db = 10 * Math.log10(sum / data.length);
-        return Math.max(0, Math.min(1, (db + 58) / 40));
+        lo = lo === null ? db : db < lo ? db : lo + dt * 0.003;          // Rauschen: sofort runter, langsam hoch
+        hi = hi === null ? db : db > hi ? db : hi - dt * 0.004;          // Spitze: sofort hoch, langsam runter
+        if (hi < lo + 24) hi = lo + 24;                                  // Mindestspanne, damit Rauschen flach bleibt
+        return Math.max(0, Math.min(1, (db - lo - 5) / (hi - lo - 5)));
       },
       // hängt der Kontext (z. B. nach Anruf „interrupted“), regelmäßig neu wecken
       wach(now) { if (c && c.state !== 'running' && now - zuletzt > 800) { zuletzt = now; c.resume().catch(() => {}); } },
