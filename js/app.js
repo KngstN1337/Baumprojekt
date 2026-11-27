@@ -154,7 +154,7 @@
     rohtextSichern: (aid, text) => keepTranscript(aid, text)
   });
   // Testgruppe zum Ausprobieren – eigener Baustein in js/testgruppe.js (Daten aus js/beispiel.js)
-  const TG = window.BaumprojektTestgruppe({
+  const TG = (window.BaumprojektTestgruppe || (() => ({ oeffnen: () => toast('Bitte die App neu laden.'), auswahl: e => e[0][2]() })))({
     go: v => go(v), today, trainer: () => localStorage.getItem('baumprojekt.trainer') || '',
     namen: () => courses.map(f => f.name.replace(/\.xlsx$/, '').replace(/^Lehrgang /, '')),
     kopf: () => { const k = settings.kopf || {}; return k.behoerde || k.oe1 || k.oe2 ? Object.assign({ eigene: true }, k) : { behoerde: 'Musterbehörde für Ausbildung', oe1: 'Diensthundwesen', oe2: 'Ausbildungsgruppe Test' }; },
