@@ -83,7 +83,7 @@
     if (jetzt && jetzt.id !== 'v-' + view && ungespeichert()) { verlassen(() => go(view)); return; }
     document.querySelectorAll('audio').forEach(a => { if (!a.paused) a.pause(); }); // Wiedergabe stoppt beim Seitenwechsel
     document.querySelectorAll('.view').forEach(v => show(v, v.id === 'v-' + view));
-    const tab = ['team', 'training', 'zgteam', 'notizen', 'aufnahmen'].includes(view) ? 'heute' : ['glossar', 'gerueche'].includes(view) ? 'einst' : view;
+    const tab = ['team', 'training', 'zgteam', 'notizen', 'aufnahmen'].includes(view) ? 'heute' : ['glossar', 'gerueche'].includes(view) ? 'einst' : view === 'pdf' ? PDF.tab() : view;
     document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('active', b.dataset.go === tab));
     if (view === 'heute') renderToday();
     if (view === 'lehrgang') refreshCourses();
@@ -132,6 +132,11 @@
   function initials(t) { return ((t.teilnehmer || t.name || '?').trim().split(/\s+/).map(w => w[0]).slice(0, 2).join('') || '?').toUpperCase(); }
   function avatar(t, i, cls) { return '<div class="avatar ' + (cls || '') + '" style="background:' + FARBEN[i % FARBEN.length] + '">' + esc(initials(t)) + '</div>'; }
 
+  // „PDF erstellen“ (ganzer Lehrgang oder Teilnehmerakte) – eigener Baustein in js/pdf.js
+  const PDF = window.BaumprojektPdf({
+    course: () => course, activeId: () => activeId, today, toast, busy: m => busy(m), go: v => go(v),
+    openModal: h => openModal(h), closeModal: () => closeModal()
+  });
   // Spürhund-Lehrgänge (Zielgerüche, Belohnungen, Schritte) – eigener Baustein in js/spuerhund.js
   const SP = window.BaumprojektSpuerhund({
     settings, course: () => course, activeId: () => activeId, selDate: () => selDate, today, myName, currentTeam: () => currentTeam,
@@ -1241,6 +1246,9 @@
     $('#courseForm').addEventListener('click', e => { if (SP.formClick(e)) e.preventDefault(); });
     $('#courseForm').addEventListener('change', e => { if (SP.formChange(e)) return; if (e.target.name === 'wochen') { show('#wochenX', e.target.value === 'x'); if (e.target.value === 'x') $('#courseForm').wochenX.focus(); } });
     $('#downloadBtn').addEventListener('click', download);
+    $('#pdfOpen').addEventListener('click', () => PDF.open());
+    $('#akteOpen').addEventListener('click', () => { SP.flush(); PDF.open(currentTeam); });
+    PDF.bind();
     $('#settingsForm').addEventListener('submit', saveSettings);
     $('#checkKeyBtn').addEventListener('click', () => { saveSettings(); });
     $('#logoutBtn').addEventListener('click', logout);

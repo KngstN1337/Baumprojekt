@@ -16,6 +16,9 @@ Standardmäßig öffnet Google die Anmeldung in einem Popup, das je nach Handy w
 
 Wenn etwas schiefgeht (kein Netz, Google abgemeldet), bleiben Aufnahme und Vorschau auf dem Handy gespeichert und können später erneut verarbeitet bzw. gespeichert werden.
 
+## PDF erstellen
+Unter **Lehrgänge → PDF erstellen …** (oder im Team: **Teilnehmerakte als PDF …**) wählt man aus, was ins PDF kommt: ganzer Lehrgang (Deckblatt, Teams, Tagesprotokolle, Zielgerüche-Tabelle, Zielgerüche-Kreisdiagramme; „Alles aufnehmen“ = alles) oder die Teilnehmerakte eines Teams, jeweils für alle Wochen oder eine Woche. Gestaltung „Amtlich Blau“ (#0061A7), A4 quer, Kopfzeile auf jeder Seite, so viele Seiten wie nötig. Erzeugt mit pdfmake (`vendor/`, wird erst beim ersten PDF geladen, Code in `js/pdf.js`). Danach Teilen-Menü (Handy) bzw. Download (PC); eine Kopie kommt in den Unterordner `PDF` des Lehrgangsordners.
+
 ## Ablage in Google Drive
 ```
 LTR Lehrgänge/   (früher „Baumprojekt Lehrgänge“, wird beim Anmelden nur umbenannt, gleiche Ordner-ID)
@@ -23,6 +26,7 @@ LTR Lehrgänge/   (früher „Baumprojekt Lehrgänge“, wird beim Anmelden nur 
     Lehrgang <Name>.xlsx
     Aufnahmen/     <Datum> <Uhrzeit> (xxxx) Aufnahme.webm|m4a  +  … Rohtext.txt
     Sicherungen/   Lehrgang <Name> – Sicherung <Zeitstempel>.xlsx
+    PDF/           erstellte PDFs (Lehrgang oder Teilnehmerakte)
 ```
 - Jede Aufnahme wird direkt nach dem Beenden in einer Warteschlange auf dem Gerät (IndexedDB) abgelegt und von dort nach Drive hochgeladen, noch vor der KI-Verarbeitung. Ohne Netz bleibt sie auf dem Gerät und wird beim nächsten Online-Sein, beim Öffnen der App oder alle 2 Minuten nachgeladen. Der Rohtext der Spracherkennung folgt genauso.
 - Vor jedem Überschreiben der Excel wird der bisherige Stand nach `Sicherungen` kopiert. Schlägt das fehl, wird nicht gespeichert. Die letzten 14 Tage bleiben alle Sicherungen, ältere eine pro Tag (Rest in den Drive-Papierkorb).

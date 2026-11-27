@@ -14,8 +14,8 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/icon-192.png">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-  <link rel="stylesheet" href="css/design.css?v=41">
-  <link rel="stylesheet" href="css/style.css?v=41">
+  <link rel="stylesheet" href="css/design.css?v=42">
+  <link rel="stylesheet" href="css/style.css?v=42">
 </head>
 <body class="locked">
   <section id="login" class="login">
@@ -52,6 +52,7 @@
       <div class="group akte-links"><div id="zgLink"></div>
         <button type="button" class="cell" id="notesOpen"><div class="cell-tx"><b>Notizen</b><span id="notesInfo"></span></div><svg class="chev"><use href="#i-chev"/></svg></button>
         <button type="button" class="cell" id="recsOpen"><div class="cell-tx"><b>Aufnahmen</b><span id="recsInfo"></span></div><svg class="chev"><use href="#i-chev"/></svg></button></div>
+      <div class="group"><button type="button" class="cell link-cell" id="akteOpen">Teilnehmerakte als PDF …</button></div>
     </section>
 
     <!-- Notizen eines Teams (aus der Akte geöffnet) -->
@@ -97,6 +98,7 @@
       <div class="group">
         <button class="cell link-cell" id="editCourseBtn">Aktuellen Lehrgang bearbeiten</button>
         <button class="cell link-cell" id="downloadBtn">Excel herunterladen</button>
+        <button class="cell link-cell" id="pdfOpen">PDF erstellen …</button>
         <a class="cell link-cell hidden" id="driveLink" target="_blank" rel="noopener">Ordner in Google Drive öffnen</a>
       </div>
       <div id="shareSec" class="hidden"><div class="section-h">Gemeinsam mit anderen Trainern</div>
@@ -128,6 +130,16 @@
         <button type="button" id="addTeam" class="text-btn">+ Team hinzufügen</button>
         <div class="actions"><button type="button" id="cancelCourse" class="btn-gray">Abbrechen</button><button type="submit" class="btn-filled">Speichern</button></div>
       </form>
+    </section>
+
+    <!-- PDF erstellen: Auswahl (ganzer Lehrgang oder Teilnehmerakte), js/pdf.js -->
+    <section id="v-pdf" class="view hidden">
+      <div class="navbar"><button class="nav-btn back" id="pdfBack"><svg class="chev-l"><use href="#i-back"/></svg>Lehrgänge</button><span></span></div>
+      <h1 class="large-title">PDF erstellen</h1><span class="subtitle" id="pdfSub"></span>
+      <div class="m-pad"><div class="segmented" id="pdfSeg"></div></div>
+      <div id="pdfBody"></div>
+      <p class="group-foot">A4 quer, so viele Seiten wie nötig. Danach öffnet sich das Teilen-Menü (Mail, WhatsApp, AirDrop, Dateien, Drucken). Eine Kopie landet im Lehrgangsordner in Google Drive.</p>
+      <div class="actions"><button type="button" class="btn-filled" id="pdfGo"><svg><use href="#i-share"/></svg>PDF erstellen und teilen</button></div>
     </section>
 
     <!-- Hilfe -->
@@ -399,6 +411,7 @@
   </div>
 
   <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="i-share" viewBox="0 0 24 24"><path d="M12 2l4.5 4.5-1.4 1.4L13 5.8V15h-2V5.8L8.9 7.9 7.5 6.5zM5 10h3v2H6v8h12v-8h-2v-2h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V11a1 1 0 0 1 1-1z"/></symbol>
     <symbol id="i-mic" viewBox="0 0 24 24"><path d="M12 15a4 4 0 0 0 4-4V5a4 4 0 0 0-8 0v6a4 4 0 0 0 4 4zm7-4a1 1 0 1 0-2 0 5 5 0 0 1-10 0 1 1 0 1 0-2 0 7 7 0 0 0 6 6.93V20H8.5a1 1 0 1 0 0 2h7a1 1 0 1 0 0-2H13v-2.07A7 7 0 0 0 19 11z"/></symbol>
     <symbol id="i-back" viewBox="0 0 12 20"><path d="M10 2 2 10l8 8" stroke="currentColor" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></symbol>
     <symbol id="i-pause" viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1.2"/><rect x="14" y="5" width="4" height="14" rx="1.2"/></symbol>
@@ -421,13 +434,14 @@
   <div id="busy" class="busy hidden"><div class="spinner"></div><div id="busyText">Bitte warten …</div></div>
   <div id="toast" class="toast hidden"></div>
 
-  <script src="config.js?v=41"></script>
+  <script src="config.js?v=42"></script>
   <script src="vendor/exceljs.min.js"></script>
-  <script src="js/workbook.js?v=41"></script>
-  <script src="js/services.js?v=41"></script>
-  <script src="js/vordefiniert.js?v=41"></script>
-  <script src="js/spuerhund.js?v=41"></script>
-  <script src="js/app.js?v=41"></script>
+  <script src="js/workbook.js?v=42"></script>
+  <script src="js/services.js?v=42"></script>
+  <script src="js/vordefiniert.js?v=42"></script>
+  <script src="js/spuerhund.js?v=42"></script>
+  <script src="js/pdf.js?v=42"></script>
+  <script src="js/app.js?v=42"></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 </body>
 </html>
