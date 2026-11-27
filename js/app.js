@@ -1019,12 +1019,18 @@
       : '„' + name + '“ wirklich löschen?\n\nDer ganze Lehrgangsordner (Excel-Datei, alle Aufnahmen und Sicherungen) kommt in den Papierkorb deines Google Drive. Dort kannst du ihn 30 Tage lang wiederherstellen, danach ist er endgültig weg.' + (info && info.shared ? '\n\nAchtung: Der Lehrgang ist mit einem anderen Trainer geteilt. Auch er verliert ihn.' : '');
     if (!confirm(frage)) return;
     const id = activeId;
+    // Aufnahmen dieses Lehrgangs, die noch nicht in Drive liegen, gingen beim Löschen verloren: eigens nachfragen
+    const offen = geteilt ? [] : (await S.Outbox.all()).filter(it => it.courseId === id && (it.blob || (it.transcript && !it.textId)));
+    if (offen.length && !confirm('Achtung: ' + offen.length + ' Aufnahme(n) dieses Lehrgangs sind noch nicht in Google Drive gesichert. Sie gehen beim Löschen endgültig verloren.\n\nTrotzdem löschen?')) return;
     try {
       if (geteilt) {
         settings.ausgeblendet = [...new Set([...(settings.ausgeblendet || []), id])];
         localStorage.setItem('baumprojekt.settings', JSON.stringify(settings));
       } else {
         await withStore('Verschiebe in den Papierkorb …', () => S.Drive.trashCourse(id));
+        // Warteschlange des gelöschten Lehrgangs leeren, sonst legt die Sicherung später wieder Ordner an
+        for (const it of await S.Outbox.all()) if (it.courseId === id) await S.Outbox.del(it.aid);
+        recCache = null; updateSyncInfo();
       }
       await S.KV.del('course:' + id); localStorage.removeItem('baumprojekt.folders.' + id);
       course = null; info = null; setActive('');
