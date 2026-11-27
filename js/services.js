@@ -88,7 +88,11 @@
             else if (!gemeldet) { gemeldet = true; if (beiProblem) beiProblem(info()); }
           }
         }
-        return an ? Math.min(1, Math.sqrt(sum / data.length) / 0.22) : 0;
+        // Lautstärke in Dezibel statt linear: Das iPhone liefert ohne Telefonfilter sehr leisen Ton, der linear kaum
+        // sichtbar ist. −58 dB (Raumrauschen) = flach, −18 dB (laut gesprochen) = voller Ausschlag.
+        if (!an || !sum) return 0;
+        const db = 10 * Math.log10(sum / data.length);
+        return Math.max(0, Math.min(1, (db + 58) / 40));
       },
       // hängt der Kontext (z. B. nach Anruf „interrupted“), regelmäßig neu wecken
       wach(now) { if (c && c.state !== 'running' && now - zuletzt > 800) { zuletzt = now; c.resume().catch(() => {}); } },
