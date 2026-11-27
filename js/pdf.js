@@ -222,7 +222,7 @@
     }
     // Tagesprotokolle: eine Zeile je Team und Tag, Abschnitt (neue Seite) je Woche
     function tageBlatt(nurTeam) {
-      const tl = teams().filter(t => !nurTeam || t.name === nurTeam), mitZg = spuer();
+      const tl = teams().filter(t => !nurTeam || t.name === nurTeam);
       const alle = notizen(nurTeam);
       if (!alle.length) return [...titel(nurTeam ? 'Tagesprotokolle' : 'Tagesprotokolle', zeitraumText()), leer('Im gewählten Zeitraum gibt es keine Notizen.')];
       const proWoche = new Map();
@@ -235,33 +235,29 @@
         const F = WBK.FELDER, feld = (n, k) => n.felder ? String(n.felder[k] || '').trim() : (k === 'beobachtung' ? n.text || '' : '');
         const zelle = (l, k) => { const v = l.map(n => feld(n, k)).filter(Boolean); return v.length > 1 ? v.map(x => /^\s*•/.test(x) ? x : '• ' + x).join('\n') : v[0] || ''; };
         const head = ['Datum', ...(nurTeam ? [] : ['Team'])];
-        if (spalten) head.push(...F.slice(0, 3).map(f => f[1]), ...(mitZg ? ['Belohn.'] : []), ...F.slice(3).map(f => f[1]));
-        else { head.push('Notizen'); if (mitZg) head.push('Belohnungen'); }
+        // Belohnungen stehen im PDF nicht im Tagesprotokoll (dafür gibt es die Kreisdiagramme je Team), in der Excel schon
+        if (spalten) head.push(...F.map(f => f[1]));
+        else head.push('Notizen');
         const body = [kopf(head)], neu = [];
         tage.forEach(d => {
           let erste = true;
           tl.forEach(t => {
             const l = ns.filter(n => n.datum === d && n.team === t.name); if (!l.length) return;
             if (erste) neu.push(body.length);
-            const r = [{ text: erste || nurTeam ? deKurz(d) : '', bold: true }];
+            // Datum in jeder Zeile: lange Einträge springen auf die nächste Seite
+            const r = [{ text: deKurz(d), bold: true, noWrap: true }];
             if (!nurTeam) r.push({ text: teamLabel(t), bold: true });
-            const z = stoffe().map(s => [s, zgSumme(t.name, s, d)]).filter(x => x[1]), summe = z.reduce((a, x) => a + x[1], 0);
-            if (spalten) {
-              r.push(...F.slice(0, 3).map(f => zelle(l, f[0])));
-              if (mitZg) r.push({ text: summe ? String(summe) : '', alignment: 'center' });
-              r.push(...F.slice(3).map(f => zelle(l, f[0])));
-            } else {
-              r.push(notizText(l));
-              if (mitZg) r.push(z.length ? z.map(x => x[0] + ': ' + x[1]).join('\n') + '\nGesamt: ' + summe : '–');
-            }
+            if (spalten) r.push(...F.map(f => zelle(l, f[0])));
+            else r.push(notizText(l));
             body.push(r); erste = false;
           });
         });
-        const widths = [52, ...(nurTeam ? [] : [80])];
-        if (spalten) widths.push(60, 60, '*', ...(mitZg ? [34] : []), '*', '*', '*', 70);
-        else { widths.push('*'); if (mitZg) widths.push(110); }
+        // Schmale feste Spalten für Datum, Team, Ort und Gerüche, der Rest teilt sich die Breite (Beobachtungen etwas breiter)
+        const widths = [52, ...(nurTeam ? [] : [66])];
+        if (spalten) widths.push(56, 60, '*', '*', '*', '*', 60);
+        else widths.push('*');
         const unter = WBK.isoToDe(wocheStart(w)) + ' bis ' + WBK.isoToDe(WBK.addDays(wocheStart(w), 6));
-        const teil = [...titel('Tagesprotokolle · ' + wocheText(w) + (nurTeam ? ' · ' + nurTeam : ''), unter), liste(widths, body, neu)];
+        const teil = [...titel('Tagesprotokolle · ' + wocheText(w) + (nurTeam ? ' · ' + nurTeam : ''), unter), Object.assign(liste(widths, body, neu), { fontSize: 8.5, lineHeight: 1.05 })];
         out.push(...(wi ? neueSeite(teil) : teil));
       });
       return out;
