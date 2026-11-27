@@ -14,8 +14,8 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/icon-192.png">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-  <link rel="stylesheet" href="css/design.css?v=43">
-  <link rel="stylesheet" href="css/style.css?v=43">
+  <link rel="stylesheet" href="css/design.css?v=44">
+  <link rel="stylesheet" href="css/style.css?v=44">
 </head>
 <body class="locked">
   <section id="login" class="login">
@@ -35,7 +35,8 @@
     <!-- Heute: Tag wählen, Team antippen, sprechen -->
     <section id="v-heute" class="view">
       <h1 class="large-title" id="dayTitle">Heute</h1>
-      <label class="subtitle picker" id="coursePick"><b id="courseBtn">Kein Lehrgang gewählt</b><svg><use href="#i-updown"/></svg><span class="rest" id="weekInfo"></span><select id="courseSelectTop" aria-label="Lehrgang wechseln"></select></label>
+      <label class="subtitle picker" id="coursePick"><b id="courseBtn">Kein Lehrgang gewählt</b><svg><use href="#i-updown"/></svg><select id="courseSelectTop" aria-label="Lehrgang wechseln"></select></label>
+      <div class="week-nav hidden" id="weekNav"><button type="button" class="nav-icon" id="weekPrev" aria-label="Vorherige Woche"><svg class="chev-l"><use href="#i-back"/></svg></button><div class="week-lbl"><b id="weekLbl"></b><span id="weekRange"></span></div><button type="button" class="text-btn hidden" id="weekToday">Heute</button><button type="button" class="nav-icon" id="weekNext" aria-label="Nächste Woche"><svg class="chev-r"><use href="#i-chev"/></svg></button></div>
       <div class="days" id="days"></div>
       <div class="section-h" id="teamsHead">Teams</div>
       <div class="group" id="teamList"></div>
@@ -442,14 +443,14 @@
   <div id="busy" class="busy hidden"><div class="spinner"></div><div id="busyText">Bitte warten …</div></div>
   <div id="toast" class="toast hidden"></div>
 
-  <script src="config.js?v=43"></script>
-  <script src="vendor/exceljs.min.js"></script>
-  <script src="js/workbook.js?v=43"></script>
-  <script src="js/services.js?v=43"></script>
-  <script src="js/vordefiniert.js?v=43"></script>
-  <script src="js/spuerhund.js?v=43"></script>
-  <script src="js/pdf.js?v=43"></script>
-  <script src="js/app.js?v=43"></script>
+  <script src="config.js?v=44" defer></script>
+  <script src="vendor/exceljs.min.js" defer></script>
+  <script src="js/workbook.js?v=44" defer></script>
+  <script src="js/services.js?v=44" defer></script>
+  <script src="js/vordefiniert.js?v=44" defer></script>
+  <script src="js/spuerhund.js?v=44" defer></script>
+  <script src="js/pdf.js?v=44" defer></script>
+  <script src="js/app.js?v=44" defer></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 </body>
 </html>

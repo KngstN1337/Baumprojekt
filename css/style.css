@@ -1,6 +1,6 @@
 /* LTR – seitenspezifische Gestaltung. Bausteine und Farben stehen in design.css (siehe STYLE.md). */
 /* Tageleiste */
-.days{display:flex;gap:4px;padding:0 12px 18px;overflow-x:auto;scroll-snap-type:x proximity;scrollbar-width:none}
+.days{display:flex;gap:4px;padding:0 12px 18px;overflow-x:auto;overscroll-behavior-x:contain;scroll-snap-type:x proximity;scrollbar-width:none}
 .days::-webkit-scrollbar{display:none}
 .day{flex:0 0 calc((100% - 24px)/7);min-width:44px;background:none;border:0;border-radius:12px;padding:7px 0 8px;text-align:center;scroll-snap-align:center}
 .day small{display:block;font-size:11px;font-weight:600;color:var(--sec);text-transform:uppercase;letter-spacing:.02em}
@@ -11,6 +11,15 @@
 .day.on{background:var(--fill-tint);color:#fff}.day.on small{color:rgba(255,255,255,.8)}.day.on i{background:#fff}.day.on.today b{color:#fff}
 .day.out{opacity:.45}
 .week-sep{flex:0 0 1px;background:var(--sep);margin:8px 2px}
+/* Wochen-Navigation über der Tageleiste */
+.week-nav{display:flex;align-items:center;gap:4px;padding:0 8px 8px}
+.week-nav .nav-icon{margin:0;width:32px;height:32px}.week-nav .nav-icon svg{width:9px;height:15px}
+.week-nav .nav-icon:disabled{opacity:.35;cursor:default;filter:none}
+.week-lbl{flex:1;min-width:0;padding:0 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.week-lbl b{font-size:15px;font-weight:600}.week-lbl span{font-size:15px;color:var(--sec);margin-left:8px}
+.week-nav .text-btn{padding:6px 10px}
+/* Am PC mit Maus: kein Einrasten, sonst springt die Leiste beim Mausrad zurück */
+@media (hover:hover) and (pointer:fine){.days{scroll-snap-type:none}}
 .cell.has-av+.cell::before,#teamList .cell+.cell::before{left:68px}
 .avatar.all{background:var(--fill);color:var(--tint);font-size:17px}
 .avatar.big{width:76px;height:76px;font-size:28px;margin:0 auto 10px}
@@ -152,3 +161,5 @@ body:has(#v-training:not(.hidden)) .tabs{display:none}
 .zg-such{display:flex;align-items:center;gap:8px;background:var(--fill);border-radius:10px;margin:8px 16px 14px;padding:0 12px;color:var(--sec)}.zg-such svg{width:16px;height:16px;flex:0 0 auto}
 .zg-such input{flex:1;border:0;background:none;font:inherit;font-size:17px;padding:10px 0;color:var(--label);outline:none}
 #asList{max-height:45vh;overflow:auto}.zg-add-ic{color:var(--tint);font-size:24px;font-weight:300}
+/* Seitenwechsel: kurzes, weiches Einblenden */
+@media (prefers-reduced-motion:no-preference){.view{animation:view-in .18s ease-out}@keyframes view-in{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}}
