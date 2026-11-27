@@ -1103,7 +1103,14 @@
         const oldTitel = course.meta.titel;
         await withStore('Speichere …', () => modifyCourse(c => {
           // Umbenannte Teams auch in vorhandenen Notizen umbenennen (gleiche Position in der Liste)
-          c.teams.forEach((old, i) => { if (teams[i] && old.name !== teams[i].name) [...c.notes, ...(c.zg || [])].forEach(n => { if (n.team === old.name) n.team = teams[i].name; }); });
+          // Umbenannte Teams überall mitziehen, wo der Teamname als Schlüssel dient: Notizen, Belohnungen, Gesamteindruck, Wochenberichte
+          const um = new Map(); c.teams.forEach((old, i) => { if (teams[i] && old.name !== teams[i].name) um.set(old.name, teams[i].name); });
+          if (um.size) {
+            [...c.notes, ...(c.zg || [])].forEach(n => { if (um.has(n.team)) n.team = um.get(n.team); });
+            const schluessel = o => { if (!o) return o; const neu = {}; Object.keys(o).forEach(k => { neu[um.has(k) ? um.get(k) : k] = o[k]; }); return neu; };
+            c.gesamt = schluessel(c.gesamt);
+            Object.values(c.wochenberichte || {}).forEach(b => { if (b) b.teams = schluessel(b.teams); });
+          }
           c.meta = meta; c.teams = teams;
           if (sp.spuer) c.spuer = sp.spuer;
         }));
