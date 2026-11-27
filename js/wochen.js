@@ -215,6 +215,7 @@
     async function diktatStart(nur) {
       if (!ctx.openaiKey()) return ctx.toast('Zum Einsprechen wird der OpenAI-Schlüssel gebraucht (Einstellungen).', 5000);
       if (rec) return;
+      S.tonKontext(); // noch im Tipp wecken, sonst bleibt die Welle auf dem iPhone flach
       try { stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: false, noiseSuppression: false, autoGainControl: true } }); }
       catch (e) { return ctx.toast('Kein Zugriff aufs Mikrofon: ' + e.message, 5000); }
       const ks = nur ? nur.split(',') : null; einzeln = !!ks;
@@ -257,7 +258,7 @@
     }
     function beenden() {
       clearInterval(timer); cancelAnimationFrame(raf);
-      if (actx) { actx.close().catch(() => {}); actx = null; }
+      if (actx) { actx.ende(); actx = null; }
       if (wake) { wake.release().catch(() => {}); wake = null; }
       if (rec && rec.state !== 'inactive') rec.stop();
       if (stream) stream.getTracks().forEach(t => t.stop());
@@ -282,12 +283,13 @@
     function welle() {
       const cv = $('#wdWave'), g = cv.getContext('2d'), rot = getComputedStyle(document.documentElement).getPropertyValue('--red').trim() || '#ff3b30', dpr = global.devicePixelRatio || 1;
       cv.width = Math.round(cv.clientWidth * dpr) || 600; cv.height = Math.round(cv.clientHeight * dpr) || 80;
-      try { actx = new (global.AudioContext || global.webkitAudioContext)(); an = actx.createAnalyser(); an.fftSize = 1024; actx.createMediaStreamSource(stream).connect(an); if (actx.state === 'suspended') actx.resume().catch(() => {}); } catch (e) { an = null; }
+      actx = S.tonPegel(stream, 1024); an = actx && actx.analyser;
       const d = new Uint8Array(an ? an.fftSize : 1), STEP = 9 * dpr, BAR = 3 * dpr, n = Math.ceil(cv.width / STEP) + 2, bars = new Array(n).fill(0);
       let lvl = 0, off = 0, last = performance.now();
       const loop = now => {
         raf = requestAnimationFrame(loop);
         const dt = Math.min(64, now - last); last = now; let z = 0;
+        if (actx) actx.wach(now);
         if (!pausiert && an) { an.getByteTimeDomainData(d); let q = 0; for (let i = 0; i < d.length; i++) { const v = d[i] - 128; q += v * v; } z = Math.min(1, Math.sqrt(q / d.length) / 28); }
         lvl += (z - lvl) * Math.min(1, dt / 60);
         if (!pausiert) { off += dt * 0.06 * dpr; while (off >= STEP) { off -= STEP; bars.push(lvl); bars.shift(); } }
