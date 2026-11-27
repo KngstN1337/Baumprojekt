@@ -160,6 +160,86 @@
     try { const id = wb.addImage({ base64: LOGO, extension: 'png' }); ws.addImage(id, { tl: { col: spalte, row: 0.2 }, ext: { width: 230, height: 78 }, editAs: 'oneCell' }); } catch (e) { /* ohne Logo weiter */ }
   }
 
+  // ---------- Wochenberichte (je Lehrgangswoche ein Reiter „Wochenbericht KW nn“) ----------
+  // Das Blatt selbst ist die Datenquelle: Was am PC geändert wird, liest die App beim nächsten Öffnen wieder ein.
+  function isoKW(iso) { const d = isoToDate(iso); const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())); const wd = t.getUTCDay() || 7; t.setUTCDate(t.getUTCDate() + 4 - wd); const y0 = new Date(Date.UTC(t.getUTCFullYear(), 0, 1)); return Math.ceil(((t - y0) / 86400000 + 1) / 7); }
+  const WB_ABSCHNITTE = [['inhalte', '1 | Ausbildungsinhalte / Schwerpunkte'], ['ueberblick', '2 | Gesamtüberblick der Ausbilder'], ['gesamt', '4 | Gesamtbewertung der Ausbildungsgruppe'], ['hinweise', '5 | Hinweise für die Ausbildungsgruppe']];
+  const WB_TEAM = [['fortschritte', 'Fortschritte'], ['defizite', 'Auffälligkeiten / Defizite'], ['foerderung', 'Fördermaßnahmen / nächste Schritte'], ['bewertung', 'Ausbilderbewertung'], ['hinweise', 'Hinweise'], ['bemerkungen', 'Bemerkungen / Wissenswertes']];
+  const WB_TEAMKOPF = '3 | Individuelle Entwicklung der Mensch-Hund-Teams';
+  const wocheStart = (m, w) => addDays(m.start, (w - 1) * 7);
+  // Tage mit Notizen eines Teams in einer Woche (= dokumentierte Einheiten)
+  function einheiten(course, team, w) {
+    const a = wocheStart(course.meta, w), b = addDays(a, 6);
+    return new Set(course.notes.filter(n => n.team === team && n.datum >= a && n.datum <= b).map(n => n.datum)).size;
+  }
+  function buildWochen(wb, course, teams) {
+    const m = course.meta, wbs = course.wochenberichte || {};
+    Object.keys(wbs).map(Number).filter(w => w > 0).sort((a, b) => a - b).forEach(w => {
+      const b = wbs[w] || {}, a = wocheStart(m, w), kw = isoKW(a);
+      const ws = wb.addWorksheet('Wochenbericht KW ' + String(kw).padStart(2, '0'), { views: [{ showGridLines: false }] });
+      const N = 8, breite = [26, 16, 30, 30, 30, 17, 24, 24];
+      breite.forEach((x, i) => { ws.getColumn(i + 1).width = x; });
+      titelZeilen(ws, 'LTR | GEMEINSAMER INTERNER WOCHENBERICHT', 'Von LTR aus den Tagesprotokollen der Woche vorgeschlagen · vom Trainer geprüft und änderbar', N);
+      ws.getRow(3).height = 30;
+      logoRein(wb, ws, 6.2);
+      const kopf = [['Dienststelle', m.kopfBehoerde || '–', 'Organisationseinheit', [m.kopfOe1, m.kopfOe2].filter(Boolean).join(' – ') || '–'], ['Trainer', m.trainer || '–', 'Lehrgangswoche', w + '. Lehrgangswoche'],
+        ['Kalenderwoche', kw + '. KW', 'Zeitraum', isoToDe(a) + ' bis ' + isoToDe(addDays(a, 6))]];
+      kopf.forEach((k, i) => {
+        const r = 4 + i, row = ws.getRow(r);
+        ws.mergeCells(r, 2, r, 3); ws.mergeCells(r, 5, r, 6);
+        [[1, k[0], true], [2, k[1]], [4, k[2], true], [5, k[3]]].forEach(([c, v, lab]) => {
+          const cell = row.getCell(c); cell.value = v; cell.font = fnt(lab ? { bold: true } : {});
+          if (lab) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: A2.label } };
+          cell.alignment = { vertical: 'top', wrapText: true, indent: 1 };
+        });
+        [1, 2, 3, 4, 5, 6].forEach(c => { row.getCell(c).border = { left: seite('thin'), right: seite('thin'), top: seite('thin'), bottom: seite('thin') }; });
+      });
+      let r = 8;
+      const balken = text => { ws.mergeCells(r, 1, r, N); const c = ws.getCell(r, 1); c.value = text; c.font = fnt({ bold: true, size: 11, color: { argb: 'FFFFFFFF' } }); c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: A2.blau } }; c.alignment = { vertical: 'middle', indent: 1 }; ws.getRow(r).height = 20; r++; };
+      const absatz = text => { ws.mergeCells(r, 1, r, N); const c = ws.getCell(r, 1); c.value = text || ''; c.font = fnt(); c.alignment = { wrapText: true, vertical: 'top', indent: 1 }; ws.getRow(r).height = Math.max(18, Math.min(409, lineCount(text, 190) * 13 + 6)); r += 2; };
+      const ab = b.abschnitte || {};
+      WB_ABSCHNITTE.slice(0, 2).forEach(([k, t]) => { balken(t); absatz(ab[k]); });
+      balken(WB_TEAMKOPF);
+      kopfZeile(ws.getRow(r), ['Team', 'Dokumentierte\nEinheiten', ...WB_TEAM.map(x => x[1])]); r++;
+      teams.forEach((t, i) => {
+        const tb = (b.teams || {})[t.name] || {}, row = ws.getRow(r++);
+        const n = einheiten(course, t.name, w);
+        row.values = [t.name + (t.behoerde ? ', ' + t.behoerde : ''), n + (n === 1 ? ' Tagesprotokoll' : ' Tagesprotokolle'), ...WB_TEAM.map(([k]) => tb[k] || '')];
+        row.getCell(1).font = { bold: true };
+        datenZeile(row, N, i % 2 === 1, false, [2, 6]);
+        hoehe(row, breite);
+      });
+      r++;
+      WB_ABSCHNITTE.slice(2).forEach(([k, t]) => { balken(t); absatz(ab[k]); });
+      druck(ws, 0, 'Wochenbericht KW ' + kw);
+    });
+  }
+  function parseWochen(wb, course, teams) {
+    course.wochenberichte = {};
+    const s = c => String(cellText(c.value) == null ? '' : cellText(c.value)).trim();
+    wb.worksheets.filter(ws => /^Wochenbericht KW/.test(ws.name)).forEach(ws => {
+      let w = 0;
+      for (let r = 4; r <= 7; r++) { const row = ws.getRow(r); if (s(row.getCell(4)) === 'Lehrgangswoche') w = parseInt(s(row.getCell(5)), 10) || 0; }
+      if (!w) return;
+      const b = { abschnitte: {}, teams: {} };
+      let modus = '', spalten = null;
+      for (let r = 8; r <= ws.rowCount; r++) {
+        const row = ws.getRow(r), a = s(row.getCell(1));
+        const ab = WB_ABSCHNITTE.find(x => x[1] === a);
+        if (ab) { modus = ab[0]; continue; }
+        if (a === WB_TEAMKOPF) { modus = 'teams'; spalten = null; continue; }
+        if (modus === 'teams') {
+          if (!spalten) { if (a === 'Team') { spalten = {}; row.eachCell((c, k) => { const h = s(c).replace(/\s+/g, ' '); const f = WB_TEAM.find(x => x[1] === h); if (f) spalten[f[0]] = k; }); } continue; }
+          if (!a) { modus = ''; continue; }
+          const tm = teams.find(t => a === t.name || a.indexOf(t.name + ',') === 0); if (!tm) continue;
+          const tb = {}; Object.keys(spalten).forEach(k => { tb[k] = s(row.getCell(spalten[k])); });
+          b.teams[tm.name] = tb;
+        } else if (modus && a && !b.abschnitte[modus]) { b.abschnitte[modus] = a; }
+      }
+      course.wochenberichte[w] = b;
+    });
+  }
+
   // ---------- Schreiben ----------
   function build(course) {
     const wb = new ExcelJS.Workbook();
@@ -242,6 +322,7 @@
     wp.autoFilter = { from: { row: 4, column: 1 }, to: { row: Math.max(4, r - 1), column: PC.length } };
     druck(wp, 4, 'Tagesprotokolle');
 
+    buildWochen(wb, course, teams);
     buildSpuer(wb, course, teams, days);
 
     // Notizen (Rohdaten): jede Notiz eine Zeile, mit den aufgeteilten Feldern
@@ -591,12 +672,13 @@
         if (name && g) course.gesamt[name] = g;
       });
     }
+    parseWochen(wb, course, course.teams);
     parseSpuer(wb, course);
     course.amPcGeaendert = wb.getWorksheet(SHEET_STAND_TP) ? applyTpEdits(wb, course) : applyOverviewEdits(wb, course);
     if (!course.meta.start) course.meta.start = course.notes.length ? sortNotes(course.notes)[0].datum : dateToIso(new Date());
     return course;
   }
 
-  const api = { FELDER, setLogo: b => { LOGO = b || null; }, zgSumme, zgSchritt, build, toBuffer, parse, teamName, courseDays, sortNotes, isoToDe, dateToIso, addDays, dayIndex, weekday };
+  const api = { FELDER, WB_ABSCHNITTE, WB_TEAM, isoKW, einheiten, setLogo: b => { LOGO = b || null; }, zgSumme, zgSchritt, build, toBuffer, parse, teamName, courseDays, sortNotes, isoToDe, dateToIso, addDays, dayIndex, weekday };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else global.BaumprojektWorkbook = api;
 })(typeof window !== 'undefined' ? window : globalThis);

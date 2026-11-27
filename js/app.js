@@ -62,16 +62,17 @@
     const f = $('#settingsForm'); if ($('#v-einst').classList.contains('hidden')) return false;
     return f.openaiKey.value.trim() !== (settings.openaiKey || '') || (f.sttModel.value.trim() || CFG.sttModel) !== settings.sttModel || (f.llmModel.value.trim() || CFG.llmModel) !== settings.llmModel;
   }
-  function ungespeichert() { return kursGeaendert() ? 'kurs' : einstGeaendert() ? 'einst' : ''; }
+  function ungespeichert() { return kursGeaendert() ? 'kurs' : einstGeaendert() ? 'einst' : WO.geaendert() ? 'woche' : ''; }
   // weiter() läuft sofort, wenn nichts offen ist; sonst erst nach „Speichern“ (erfolgreich) oder „Verwerfen“
   function verlassen(weiter) {
     const was = ungespeichert(); if (!was) { weiter(); return; }
-    openModal('<h3>Änderungen speichern?</h3><p class="modal-sub">' + (was === 'kurs' ? 'Du hast den Lehrgang geändert, aber noch nicht gespeichert.' : 'Du hast die Einstellungen geändert, aber noch nicht gespeichert.') + ' Wenn du die Seite verlässt, gehen die Änderungen verloren.</p>' +
+    openModal('<h3>Änderungen speichern?</h3><p class="modal-sub">' + (was === 'kurs' ? 'Du hast den Lehrgang geändert, aber noch nicht gespeichert.' : was === 'woche' ? 'Du hast den Wochenbericht geändert, aber noch nicht gesichert.' : 'Du hast die Einstellungen geändert, aber noch nicht gespeichert.') + ' Wenn du die Seite verlässt, gehen die Änderungen verloren.</p>' +
       '<div class="actions"><button class="btn-gray" id="lvVerwerfen">Verwerfen</button><button class="btn-filled" id="lvSpeichern">Speichern</button></div><button class="text-btn" data-m="close" style="display:block;margin:6px auto 0">Abbrechen</button>');
-    $('#lvVerwerfen').onclick = () => { closeModal(); if (was === 'kurs') { show('#courseForm', false); kursStand = null; } else fillSettings(); weiter(); };
+    $('#lvVerwerfen').onclick = () => { closeModal(); if (was === 'kurs') { show('#courseForm', false); kursStand = null; } else if (was === 'woche') WO.verwerfen(); else fillSettings(); weiter(); };
     $('#lvSpeichern').onclick = async () => {
       closeModal();
       if (was === 'kurs') { await submitCourse({ preventDefault() {}, target: $('#courseForm') }); if (kursGeaendert()) return; }
+      else if (was === 'woche') { await WO.speichern(); if (WO.geaendert()) return; }
       else saveSettings();
       weiter();
     };
@@ -83,10 +84,11 @@
     if (jetzt && jetzt.id !== 'v-' + view && ungespeichert()) { verlassen(() => go(view)); return; }
     document.querySelectorAll('audio').forEach(a => { if (!a.paused) a.pause(); }); // Wiedergabe stoppt beim Seitenwechsel
     document.querySelectorAll('.view').forEach(v => show(v, v.id === 'v-' + view));
-    const tab = ['team', 'training', 'zgteam', 'notizen', 'aufnahmen'].includes(view) ? 'heute' : ['glossar', 'gerueche'].includes(view) ? 'einst' : view === 'pdf' ? PDF.tab() : view;
+    const tab = ['team', 'training', 'zgteam', 'notizen', 'aufnahmen'].includes(view) ? 'heute' : ['glossar', 'gerueche'].includes(view) ? 'einst' : view === 'pdf' ? PDF.tab() : ['wochen', 'woche'].includes(view) ? 'lehrgang' : view;
     document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('active', b.dataset.go === tab));
     if (view === 'heute') renderToday();
     if (view === 'lehrgang') refreshCourses();
+    if (view === 'wochen') WO.renderListe();
     if (view === 'einst') fillSettings();
     if (view === 'glossar') renderGlossar();
     if (view === 'gerueche') SP.renderGerueche();
@@ -136,6 +138,11 @@
   const PDF = window.BaumprojektPdf({
     course: () => course, activeId: () => activeId, today, toast, busy: m => busy(m), go: v => go(v),
     openModal: h => openModal(h), closeModal: () => closeModal()
+  });
+  // Wochenberichte je Lehrgangswoche – eigener Baustein in js/wochen.js
+  const WO = window.BaumprojektWochen({
+    course: () => course, toast, busy: m => busy(m), go: v => go(v), openaiKey: () => openaiKey(), llmModel: () => settings.llmModel,
+    withStore: (l, f) => withStore(l, f), modifyCourse: (f, c) => modifyCourse(f, c)
   });
   // Spürhund-Lehrgänge (Zielgerüche, Belohnungen, Schritte) – eigener Baustein in js/spuerhund.js
   const SP = window.BaumprojektSpuerhund({
@@ -1313,6 +1320,7 @@
     $('#pdfOpen').addEventListener('click', () => PDF.open());
     $('#akteOpen').addEventListener('click', () => { SP.flush(); PDF.open(currentTeam); });
     PDF.bind();
+    WO.bind();
     $('#settingsForm').addEventListener('submit', saveSettings);
     $('#checkKeyBtn').addEventListener('click', () => { saveSettings(); });
     $('#logoutBtn').addEventListener('click', logout);
