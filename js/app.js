@@ -554,7 +554,7 @@
   }
 
   // Aufnahme mit Tonwelle, Pause und Weiter-Aufnehmen
-  let rec = null, chunks = [], recTimer = null, wakeLock = null, audioCtx = null, analyser = null, raf = 0, cancelled = false;
+  let rec = null, chunks = [], recTimer = null, wakeLock = null, audioCtx = null, raf = 0, cancelled = false;
   let elapsed = 0, runStart = 0, paused = false; // Aufnahmezeit ohne Pausen
   const recSeconds = () => Math.floor((elapsed + (paused ? 0 : Date.now() - runStart)) / 1000);
   // append = true: an die bestehende Notiz anhängen (nach „Fertig“ weiter aufnehmen)
@@ -615,8 +615,7 @@
     const cv = $('#wave'), g = cv.getContext('2d'), red = getComputedStyle(document.documentElement).getPropertyValue('--red').trim() || '#ff3b30';
     const dpr = window.devicePixelRatio || 1;
     cv.width = Math.round(cv.clientWidth * dpr) || 600; cv.height = Math.round(cv.clientHeight * dpr) || 112;
-    audioCtx = S.tonPegel(stream, 1024); analyser = audioCtx && audioCtx.analyser;
-    const data = new Uint8Array(analyser ? analyser.fftSize : 1);
+    audioCtx = S.tonPegel(stream, 1024, info => { console.warn('Tonanzeige', info); toast(S.PEGEL_HINWEIS + ' (' + info + ')', 8000); });
     const STEP = 9 * dpr, BAR = 3 * dpr, SPEED = 0.06; // Balkenabstand, -breite, Pixel pro ms
     const n = Math.ceil(cv.width / STEP) + 2, bars = new Array(n).fill(0);
     let level = 0, offset = 0, last = performance.now();
@@ -625,7 +624,7 @@
       const dt = Math.min(64, now - last); last = now;
       if (audioCtx) audioCtx.wach(now);
       let target = 0;
-      if (!paused && analyser) { analyser.getByteTimeDomainData(data); let sum = 0; for (let i = 0; i < data.length; i++) { const v = data[i] - 128; sum += v * v; } target = Math.min(1, Math.sqrt(sum / data.length) / 28); }
+      if (!paused && audioCtx) target = audioCtx.pegel(dt);
       level += (target - level) * Math.min(1, dt / 60);
       if (!paused) { offset += dt * SPEED * dpr; while (offset >= STEP) { offset -= STEP; bars.push(level); bars.shift(); } }
       const w = cv.width, h = cv.height, mid = h / 2;

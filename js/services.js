@@ -39,30 +39,62 @@
     const j = await res.json();
     return (j.text || '').trim();
   }
-  // Tonpegel für die rote Welle. iOS lässt Ton nur anlaufen, wenn das direkt im Tipp passiert (nicht erst nach der
-  // Mikrofon-Freigabe), und kennt nur wenige gleichzeitige Audio-Kontexte. Deshalb: EIN gemeinsamer Kontext, der im Tipp
-  // geweckt und nie geschlossen wird. Die Aufnahme selbst hängt nicht davon ab, nur die Anzeige.
+  // Tonpegel für die rote Welle. Nur Anzeige: Die Aufnahme (MediaRecorder) hängt nie davon ab.
+  // iOS ist hier eigen: Der Kontext muss im Tipp geweckt werden, der Ton-Graph muss bis zum Ausgang verbunden sein
+  // (sonst rechnet Safari nicht), und manchmal liefert die Quelle trotzdem nur Nullen. Deshalb probiert die Anzeige
+  // nacheinander mehrere Wege, solange am Stück exakt nichts ankommt (echtes Mikrofon rauscht immer ein wenig).
+  const AC = () => global.AudioContext || global.webkitAudioContext;
   let tonCtx = null;
-  function tonKontext() {
-    const AC = global.AudioContext || global.webkitAudioContext;
-    if (!AC) return null;
-    if (!tonCtx || tonCtx.state === 'closed') { try { tonCtx = new AC(); } catch (e) { tonCtx = null; return null; } }
+  function tonKontext(frisch) {
+    if (!AC()) return null;
+    if (frisch && tonCtx) { tonCtx.close().catch(() => {}); tonCtx = null; }
+    if (!tonCtx || tonCtx.state === 'closed') { try { tonCtx = new (AC())(); } catch (e) { tonCtx = null; return null; } }
     if (tonCtx.state !== 'running') tonCtx.resume().catch(() => {});
     return tonCtx;
   }
-  // Mikrofon an den Pegelmesser hängen. Gibt { analyser, ende } zurück (ende trennt wieder, ohne den Kontext zu schließen).
-  function tonPegel(stream, fft) {
-    const c = tonKontext(); if (!c) return null;
-    try {
-      const an = c.createAnalyser(); an.fftSize = fft || 1024; an.smoothingTimeConstant = 0.6;
-      const q = c.createMediaStreamSource(stream); q.connect(an);
-      let zuletzt = 0;
-      return { analyser: an, ctx: c,
-        // im Zeichen-Takt aufrufen: hängt der Kontext (z. B. nach Anruf „interrupted“), regelmäßig neu wecken
-        wach(now) { if (c.state !== 'running' && now - zuletzt > 800) { zuletzt = now; c.resume().catch(() => {}); } },
-        ende() { try { q.disconnect(); an.disconnect(); } catch (e) { /* schon getrennt */ } } };
-    } catch (e) { return null; }
+  // tonPegel(stream, fft, beiProblem) → { pegel(dt) 0…1, wach(now), ende() } oder null
+  function tonPegel(stream, fft, beiProblem) {
+    let c = null, an = null, q = null, g = null, kopie = null, data = null, weg = 0, flach = 0, gehoert = false, zuletzt = 0, gemeldet = false;
+    const trennen = () => { [q, an, g].forEach(n => { try { n && n.disconnect(); } catch (e) { /* schon getrennt */ } }); if (kopie) kopie.stop(); q = an = g = kopie = null; };
+    const verbinden = () => {
+      trennen();
+      c = tonKontext(weg > 0); if (!c) return;
+      try {
+        an = c.createAnalyser(); an.fftSize = fft || 1024; an.smoothingTimeConstant = 0.6;
+        let s = stream;
+        if (weg >= 2) { kopie = stream.getAudioTracks()[0].clone(); s = new MediaStream([kopie]); }
+        q = c.createMediaStreamSource(s); q.connect(an);
+        g = c.createGain(); g.gain.value = 0; an.connect(g); g.connect(c.destination); // stumm bis zum Ausgang
+        data = new Float32Array(an.fftSize);
+      } catch (e) { an = null; }
+    };
+    verbinden();
+    if (!c) return null;
+    const info = () => 'Weg ' + (weg + 1) + ', ' + (c ? c.state + ', ' + c.sampleRate + ' Hz' : 'kein Kontext') + ', Spur ' + ((stream.getAudioTracks()[0] || {}).readyState || '–') + ((stream.getAudioTracks()[0] || {}).muted ? ' stumm' : '');
+    return {
+      info,
+      pegel(dt) {
+        if (!an) return 0;
+        if (an.getFloatTimeDomainData) an.getFloatTimeDomainData(data);
+        else { const b = new Uint8Array(data.length); an.getByteTimeDomainData(b); for (let i = 0; i < b.length; i++) data[i] = (b[i] - 128) / 128; }
+        let sum = 0, null_ = true;
+        for (let i = 0; i < data.length; i++) { const v = data[i]; if (v !== 0) null_ = false; sum += v * v; }
+        if (!gehoert && c.state === 'running') {
+          if (!null_) gehoert = true;
+          else if ((flach += dt) > 1500) {
+            flach = 0;
+            if (weg < 2) { weg++; verbinden(); }
+            else if (!gemeldet) { gemeldet = true; if (beiProblem) beiProblem(info()); }
+          }
+        }
+        return Math.min(1, Math.sqrt(sum / data.length) / 0.22);
+      },
+      // hängt der Kontext (z. B. nach Anruf „interrupted“), regelmäßig neu wecken
+      wach(now) { if (c && c.state !== 'running' && now - zuletzt > 800) { zuletzt = now; c.resume().catch(() => {}); } },
+      ende() { trennen(); }
+    };
   }
+  const PEGEL_HINWEIS = 'Die Tonanzeige funktioniert auf diesem Gerät gerade nicht. Die Aufnahme läuft trotzdem, sprich ruhig weiter.';
   // Kontext für die Spracherkennung: ein kurzer, korrekt geschriebener Vortext mit allen Namen und Fachwörtern des Lehrgangs.
   // So schreibt die Erkennung „Detlef“, „Semtex“ oder „Malinois“ richtig, statt ähnlich klingende Wörter zu raten.
   function sttHinweis(teams, glossar, stoffe) {
@@ -650,5 +682,5 @@
     });
   }
 
-  global.BaumprojektServices = { tonKontext, tonPegel, glossarHinweis, sttHinweis, splitPunkte, alsStichpunkte, pick, transcribe, assign, formulate, aufteilen, wochenbericht, wochenDiktat, STILE, Drive, KV, Outbox, KATEGORIEN, XLSX_MIME };
+  global.BaumprojektServices = { tonKontext, tonPegel, PEGEL_HINWEIS, glossarHinweis, sttHinweis, splitPunkte, alsStichpunkte, pick, transcribe, assign, formulate, aufteilen, wochenbericht, wochenDiktat, STILE, Drive, KV, Outbox, KATEGORIEN, XLSX_MIME };
 })(window);
