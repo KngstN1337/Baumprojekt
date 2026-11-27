@@ -14,8 +14,8 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/icon-192.png">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-  <link rel="stylesheet" href="css/design.css?v=44">
-  <link rel="stylesheet" href="css/style.css?v=44">
+  <link rel="stylesheet" href="css/design.css?v=45">
+  <link rel="stylesheet" href="css/style.css?v=45">
 </head>
 <body class="locked">
   <section id="login" class="login">
@@ -100,6 +100,7 @@
         <button class="cell link-cell" id="editCourseBtn">Aktuellen Lehrgang bearbeiten</button>
         <button class="cell link-cell" id="downloadBtn">Excel herunterladen</button>
         <button class="cell link-cell" id="pdfOpen">PDF erstellen …</button>
+        <button class="cell link-cell" id="wbOpen">Wochenberichte …</button>
         <a class="cell link-cell hidden" id="driveLink" target="_blank" rel="noopener">Ordner in Google Drive öffnen</a>
       </div>
       <div id="shareSec" class="hidden"><div class="section-h">Gemeinsam mit anderen Trainern</div>
@@ -143,6 +144,19 @@
       <div class="actions"><button type="button" class="btn-filled" id="pdfGo"><svg><use href="#i-share"/></svg>PDF erstellen und teilen</button></div>
     </section>
 
+    <!-- Wochenberichte: Liste der Wochen und Bericht bearbeiten (js/wochen.js) -->
+    <section id="v-wochen" class="view hidden">
+      <div class="navbar"><button class="nav-btn back" id="wbBack"><svg class="chev-l"><use href="#i-back"/></svg>Lehrgänge</button><span></span></div>
+      <h1 class="large-title">Wochenberichte</h1><span class="subtitle" id="wbSub"></span>
+      <div class="group" id="wbList"></div>
+      <p class="group-foot">Je Woche ein Bericht. LTR schlägt ihn aus den Tagesprotokollen vor, du prüfst und änderst ihn. In der Excel-Datei steht jeder Bericht in einem eigenen Reiter „Wochenbericht KW …“, dort kannst du ihn auch am PC ändern.</p>
+    </section>
+    <section id="v-woche" class="view hidden">
+      <div class="navbar"><button class="nav-btn back" id="wbWoBack"><svg class="chev-l"><use href="#i-back"/></svg>Wochen</button><button class="nav-btn" id="wbSave">Sichern</button></div>
+      <h1 class="large-title" id="wbTitle">Woche</h1><span class="subtitle" id="wbWoSub"></span>
+      <div id="wbBody"></div>
+    </section>
+
     <!-- Hilfe -->
     <section id="v-hilfe" class="view hidden help">
       <h1 class="large-title">Hilfe</h1>
@@ -176,7 +190,7 @@
           <li><b>Sicherungen</b> – vor jedem Speichern legt die App eine Kopie des bisherigen Stands der Excel-Datei ab. Die letzten 14 Tage bleiben alle Kopien, ältere eine pro Tag.</li>
         </ul>
         <p>Unter Lehrgänge kannst du die Excel herunterladen oder den Ordner in Google Drive öffnen.</p>
-        <p>Die Datei hat diese Blätter: <b>Start</b> (Kopfdaten aus den Einstellungen, Lehrgang, Bewertungsskala), <b>Teams</b> (mit Spalte „Gesamteindruck“), <b>Tagesprotokolle</b> (eine Zeile je Team und Tag, dicke Linie bei jedem neuen Tag), bei Spürhund-Lehrgängen <b>Zielgerüche</b>, und <b>Notizen (Rohdaten)</b> (jede Notiz eine Zeile). Gedruckt wird alles quer, auf Seitenbreite und über so viele Seiten wie nötig.</p>
+        <p>Die Datei hat diese Blätter: <b>Start</b> (Kopfdaten aus den Einstellungen, Lehrgang, Bewertungsskala), <b>Teams</b> (mit Spalte „Gesamteindruck“), <b>Tagesprotokolle</b> (eine Zeile je Team und Tag, dicke Linie bei jedem neuen Tag), je Woche ein Reiter <b>Wochenbericht KW …</b> (unter Lehrgänge → Wochenberichte von LTR vorgeschlagen und von dir geprüft, auch am PC änderbar), bei Spürhund-Lehrgängen <b>Zielgerüche</b>, und <b>Notizen (Rohdaten)</b> (jede Notiz eine Zeile). Gedruckt wird alles quer, auf Seitenbreite und über so viele Seiten wie nötig.</p>
         <p><b>Tagesprotokoll:</b> Beim Speichern ordnet die App jede Notiz den Spalten zu: Trainingsort, Zielgerüche, Trainingsinhalt / Aufbau, Motivation, Anzeigeverhalten, Beobachtungen / nächster Schritt und Bemerkungen. Dein Wortlaut bleibt dabei erhalten. Sagst du eine Schulnote („Motivation sehr gut“), steht darunter „Bewertung: sehr gut“. Ohne Note bleibt die Bewertung weg. Ältere Notizen stehen ganz unter „Beobachtungen“.</p>
         <p><b>Am Windows-PC:</b> Mit dem Programm „Google Drive für Desktop“ erscheint dein Drive als Laufwerk (z. B. G:). Dort die Datei direkt mit Excel öffnen.</p>
       </details>
@@ -443,14 +457,14 @@
   <div id="busy" class="busy hidden"><div class="spinner"></div><div id="busyText">Bitte warten …</div></div>
   <div id="toast" class="toast hidden"></div>
 
-  <script src="config.js?v=44" defer></script>
+  <script src="config.js?v=45" defer></script>
   <script src="vendor/exceljs.min.js" defer></script>
-  <script src="js/workbook.js?v=44" defer></script>
-  <script src="js/services.js?v=44" defer></script>
-  <script src="js/vordefiniert.js?v=44" defer></script>
-  <script src="js/spuerhund.js?v=44" defer></script>
-  <script src="js/pdf.js?v=44" defer></script>
-  <script src="js/app.js?v=44" defer></script>
+  <script src="js/workbook.js?v=45" defer></script>
+  <script src="js/services.js?v=45" defer></script>
+  <script src="js/vordefiniert.js?v=45" defer></script>
+  <script src="js/spuerhund.js?v=45" defer></script>
+  <script src="js/pdf.js?v=45" defer></script>
+  <script src="js/app.js?v=45" defer></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 </body>
 </html>

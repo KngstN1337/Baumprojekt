@@ -163,3 +163,7 @@ body:has(#v-training:not(.hidden)) .tabs{display:none}
 #asList{max-height:45vh;overflow:auto}.zg-add-ic{color:var(--tint);font-size:24px;font-weight:300}
 /* Seitenwechsel: kurzes, weiches Einblenden */
 @media (prefers-reduced-motion:no-preference){.view{animation:view-in .18s ease-out}@keyframes view-in{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}}
+/* Wochenbericht: beschriftete Textfelder in einer Liste */
+.wb-feld{display:block;position:relative;padding:8px 16px 4px}.wb-feld+.wb-feld::before{content:"";position:absolute;top:0;left:16px;right:0;height:.5px;background:var(--sep)}
+.wb-feld span{display:block;font-size:13px;color:var(--sec)}
+.wb-ta{display:block;width:100%;font:inherit;font-size:16px;line-height:1.4;background:none;color:var(--label);border:0;padding:2px 0 6px;resize:none;outline:none;min-height:44px;overflow:hidden}

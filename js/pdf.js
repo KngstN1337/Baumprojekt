@@ -18,12 +18,14 @@
       ['deckblatt', 'Deckblatt', 'Lehrgang, Zeitraum, Trainer, Inhalt'],
       ['teams', 'Teams', 'Stammdaten aller Teams'],
       ['tage', 'Tagesprotokolle', 'alle Notizen, ein Abschnitt je Woche'],
+      ['wochen', 'Wochenberichte', 'eine Seite je Woche'],
       ['zgtab', 'Zielgerüche-Tabelle', 'Belohnungen je Team und Tag', true],
       ['zgdia', 'Zielgerüche-Diagramme', 'Kreisdiagramm je Team', true]
     ];
     const AKTE = [
       ['stamm', 'Stammdaten', 'Hund, Behörde, Gesamteindruck'],
       ['zgdia', 'Zielgerüche-Diagramm', 'mit Tabelle je Geruch', true],
+      ['entw', 'Entwicklung je Woche', 'aus den Wochenberichten'],
       ['zgtab', 'Zielgerüche je Tag', 'Belohnungen an jedem Tag', true],
       ['tage', 'Tagesprotokolle', 'alle Notizen dieses Teams']
     ];
@@ -299,12 +301,39 @@
       for (let i = 0; i < tl.length; i += 2) zeilen.push({ columns: [dCard(tl[i], 170), tl[i + 1] ? dCard(tl[i + 1], 170) : { text: '' }], columnGap: 12 });
       return [...titel('Zielgerüche · Kreisdiagramme je Team', 'Anteil jedes Zielgeruchs an allen Belohnungen · ' + zeitraumText(), true), ...zeilen];
     }
+    // Wochenberichte: je Woche eine Seite wie der Excel-Reiter
+    const berichtWochen = () => Object.keys(course().wochenberichte || {}).map(Number).filter(w => w > 0 && (!st.woche || w === st.woche)).sort((a, b) => a - b);
+    function wochenBlatt() {
+      const ws = berichtWochen(), m = course().meta;
+      if (!ws.length) return [...titel('Wochenberichte', zeitraumText()), leer('Für den gewählten Zeitraum gibt es noch keinen Wochenbericht (Lehrgänge → Wochenberichte).')];
+      const out = [];
+      ws.forEach((w, i) => {
+        const b = course().wochenberichte[w], ab = b.abschnitte || {}, a = wocheStart(w);
+        const body = [kopf(['Team', 'Tages-\nprotokolle', ...WBK.WB_TEAM.map(x => x[1] === 'Ausbilderbewertung' ? 'Ausbilder-\nbewertung' : x[1])])];
+        teams().forEach(t => { const tb = (b.teams || {})[t.name] || {}, n = WBK.einheiten(course(), t.name, w); body.push([{ text: teamLabel(t) + (t.behoerde ? ', ' + t.behoerde : ''), bold: true }, { text: String(n), alignment: 'center' }, ...WBK.WB_TEAM.map(([k]) => k === 'bewertung' ? { text: tb[k] || '', alignment: 'center' } : tb[k] || '')]); });
+        const teil = [...titel('LTR | Gemeinsamer interner Wochenbericht', 'Von LTR aus den Tagesprotokollen der Woche vorgeschlagen · vom Trainer geprüft', true),
+          kv([['Dienststelle', m.kopfBehoerde], ['Organisationseinheit', [m.kopfOe1, m.kopfOe2].filter(Boolean).join(' – ')], ['Trainer', m.trainer], ['Lehrgangswoche', w + '. Lehrgangswoche'], ['Kalenderwoche', kw(a) + '. KW'], ['Zeitraum', WBK.isoToDe(a) + ' bis ' + WBK.isoToDe(WBK.addDays(a, 6))]], 2),
+          balken('1 | Ausbildungsinhalte / Schwerpunkte'), { text: ab.inhalte || '–' }, balken('2 | Gesamtüberblick der Ausbilder'), { text: ab.ueberblick || '–' },
+          balken('3 | Individuelle Entwicklung der Mensch-Hund-Teams'), liste([110, 58, '*', '*', '*', 58, 80, 80], body),
+          balken('4 | Gesamtbewertung der Ausbildungsgruppe'), { text: ab.gesamt || '–' }, balken('5 | Hinweise für die Ausbildungsgruppe'), { text: ab.hinweise || '–' }];
+        out.push(...(i ? neueSeite(teil) : teil));
+      });
+      return out;
+    }
+    function entwicklung(t) {
+      const ws = berichtWochen().filter(w => (course().wochenberichte[w].teams || {})[t.name]);
+      if (!ws.length) return [balken('Entwicklung je Woche'), leer('Noch kein Wochenbericht vorhanden.')];
+      const body = [kopf(['Woche', 'Fortschritte', 'Auffälligkeiten / Defizite', 'Fördermaßnahmen / nächste Schritte', 'Ausbilder-\nbewertung'])];
+      ws.forEach(w => { const tb = course().wochenberichte[w].teams[t.name]; body.push([w + '. Woche\nKW ' + kw(wocheStart(w)), tb.fortschritte || '', tb.defizite || '', tb.foerderung || '', { text: tb.bewertung || '', alignment: 'center' }]); });
+      return [balken('Entwicklung je Woche'), liste([60, '*', '*', '*', 70], body)];
+    }
     // Teilnehmerakte eines Teams
     function akte(teile) {
       const t = teams().find(x => x.name === st.team), m = course().meta, g = (course().gesamt || {})[t.name];
       const out = [...titel('Teilnehmerakte · ' + teamLabel(t), [teamUnter(t), m.titel, st.woche ? wocheText(st.woche) : 'alle Wochen'].filter(Boolean).join(' · '), true)];
       if (teile.includes('stamm')) out.push(balken('Stammdaten'), kv([['Team', t.name], ['Lehrgang', m.titel], ['Hundeführer/in', t.teilnehmer], ['Zeitraum', zeitraumText()], ['Diensthund', t.hund], ['Trainer/in', m.trainer], ['Behörde', t.behoerde], ['Notizen', String(notizen(t.name).length)], ['Rasse / Alter', t.rasse], ['Bemerkung', t.bemerkung]], 2),
         balken('Gesamteindruck'), g ? { text: g } : leer('Noch kein Gesamteindruck eingetragen (Excel-Datei, Blatt „Teams“, Spalte „Gesamteindruck“).'));
+      if (teile.includes('entw')) out.push(...entwicklung(t));
       if (teile.includes('zgdia')) { const w = werteVon(t.name); out.push({ stack: [balken('Zielgerüche'), { columns: [{ width: 200, stack: [donutSvg(w, 180)] }, { width: 320, stack: [legende(w)], margin: [0, 30, 0, 0] }], columnGap: 20 }], unbreakable: true }); }
       if (teile.includes('zgtab')) out.push(...neueSeite(zgTabelle(t.name)));
       if (teile.includes('tage')) out.push(...neueSeite(tageBlatt(t.name)));
@@ -316,9 +345,9 @@
       let kopfRechts = c.meta.titel || '';
       if (st.modus === 'akte') { inhalt.push(...akte(teile)); kopfRechts = 'Teilnehmerakte ' + st.team; }
       else {
-        const namen = { deckblatt: 'Deckblatt', teams: 'Teamstammdaten', tage: 'Tagesprotokolle', zgtab: 'Zielgerüche je Tag', zgdia: 'Zielgerüche-Diagramme' };
+        const namen = { deckblatt: 'Deckblatt', teams: 'Teamstammdaten', tage: 'Tagesprotokolle', wochen: 'Wochenberichte', zgtab: 'Zielgerüche je Tag', zgdia: 'Zielgerüche-Diagramme' };
         teile.forEach((k, i) => {
-          const teil = k === 'deckblatt' ? deckblatt(teile.filter(x => x !== 'deckblatt').map(x => namen[x]).concat(st.woche ? ['Zeitraum: ' + zeitraumText()] : [])) : k === 'teams' ? teamsBlatt() : k === 'tage' ? tageBlatt() : k === 'zgtab' ? zgTabelle() : zgDiagramme();
+          const teil = k === 'deckblatt' ? deckblatt(teile.filter(x => x !== 'deckblatt').map(x => namen[x]).concat(st.woche ? ['Zeitraum: ' + zeitraumText()] : [])) : k === 'teams' ? teamsBlatt() : k === 'tage' ? tageBlatt() : k === 'wochen' ? wochenBlatt() : k === 'zgtab' ? zgTabelle() : zgDiagramme();
           inhalt.push(...(i ? neueSeite(teil) : teil));
         });
       }

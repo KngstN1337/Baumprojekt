@@ -540,6 +540,31 @@
     if (FELD_KEYS.every(k => !f[k])) f.beobachtung = text;
     return f;
   }
+  // Wochenbericht aus den Tagesprotokollen einer Woche vorschlagen (Trainer prüft und ändert danach)
+  async function wochenbericht(woche, opts) {
+    const system = 'Du schreibst für einen Diensthundetrainer den internen Wochenbericht eines Lehrgangs aus seinen Tagesprotokollen. ' +
+      'Sachlich und unpersönlich im Behördenstil („Es wurde …“, nie „ich“ oder „der Ausbilder“), knapp, vollständige Sätze. ' +
+      'Nur verwenden, was in den Protokollen steht, nichts erfinden, keine Namen von Trainern. Leere Felder ("") wenn es nichts dazu gibt.\n\n' +
+      'Felder:\n- inhalte: Ausbildungsinhalte und Schwerpunkte der Woche (was wurde wo mit welchen Zielgerüchen geübt), 1–3 Sätze.\n' +
+      '- ueberblick: Gesamtüberblick über die Gruppe in dieser Woche, 1–3 Sätze.\n' +
+      '- gesamt: Gesamtbewertung der Ausbildungsgruppe, 1–2 Sätze.\n- hinweise: Hinweise, die an die Ausbildungsgruppe gegeben wurden (nur wenn in den Protokollen genannt).\n' +
+      '- teams: für JEDES genannte Team ein Eintrag mit team (exakt der Name aus der Liste), fortschritte, defizite (Auffälligkeiten/Defizite, mit Wochentagen in Klammern wie „(Di, Mi)“), ' +
+      'foerderung (Fördermaßnahmen/nächste Schritte), bewertung (eine Schulnote ausgeschrieben, die die Bewertungen der Woche zusammenfasst: sehr gut, gut, befriedigend, ausreichend, mangelhaft, ungenügend; "" wenn keine Bewertungen vorkommen), ' +
+      'hinweise (besondere Hinweise, sonst "Keine besonderen Hinweise"), bemerkungen (Wissenswertes wie Gesundheit, sonst "").';
+    const T = { type: 'object', additionalProperties: false, required: ['team', 'fortschritte', 'defizite', 'foerderung', 'bewertung', 'hinweise', 'bemerkungen'],
+      properties: { team: { type: 'string' }, fortschritte: { type: 'string' }, defizite: { type: 'string' }, foerderung: { type: 'string' }, bewertung: { type: 'string' }, hinweise: { type: 'string' }, bemerkungen: { type: 'string' } } };
+    const schema = { type: 'object', additionalProperties: false, required: ['inhalte', 'ueberblick', 'gesamt', 'hinweise', 'teams'],
+      properties: { inhalte: { type: 'string' }, ueberblick: { type: 'string' }, gesamt: { type: 'string' }, hinweise: { type: 'string' }, teams: { type: 'array', items: T } } };
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + opts.key, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: opts.model || 'gpt-4.1-mini', messages: [{ role: 'system', content: system }, { role: 'user', content: woche }],
+        response_format: { type: 'json_schema', json_schema: { name: 'wochenbericht', strict: true, schema } } })
+    });
+    if (!res.ok) throw await oaiError(res);
+    const j = await res.json();
+    return JSON.parse((j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content) || '{}');
+  }
   // ---------------- Google Picker: geteilten Lehrgang auswählen (nötig wegen drive.file) ----------------
   function loadScript(src) {
     return new Promise((resolve, reject) => { const s = document.createElement('script'); s.src = src; s.onload = resolve; s.onerror = () => reject(new Error('Google-Auswahl konnte nicht geladen werden.')); document.head.appendChild(s); });
@@ -561,5 +586,5 @@
     });
   }
 
-  global.BaumprojektServices = { glossarHinweis, sttHinweis, splitPunkte, alsStichpunkte, pick, transcribe, assign, formulate, aufteilen, STILE, Drive, KV, Outbox, KATEGORIEN, XLSX_MIME };
+  global.BaumprojektServices = { glossarHinweis, sttHinweis, splitPunkte, alsStichpunkte, pick, transcribe, assign, formulate, aufteilen, wochenbericht, STILE, Drive, KV, Outbox, KATEGORIEN, XLSX_MIME };
 })(window);
