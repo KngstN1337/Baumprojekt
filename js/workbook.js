@@ -110,7 +110,9 @@
   const seite = (s, c) => ({ style: s, color: { argb: c || A2.gitter } });
   // Spalten des Tagesprotokolls, die aus den Notizen kommen (Schlüssel = Feld in note.felder)
   const FELDER = [['ort', 'Trainingsort'], ['zielgerueche', 'Zielgerüche'], ['inhalt', 'Trainingsinhalt / Aufbau'], ['motivation', 'Motivation'], ['anzeige', 'Anzeigeverhalten'],
-    ['beobachtung', 'Beobachtungen / nächster Schritt'], ['bemerkung', 'Bemerkungen / Wissenswertes']];
+    ['beobachtung', 'Beobachtungen / nächster Schritt'], ['bemerkung', 'Bemerkungen', ['Bemerkungen / Wissenswertes']]];
+  // Spalte zu einer Überschrift finden (auch alte Überschriften aus früheren Dateien)
+  const feldZuKopf = h => FELDER.find(x => x[1] === h || (x[2] || []).includes(h));
   // Inhalt eines Feldes einer Notiz. Ältere Notizen (noch nicht aufgeteilt) stehen ganz unter „Beobachtungen“.
   // Früher stand vor der Note „Bewertung: “, jetzt nur die Note (z. B. „sehr gut“). Alte Einträge werden beim Einlesen angepasst.
   const BEW_FELDER = ['motivation', 'anzeige'];
@@ -551,7 +553,7 @@
     for (let i = 1; i <= 8; i++) if (String(cellText(wp.getRow(i).getCell(1).value) || '').trim() === 'Datum') { kopf = i; break; }
     if (!kopf) return 0;
     const spalten = [];
-    wp.getRow(kopf).eachCell((c, col) => { const h = String(cellText(c.value) || '').trim(); const f = FELDER.find(x => x[1] === h); if (f) spalten.push([col, f[0]]); });
+    wp.getRow(kopf).eachCell((c, col) => { const h = String(cellText(c.value) || '').trim(); const f = feldZuKopf(h); if (f) spalten.push([col, f[0]]); });
     const known = new Set([...course.teams.map(tm => tm.name), ...[...stand.values()].map(a => a[0].team)]);
     let count = 0;
     const find = (s, k) => course.notes.findIndex(n => n.datum === s.datum && n.team === s.team && (n.uhrzeit || '') === s.uhrzeit && (n.von || '') === s.von && feldVon(n, k) === s.text);
@@ -669,7 +671,7 @@
       if (i === 1) return;
       const n = { datum: parseDateCell(r.getCell(at('Datum', 1)).value), uhrzeit: parseTimeCell(r.getCell(at('Uhrzeit', 3) || 3).value), team: txt(r, at('Team', 4)), kategorie: txt(r, at('Kategorie', 5)), text: txt(r, at('Notiz', 6)), quelle: txt(r, at('Quelle', 7)), von: txt(r, at('Eingesprochen von', 8)) };
       // Aufgeteilte Felder fürs Tagesprotokoll (Motivation, Anzeigeverhalten …)
-      if (txt(r, at('Aufgeteilt', 0)) === 'ja') { n.felder = {}; FELDER.forEach(([k, hd]) => { n.felder[k] = txt(r, at(hd, 0)); }); BEW_FELDER.forEach(k => { n.felder[k] = ohneBew(n.felder[k]).trim(); }); }
+      if (txt(r, at('Aufgeteilt', 0)) === 'ja') { n.felder = {}; FELDER.forEach(([k, hd, alt]) => { n.felder[k] = txt(r, at(hd, 0) || (alt || []).map(a => at(a, 0)).find(Boolean) || 0); }); BEW_FELDER.forEach(k => { n.felder[k] = ohneBew(n.felder[k]).trim(); }); }
       if (n.datum && (n.text || n.felder)) course.notes.push(n);
     });
 
