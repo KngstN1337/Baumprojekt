@@ -133,13 +133,14 @@
         { canvas: [{ type: 'line', x1: 0, y1: 4, x2: 773, y2: 4, lineWidth: 1.2 }], margin: [0, 0, 0, 10] }
       ];
     }
-    const balken = text => ({ table: { widths: ['*'], body: [[{ text, bold: true, color: '#FFFFFF', fillColor: BLAU, margin: [2, 1, 2, 1] }]] }, layout: 'noBorders', margin: [0, 8, 0, 6] });
+    // headlineLevel: Hauptüberschrift; steht sie unten auf einer Seite ohne Text darunter, rutscht sie mit auf die nächste Seite (siehe pageBreakBefore)
+    const balken = text => ({ table: { widths: ['*'], body: [[{ text, bold: true, color: '#FFFFFF', fillColor: BLAU, margin: [2, 1, 2, 1], ueberschrift: true }]] }, layout: 'noBorders', margin: [0, 8, 0, 6], headlineLevel: 1 });
     const kopf = l => l.map(t => ({ text: t, style: 'th' }));
     // Liste mit blauer Kopfzeile (auf jeder Seite wiederholt), Zeilen grau/weiß, dicke blaue Linie vor jedem neuen Tag
     function liste(widths, body, neueTage) {
       const dick = new Set(neueTage || []);
       return {
-        table: { headerRows: 1, widths, body, dontBreakRows: true },
+        table: { headerRows: 1, keepWithHeaderRows: 1, widths, body, dontBreakRows: true },
         layout: {
           fillColor: i => i === 0 ? BLAU : (i % 2 ? null : GRAU),
           hLineWidth: i => dick.has(i) ? 1.8 : 0.5,
@@ -356,6 +357,8 @@
         header: () => ({ columns: [{ text: c.meta.titel || '' }, { text: kopfRechts === c.meta.titel ? '' : kopfRechts, alignment: 'right' }], margin: [34, 16, 34, 0], fontSize: 7, color: '#777777' }),
         footer: (seite, von) => ({ columns: [{ text: 'Interne Dokumentation' }, { text: 'Seite ' + seite + ' von ' + von, alignment: 'center', bold: true, color: '#000000' }, { text: 'Erstellt am ' + erstellt, alignment: 'right' }], margin: [34, 10, 34, 0], fontSize: 7, color: '#777777' }),
         content: inhalt,
+        // Eine Hauptüberschrift nie allein am Seitenende: Folgt auf derselben Seite nichts oder höchstens eine Tabellenkopfzeile, beginnt sie auf der nächsten Seite
+        pageBreakBefore: (node, folgend) => node.headlineLevel === 1 && !folgend.some(n => !n.ueberschrift && n.headlineLevel !== 1),
         styles: { h1: { fontSize: 15, bold: true, color: BLAU }, unter: { fontSize: 8, margin: [0, 2, 0, 0] }, th: { bold: true, color: '#FFFFFF', fontSize: 8.5 } },
         defaultStyle: { fontSize: 9, color: '#000000', lineHeight: 1.1 }
       };
