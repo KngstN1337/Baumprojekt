@@ -70,31 +70,34 @@
     };
     verbinden();
     if (!c) return null;
-    const info = () => 'Weg ' + (weg + 1) + ', ' + (c ? c.state + ', ' + c.sampleRate + ' Hz' : 'kein Kontext') + ', Spur ' + ((stream.getAudioTracks()[0] || {}).readyState || '–') + ((stream.getAudioTracks()[0] || {}).muted ? ' stumm' : '');
+    const info = () => 'Weg ' + (weg + 1) + (an ? '' : ', ohne Messer') + ', ' + (c ? c.state + ', ' + c.sampleRate + ' Hz' : 'kein Kontext') + ', Spur ' + ((stream.getAudioTracks()[0] || {}).readyState || '–') + ((stream.getAudioTracks()[0] || {}).muted ? ' stumm' : '');
     return {
       info,
       pegel(dt) {
-        if (!an) return 0;
-        if (an.getFloatTimeDomainData) an.getFloatTimeDomainData(data);
-        else { const b = new Uint8Array(data.length); an.getByteTimeDomainData(b); for (let i = 0; i < b.length; i++) data[i] = (b[i] - 128) / 128; }
         let sum = 0, null_ = true;
-        for (let i = 0; i < data.length; i++) { const v = data[i]; if (v !== 0) null_ = false; sum += v * v; }
-        if (!gehoert && c.state === 'running') {
-          if (!null_) gehoert = true;
+        if (an) {
+          if (an.getFloatTimeDomainData) an.getFloatTimeDomainData(data);
+          else { const b = new Uint8Array(data.length); an.getByteTimeDomainData(b); for (let i = 0; i < b.length; i++) data[i] = (b[i] - 128) / 128; }
+          for (let i = 0; i < data.length; i++) { const v = data[i]; if (v !== 0) null_ = false; sum += v * v; }
+        }
+        if (!gehoert) {
+          if (!null_ && c.state === 'running') gehoert = true;
           else if ((flach += dt) > 1500) {
             flach = 0;
             if (weg < 2) { weg++; verbinden(); }
             else if (!gemeldet) { gemeldet = true; if (beiProblem) beiProblem(info()); }
           }
         }
-        return Math.min(1, Math.sqrt(sum / data.length) / 0.22);
+        return an ? Math.min(1, Math.sqrt(sum / data.length) / 0.22) : 0;
       },
       // hängt der Kontext (z. B. nach Anruf „interrupted“), regelmäßig neu wecken
       wach(now) { if (c && c.state !== 'running' && now - zuletzt > 800) { zuletzt = now; c.resume().catch(() => {}); } },
       ende() { trennen(); }
     };
   }
-  const PEGEL_HINWEIS = 'Die Tonanzeige funktioniert auf diesem Gerät gerade nicht. Die Aufnahme läuft trotzdem, sprich ruhig weiter.';
+  // iOS: Ein angehaltener Ton-Kontext darf nur aus einer Berührung heraus weiterlaufen → bei jedem Tipp wecken
+  if (global.document) global.document.addEventListener('pointerdown', () => { if (tonCtx && tonCtx.state !== 'running') tonCtx.resume().catch(() => {}); }, true);
+  const PEGEL_HINWEIS = 'Die Tonanzeige funktioniert auf diesem Gerät gerade nicht. Die Aufnahme läuft trotzdem, sprich ruhig weiter. Tipp einmal auf die Welle, das hilft manchmal.';
   // Kontext für die Spracherkennung: ein kurzer, korrekt geschriebener Vortext mit allen Namen und Fachwörtern des Lehrgangs.
   // So schreibt die Erkennung „Detlef“, „Semtex“ oder „Malinois“ richtig, statt ähnlich klingende Wörter zu raten.
   function sttHinweis(teams, glossar, stoffe) {
