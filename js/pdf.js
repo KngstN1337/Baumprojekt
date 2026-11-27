@@ -217,8 +217,10 @@
     }
     function teamsBlatt() {
       const g = course().gesamt || {};
-      const body = [kopf(['Team', 'Teilnehmer/in', 'Hund', 'Behörde', 'Rasse / Alter', 'Bemerkung', 'Gesamteindruck'])].concat(teams().map(t => [{ text: t.name, bold: true }, t.teilnehmer || '–', t.hund || '–', t.behoerde || '–', t.rasse || '–', t.bemerkung || '–', g[t.name] || '–']));
-      return [...titel('Teamstammdaten', (course().meta.titel || '') + ' · ' + teams().length + ' Teams'), liste([95, 95, 70, 95, 75, '*', '*'], body)];
+      // Steht der Name der Teilnehmerin / des Teilnehmers schon als Team da, fällt die doppelte Spalte weg
+      const mitTn = teams().some(t => t.teilnehmer && t.teilnehmer !== t.name);
+      const body = [kopf(['Team', ...(mitTn ? ['Teilnehmer/in'] : []), 'Hund', 'Behörde', 'Rasse / Alter', 'Bemerkung', 'Gesamteindruck'])].concat(teams().map(t => [{ text: t.name, bold: true }, ...(mitTn ? [t.teilnehmer || '–'] : []), t.hund || '–', t.behoerde || '–', t.rasse || '–', t.bemerkung || '–', g[t.name] || '–']));
+      return [...titel('Teamstammdaten', (course().meta.titel || '') + ' · ' + teams().length + ' Teams'), liste([95, ...(mitTn ? [95] : []), 70, 95, 75, '*', '*'], body)];
     }
     // Tagesprotokolle: eine Zeile je Team und Tag, Abschnitt (neue Seite) je Woche
     function tageBlatt(nurTeam) {
@@ -326,7 +328,7 @@
     function akte(teile) {
       const t = teams().find(x => x.name === st.team), m = course().meta, g = (course().gesamt || {})[t.name];
       const out = [...titel('Teilnehmerakte · ' + teamLabel(t), [teamUnter(t), m.titel, st.woche ? wocheText(st.woche) : 'alle Wochen'].filter(Boolean).join(' · '), true)];
-      if (teile.includes('stamm')) out.push(balken('Stammdaten'), kv([['Team', t.name], ['Lehrgang', m.titel], ['Hundeführer/in', t.teilnehmer], ['Zeitraum', zeitraumText()], ['Diensthund', t.hund], ['Trainer/in', m.trainer], ['Behörde', t.behoerde], ['Notizen', String(notizen(t.name).length)], ['Rasse / Alter', t.rasse], ['Bemerkung', t.bemerkung]], 2),
+      if (teile.includes('stamm')) out.push(balken('Stammdaten'), kv([['Team', t.name], ['Lehrgang', m.titel], ...(t.teilnehmer && t.teilnehmer !== t.name ? [['Hundeführer/in', t.teilnehmer]] : []), ['Zeitraum', zeitraumText()], ['Diensthund', t.hund], ['Trainer/in', m.trainer], ['Behörde', t.behoerde], ['Notizen', String(notizen(t.name).length)], ['Rasse / Alter', t.rasse], ['Bemerkung', t.bemerkung]], 2),
         balken('Gesamteindruck'), g ? { text: g } : leer('Noch kein Gesamteindruck eingetragen (Excel-Datei, Blatt „Teams“, Spalte „Gesamteindruck“).'));
       if (teile.includes('entw')) out.push(...entwicklung(t));
       if (teile.includes('zgdia')) { const w = werteVon(t.name); out.push({ stack: [balken('Zielgerüche'), { columns: [{ width: 200, stack: [donutSvg(w, 180)] }, { width: 320, stack: [legende(w)], margin: [0, 30, 0, 0] }], columnGap: 20 }], unbreakable: true }); }
