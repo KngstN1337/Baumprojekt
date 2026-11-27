@@ -1,5 +1,5 @@
 // Offline-Cache nur für die App selbst. API-Aufrufe (OpenAI, Google) gehen immer direkt ins Netz.
-const CACHE = 'baumprojekt-v69';
+const CACHE = 'baumprojekt-v70';
 const FILES = ['./', 'index.html', 'css/design.css', 'css/style.css', 'config.js', 'js/app.js', 'js/workbook.js', 'js/services.js', 'js/vordefiniert.js', 'js/spuerhund.js', 'js/pdf.js', 'js/wochen.js', 'js/beispiel.js', 'js/testgruppe.js', 'vendor/pdfmake.min.js', 'vendor/vfs_fonts.js', 'icons/logo-lafp.png', 'vendor/exceljs.min.js', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png', 'icons/icon-maskable-512.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES))); self.skipWaiting(); });
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k))))); self.clients.claim(); });
