@@ -507,6 +507,39 @@
     r.unklar = (r.unklar || []).filter(u => u.wort && r.text.toLowerCase().indexOf(u.wort.toLowerCase()) >= 0 && u.wort !== u.vorschlag);
     return r;
   }
+  // Fertige Notiz auf die Spalten des Tagesprotokolls verteilen (Trainingsort, Zielgerüche, Inhalt, Motivation, Anzeigeverhalten,
+  // Beobachtungen / nächster Schritt, Bemerkungen). Der Wortlaut bleibt, nichts wird erfunden; Unklares kommt unter Beobachtungen.
+  const FELD_KEYS = ['ort', 'zielgerueche', 'inhalt', 'motivation', 'anzeige', 'beobachtung', 'bemerkung'];
+  async function aufteilen(text, opts) {
+    const system = 'Du ordnest die Notiz eines Diensthundetrainers den Spalten seines Tagesprotokolls zu. Behalte den Wortlaut der Notiz bei, ' +
+      'kürze nichts weg und erfinde nichts. Jeder Satz der Notiz kommt in genau EINE Spalte. Spalten, zu denen nichts gesagt wurde, bleiben leer ("").\n\n' +
+      'Spalten:\n' +
+      '- ort: Trainingsort, Gebäude, Bereich oder Raum (z. B. "Halle A · Lochwand"). Nur den Ort, kurz.\n' +
+      '- zielgerueche: genannte Zielgerüche/Stoffe als kurze Aufzählung mit Komma (z. B. "SIM-Karte, SD-Karte").\n' +
+      '- inhalt: Trainingsinhalt und Aufbau: was geübt wurde, Stationen, Anzahl Verstecke, Ablauf.\n' +
+      '- motivation: Aussagen zu Motivation, Arbeitsfreude, Ausdauer, Konzentration des Hundes.\n' +
+      '- anzeige: Aussagen zum Anzeigeverhalten (Anzeige an der Quelle, Ablegen, Verweisen, zögerlich, sicher).\n' +
+      '- beobachtung: weitere Beobachtungen und der nächste Schritt. Ein genannter nächster Schritt steht in einer eigenen Zeile "Nächster Schritt: …". Alles, was in keine andere Spalte passt, kommt hierher.\n' +
+      '- bemerkung: Wissenswertes am Rande (Gesundheit, Pfote geschont, Organisatorisches, Hinweise an die Teilnehmenden).\n\n' +
+      'Schulnoten: Nur wenn für Motivation oder Anzeigeverhalten ausdrücklich eine Note gesagt wurde (sehr gut, gut, befriedigend, ausreichend, mangelhaft, ungenügend), ' +
+      'hänge in dieser Spalte eine eigene letzte Zeile "Bewertung: <note>" an (Note klein geschrieben). Sonst keine Bewertung schreiben, nie eine Note schätzen.\n' +
+      'Stichpunkte („• “-Zeilen) bleiben Stichpunkte, verteile sie einzeln. Antworte nur mit dem JSON.';
+    const props = {}; FELD_KEYS.forEach(k => { props[k] = { type: 'string' }; });
+    const schema = { type: 'object', additionalProperties: false, required: FELD_KEYS, properties: props };
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + opts.key, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: opts.model || 'gpt-4.1-mini', messages: [{ role: 'system', content: system }, { role: 'user', content: 'Notiz:\n' + text }],
+        response_format: { type: 'json_schema', json_schema: { name: 'tagesprotokoll', strict: true, schema } } })
+    });
+    if (!res.ok) throw await oaiError(res);
+    const j = await res.json();
+    const r = JSON.parse((j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content) || '{}');
+    const f = {}; FELD_KEYS.forEach(k => { f[k] = String(r[k] || '').trim(); });
+    // Sicherheitsnetz: kam gar nichts zurück, steht die ganze Notiz unter Beobachtungen
+    if (FELD_KEYS.every(k => !f[k])) f.beobachtung = text;
+    return f;
+  }
   // ---------------- Google Picker: geteilten Lehrgang auswählen (nötig wegen drive.file) ----------------
   function loadScript(src) {
     return new Promise((resolve, reject) => { const s = document.createElement('script'); s.src = src; s.onload = resolve; s.onerror = () => reject(new Error('Google-Auswahl konnte nicht geladen werden.')); document.head.appendChild(s); });
@@ -528,5 +561,5 @@
     });
   }
 
-  global.BaumprojektServices = { glossarHinweis, sttHinweis, splitPunkte, alsStichpunkte, pick, transcribe, assign, formulate, STILE, Drive, KV, Outbox, KATEGORIEN, XLSX_MIME };
+  global.BaumprojektServices = { glossarHinweis, sttHinweis, splitPunkte, alsStichpunkte, pick, transcribe, assign, formulate, aufteilen, STILE, Drive, KV, Outbox, KATEGORIEN, XLSX_MIME };
 })(window);

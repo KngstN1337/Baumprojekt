@@ -229,8 +229,13 @@
       const out = [];
       [...proWoche.keys()].sort((a, b) => a - b).forEach((w, wi) => {
         const ns = proWoche.get(w), tage = [...new Set(ns.map(n => n.datum))].sort();
-        const head = nurTeam ? ['Datum', 'Notizen'] : ['Datum', 'Team', 'Notizen'];
-        if (mitZg) head.push('Belohnungen');
+        // Sind Notizen schon auf die Spalten verteilt, kommt das Tagesprotokoll mit allen Spalten wie in Excel
+        const spalten = ns.some(n => n.felder);
+        const F = WBK.FELDER, feld = (n, k) => n.felder ? String(n.felder[k] || '').trim() : (k === 'beobachtung' ? n.text || '' : '');
+        const zelle = (l, k) => { const v = l.map(n => feld(n, k)).filter(Boolean); return v.length > 1 ? v.map(x => /^\s*•/.test(x) ? x : '• ' + x).join('\n') : v[0] || ''; };
+        const head = ['Datum', ...(nurTeam ? [] : ['Team'])];
+        if (spalten) head.push(...F.slice(0, 3).map(f => f[1]), ...(mitZg ? ['Belohn.'] : []), ...F.slice(3).map(f => f[1]));
+        else { head.push('Notizen'); if (mitZg) head.push('Belohnungen'); }
         const body = [kopf(head)], neu = [];
         tage.forEach(d => {
           let erste = true;
@@ -239,12 +244,21 @@
             if (erste) neu.push(body.length);
             const r = [{ text: erste || nurTeam ? deKurz(d) : '', bold: true }];
             if (!nurTeam) r.push({ text: teamLabel(t), bold: true });
-            r.push(notizText(l));
-            if (mitZg) { const z = stoffe().map(s => [s, zgSumme(t.name, s, d)]).filter(x => x[1]); r.push(z.length ? z.map(x => x[0] + ': ' + x[1]).join('\n') + '\nGesamt: ' + z.reduce((a, x) => a + x[1], 0) : '–'); }
+            const z = stoffe().map(s => [s, zgSumme(t.name, s, d)]).filter(x => x[1]), summe = z.reduce((a, x) => a + x[1], 0);
+            if (spalten) {
+              r.push(...F.slice(0, 3).map(f => zelle(l, f[0])));
+              if (mitZg) r.push({ text: summe ? String(summe) : '', alignment: 'center' });
+              r.push(...F.slice(3).map(f => zelle(l, f[0])));
+            } else {
+              r.push(notizText(l));
+              if (mitZg) r.push(z.length ? z.map(x => x[0] + ': ' + x[1]).join('\n') + '\nGesamt: ' + summe : '–');
+            }
             body.push(r); erste = false;
           });
         });
-        const widths = nurTeam ? [62, '*'] : [62, 120, '*']; if (mitZg) widths.push(110);
+        const widths = [52, ...(nurTeam ? [] : [80])];
+        if (spalten) widths.push(60, 60, '*', ...(mitZg ? [34] : []), '*', '*', '*', 70);
+        else { widths.push('*'); if (mitZg) widths.push(110); }
         const unter = WBK.isoToDe(wocheStart(w)) + ' bis ' + WBK.isoToDe(WBK.addDays(wocheStart(w), 6)) + ' · eine Zeile je ' + (nurTeam ? 'Tag' : 'Team und Tag') + ' · dicke Linie bei jedem neuen Tag';
         const teil = [...titel('Tagesprotokolle · ' + wocheText(w) + (nurTeam ? ' · ' + nurTeam : ''), unter), liste(widths, body, neu)];
         out.push(...(wi ? neueSeite(teil) : teil));
@@ -290,7 +304,7 @@
       const t = teams().find(x => x.name === st.team), m = course().meta, g = (course().gesamt || {})[t.name];
       const out = [...titel('Teilnehmerakte · ' + teamLabel(t), [teamUnter(t), m.titel, st.woche ? wocheText(st.woche) : 'alle Wochen'].filter(Boolean).join(' · '), true)];
       if (teile.includes('stamm')) out.push(balken('Stammdaten'), kv([['Team', t.name], ['Lehrgang', m.titel], ['Hundeführer/in', t.teilnehmer], ['Zeitraum', zeitraumText()], ['Diensthund', t.hund], ['Trainer/in', m.trainer], ['Behörde', t.behoerde], ['Notizen', String(notizen(t.name).length)], ['Rasse / Alter', t.rasse], ['Bemerkung', t.bemerkung]], 2),
-        balken('Gesamteindruck'), g ? { text: g } : leer('Noch kein Gesamteindruck eingetragen (Spalte „Gesamteindruck“ in der Excel-Datei).'));
+        balken('Gesamteindruck'), g ? { text: g } : leer('Noch kein Gesamteindruck eingetragen (Excel-Datei, Blatt „Teams“, Spalte „Gesamteindruck“).'));
       if (teile.includes('zgdia')) { const w = werteVon(t.name); out.push({ stack: [balken('Zielgerüche'), { columns: [{ width: 200, stack: [donutSvg(w, 180)] }, { width: 320, stack: [legende(w)], margin: [0, 30, 0, 0] }], columnGap: 20 }], unbreakable: true }); }
       if (teile.includes('zgtab')) out.push(...neueSeite(zgTabelle(t.name)));
       if (teile.includes('tage')) out.push(...neueSeite(tageBlatt(t.name)));
