@@ -7,7 +7,7 @@
     const $ = s => document.querySelector(s);
     const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
     const TITEL = { inhalte: 'Ausbildungsinhalte / Schwerpunkte', ueberblick: 'Gesamtüberblick der Ausbilder', gesamt: 'Gesamtbewertung der Ausbildungsgruppe', hinweise: 'Hinweise für die Ausbildungsgruppe' };
-    let woche = 0, entwurf = null, stand = '', vorschlagStand = '', stil = '', offen = '', neu = new Set();
+    let woche = 0, entwurf = null, stand = '', stil = '', offen = '', neu = new Set();
     const istLeer = b => !Object.values((b && b.abschnitte) || {}).some(Boolean) && !Object.values((b && b.teams) || {}).some(t => Object.values(t || {}).some(Boolean));
     const course = () => ctx.course();
     const start = w => WBK.addDays(course().meta.start, (w - 1) * 7);
@@ -45,6 +45,10 @@
       const ks = keys.split(',');
       document.querySelectorAll('#wbBody .wb-ta:not(.wb-x)').forEach(ta => { const f = ta.dataset.f; if (ks.some(k => f === k || f.startsWith(k + '.'))) { ta.value = ''; groesse(ta); } });
     }
+    // Bericht als vollständige Feldliste (auch Teams ohne Eintrag), um leere Felder zu finden
+    const lesenAus = e => { const b = { abschnitte: Object.assign({}, e.abschnitte), teams: {} }; teams().forEach(t => { b.teams[t.name] = Object.assign({}, (e.teams || {})[t.name]); }); return b; };
+    const ABS = ['inhalte', 'ueberblick', 'gesamt', 'hinweise'];
+    const hatLuecken = b => ABS.some(k => !String(b.abschnitte[k] || '').trim()) || teams().some(t => WBK.WB_TEAM.some(([k]) => !String((b.teams[t.name] || {})[k] || '').trim()));
     function renderEditor() {
       const a = start(woche), ab = entwurf.abschnitte || {};
       $('#wbTitle').textContent = woche + '. Woche';
@@ -53,10 +57,10 @@
       const leer = istLeer(entwurf);
       let h = '<div class="group"><button type="button" class="cell mic-cell" id="wbDiktat"><span class="mc"><svg><use href="#i-mic"/></svg></span><span>Bericht einsprechen<small>Schritt für Schritt, LTR füllt die Felder</small></span></button>' +
         (da ? '<button type="button" class="cell link-cell" id="wbPdf">Wochenbericht als PDF …</button>' : '') + '</div>';
-      if (!da) h += '<div class="section-h">' + (leer ? 'Oder von LTR schreiben lassen' : 'Stil des Vorschlags') + '</div><div class="group">' +
-        (leer ? '<div class="cell"><div class="cell-tx wrap"><b>Aus den Tagesprotokollen</b><span>LTR fasst die Woche zusammen und füllt alle Felder. Du prüfst nur noch und tippst „Sichern“.</span></div></div>' : '') +
+      const luecken = !leer && hatLuecken(lesenAus(entwurf)) && notizenDerWoche(woche).length;
+      h += '<div class="section-h">Schreibstil</div><div class="group">' +
         '<div class="segmented wb-stil" role="radiogroup" aria-label="Schreibstil">' + S.STILE.map(x => '<button type="button" data-stil="' + x.id + '" class="' + (x.id === stil ? 'on' : '') + '">' + (x.id === 'beamtendeutsch' ? 'Amtlich' : esc(x.name)) + '</button>').join('') + '</div>' +
-        (leer ? '<button type="button" class="cell link-cell" id="wbKi">Bericht schreiben lassen</button>' : '<p class="wb-stil-hint">Anderen Stil antippen, dann schreibt LTR den Vorschlag neu.</p>') + '</div>';
+        (leer ? '<button type="button" class="cell link-cell" id="wbKi">Aus den Tagesprotokollen schreiben lassen</button>' : luecken ? '<button type="button" class="cell link-cell" id="wbLuecken">Leere Felder aus den Tagesprotokollen füllen</button>' : '') + '</div>';
       if (offen) h += '<div class="group wb-offen"><label class="wb-feld"><span>Nicht zugeordnet – bitte selbst einsortieren (wird nicht gesichert, die Aufnahme liegt in Google Drive)</span><textarea class="wb-ta wb-x" rows="2">' + esc(offen) + '</textarea></label></div>';
       h += secH('Gruppe', 'a.inhalte,a.ueberblick') + '<div class="group">' + ['inhalte', 'ueberblick'].map(k => feld('a.' + k, TITEL[k], ab[k], 3)).join('') + '</div>';
       teams().forEach(t => {
@@ -82,7 +86,7 @@
     }
     const geaendert = () => !$('#v-woche').classList.contains('hidden') && JSON.stringify(lesen()) !== stand;
 
-    async function vorschlagen() {
+    async function vorschlagen(nurLeere) {
       if (!ctx.openaiKey()) return ctx.toast('Für den Vorschlag wird der OpenAI-Schlüssel gebraucht (Einstellungen).', 5000);
       const ns = notizenDerWoche(woche);
       if (!ns.length) return ctx.toast('In dieser Woche gibt es noch keine Notizen.', 4000);
@@ -105,14 +109,34 @@
       try {
         const fuer = woche, r = await S.wochenbericht(txt, { key: ctx.openaiKey(), model: ctx.llmModel(), stil });
         if (fuer !== woche || $('#v-woche').classList.contains('hidden')) return; // Seite inzwischen verlassen
-        entwurf = { abschnitte: { inhalte: r.inhalte || '', ueberblick: r.ueberblick || '', gesamt: r.gesamt || '', hinweise: r.hinweise || '' }, teams: {} };
-        (r.teams || []).forEach(x => { const t = tl.find(y => y.name === x.team); if (t) { const tb = {}; WBK.WB_TEAM.forEach(([k]) => { tb[k] = x[k] || ''; }); entwurf.teams[t.name] = tb; } });
-        neu = new Set(); offen = ''; renderEditor(); vorschlagStand = JSON.stringify(lesen());
-        ctx.toast('Vorschlag fertig. Bitte prüfen und dann „Sichern“ tippen.', 4000);
+        const r2 = { abschnitte: { inhalte: r.inhalte || '', ueberblick: r.ueberblick || '', gesamt: r.gesamt || '', hinweise: r.hinweise || '' }, teams: {} };
+        (r.teams || []).forEach(x => { const t = tl.find(y => y.name === x.team); if (t) { const tb = {}; WBK.WB_TEAM.forEach(([k]) => { tb[k] = x[k] || ''; }); r2.teams[t.name] = tb; } });
+        neu = new Set();
+        if (nurLeere) {
+          // Nur leere Felder füllen, Vorhandenes bleibt unangetastet
+          const b = lesen();
+          ABS.forEach(k => { if (!String(b.abschnitte[k] || '').trim() && r2.abschnitte[k]) { b.abschnitte[k] = r2.abschnitte[k]; neu.add('a.' + k); } });
+          tl.forEach(t => { const tb = b.teams[t.name] = b.teams[t.name] || {}, nt = r2.teams[t.name] || {}; WBK.WB_TEAM.forEach(([k]) => { if (!String(tb[k] || '').trim() && nt[k]) { tb[k] = nt[k]; neu.add('t.' + t.name + '.' + k); } }); });
+          entwurf = b;
+        } else { entwurf = r2; offen = ''; }
+        renderEditor();
+        await speichernStill(nurLeere ? neu.size + (neu.size === 1 ? ' leeres Feld' : ' leere Felder') + ' gefüllt und gespeichert.' : 'Wochenbericht aus den Tagesprotokollen erstellt und gespeichert. Du kannst ihn jetzt ändern.');
       } catch (e) { ctx.toast('Vorschlag fehlgeschlagen: ' + e.message, 6000); }
       finally { ctx.busy(''); }
     }
     const ohneLeere = o => JSON.stringify(Object.keys(o || {}).sort().filter(k => o[k]).map(k => [k, o[k]]));
+    // Ohne Seitenwechsel speichern (nach Vorschlag und Einsprechen), damit nichts doppelt erzeugt wird oder verloren geht
+    async function speichernStill(meldung) {
+      const b = lesen(), w = woche;
+      if (istLeer(b)) return;
+      try {
+        await ctx.withStore('Speichere Wochenbericht …', () => ctx.modifyCourse(c => { c.wochenberichte = c.wochenberichte || {}; c.wochenberichte[w] = b; },
+          c => ohneLeere(((c.wochenberichte || {})[w] || {}).abschnitte) === ohneLeere(b.abschnitte)));
+        if (w !== woche) return;
+        stand = JSON.stringify(b); renderEditor();
+        ctx.toast('✓ ' + meldung, 4500);
+      } catch (e) { /* gemeldet */ }
+    }
     async function sichern() {
       const b = lesen(), w = woche;
       if (istLeer(b)) return loeschen(true);
@@ -292,7 +316,7 @@
         });
         offen = dazu(offen, r.nicht_zugeordnet);
         entwurf = b; renderEditor();
-        ctx.toast(neu.size + (neu.size === 1 ? ' Feld' : ' Felder') + ' gefüllt. Bitte prüfen und „Sichern“ tippen.', 5000);
+        await speichernStill(neu.size + (neu.size === 1 ? ' Feld' : ' Felder') + ' gefüllt und gespeichert. Bitte kurz prüfen.');
       } catch (e) { ctx.toast('Verteilen fehlgeschlagen: ' + e.message + '. Die Aufnahmen sind in Google Drive gesichert.', 7000); }
       finally { ctx.busy(''); }
     }
@@ -310,20 +334,14 @@
       $('#wdModus').addEventListener('click', e => { const b = e.target.closest('[data-modus]'); if (b) modusWechsel(b.dataset.modus); });
       $('#wbBody').addEventListener('click', async e => {
         const st = e.target.closest('[data-stil]');
-        if (st) {
-          if (st.dataset.stil === stil) return;
-          const hatText = !istLeer(lesen());
-          if (hatText && JSON.stringify(lesen()) !== vorschlagStand && !confirm('Der Vorschlag wird im Stil „' + st.textContent + '“ neu geschrieben. Deine Änderungen in den Feldern gehen dabei verloren. Weiter?')) return;
-          stil = st.dataset.stil; document.querySelectorAll('.wb-stil [data-stil]').forEach(x => x.classList.toggle('on', x === st));
-          if (hatText) vorschlagen();
-          return;
-        }
+        if (st) { stil = st.dataset.stil; document.querySelectorAll('.wb-stil [data-stil]').forEach(x => x.classList.toggle('on', x === st)); return; }
         if (e.target.closest('#wbDiktat')) diktatStart();
         const nu = e.target.closest('[data-nur]'); if (nu) diktatStart(nu.dataset.nur);
         const le = e.target.closest('[data-leeren]'); if (le) leeren(le.dataset.leeren);
         if (e.target.closest('#wbSave2')) sichern();
         if (e.target.closest('#wbDel')) loeschen();
-        if (e.target.closest('#wbKi')) vorschlagen();
+        if (e.target.closest('#wbKi')) vorschlagen(false);
+        if (e.target.closest('#wbLuecken')) vorschlagen(true);
         if (e.target.closest('#wbPdf')) { const w = woche; if (geaendert()) { await sichern(); if (geaendert()) return; } ctx.pdfWoche(w); }
       });
       $('#wbBody').addEventListener('input', e => { if (e.target.classList.contains('wb-ta')) groesse(e.target); });
