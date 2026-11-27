@@ -168,7 +168,7 @@
     }
 
     // ---------------- Bericht einsprechen: Schritt für Schritt, je Abschnitt bzw. Team eine Aufnahme ----------------
-    let einzeln = false, schritte = [], si = 0, stream = null, rec = null, teile = [], timer = 0, raf = 0, actx = null, an = null, wake = null;
+    let einzeln = false, schritte = [], si = 0, stream = null, rec = null, teile = [], timer = 0, raf = 0, actx = null, wake = null;
     let modus = localStorage.getItem('ltr.wbModus') || 'schritt';
     let pausiert = false, laufzeit = 0, seit = 0, abbruch = false;
     const sekunden = () => Math.floor((laufzeit + (pausiert ? 0 : Date.now() - seit)) / 1000);
@@ -283,14 +283,14 @@
     function welle() {
       const cv = $('#wdWave'), g = cv.getContext('2d'), rot = getComputedStyle(document.documentElement).getPropertyValue('--red').trim() || '#ff3b30', dpr = global.devicePixelRatio || 1;
       cv.width = Math.round(cv.clientWidth * dpr) || 600; cv.height = Math.round(cv.clientHeight * dpr) || 80;
-      actx = S.tonPegel(stream, 1024); an = actx && actx.analyser;
-      const d = new Uint8Array(an ? an.fftSize : 1), STEP = 9 * dpr, BAR = 3 * dpr, n = Math.ceil(cv.width / STEP) + 2, bars = new Array(n).fill(0);
+      actx = S.tonPegel(stream, 1024, info => { console.warn('Tonanzeige', info); ctx.toast(S.PEGEL_HINWEIS + ' (' + info + ')', 8000); });
+      const STEP = 9 * dpr, BAR = 3 * dpr, n = Math.ceil(cv.width / STEP) + 2, bars = new Array(n).fill(0);
       let lvl = 0, off = 0, last = performance.now();
       const loop = now => {
         raf = requestAnimationFrame(loop);
         const dt = Math.min(64, now - last); last = now; let z = 0;
         if (actx) actx.wach(now);
-        if (!pausiert && an) { an.getByteTimeDomainData(d); let q = 0; for (let i = 0; i < d.length; i++) { const v = d[i] - 128; q += v * v; } z = Math.min(1, Math.sqrt(q / d.length) / 28); }
+        if (!pausiert && actx) z = actx.pegel(dt);
         lvl += (z - lvl) * Math.min(1, dt / 60);
         if (!pausiert) { off += dt * 0.06 * dpr; while (off >= STEP) { off -= STEP; bars.push(lvl); bars.shift(); } }
         const w = cv.width, h = cv.height; g.clearRect(0, 0, w, h); g.fillStyle = rot; g.globalAlpha = pausiert ? 0.4 : 1;
