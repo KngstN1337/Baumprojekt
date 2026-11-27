@@ -207,13 +207,11 @@
     function deckblatt(inhaltListe) {
       const c = course(), m = c.meta, [a, b] = zeitraumVonBis();
       return [
-        ...titel('LTR | Trainingsdokumentation', m.titel || '', true),
+        ...titel((m.titel ? m.titel + ' | ' : '') + 'Trainingsdokumentation', '', true),
         kv([['Lehrgang', m.titel], ['Art', m.art === 'spuerhund' ? 'Spürhund' : 'Allgemein'], ['Zeitraum', WBK.isoToDe(a) + ' bis ' + WBK.isoToDe(b)], ['Dauer', st.woche ? wocheText(st.woche) : wochen() + ' Wochen'],
           ['Trainer/in', m.trainer], ['Teams', String(teams().length)], ['Notizen', String(notizen().length)], ['Erstellt am', WBK.isoToDe(ctx.today())]], 2),
         balken('Inhalt dieses PDFs'),
-        { ul: inhaltListe, margin: [6, 0, 0, 0] },
-        balken('Hinweis'),
-        { text: 'Erstellt mit LTR aus der Lehrgangsdatei in Google Drive. Nur dienstlich freigegebene Angaben weitergeben und die geltenden Datenschutz- und Aufbewahrungsvorgaben beachten.' }
+        { ul: inhaltListe, margin: [6, 0, 0, 0] }
       ];
     }
     function teamsBlatt() {
@@ -261,7 +259,7 @@
         const widths = [52, ...(nurTeam ? [] : [80])];
         if (spalten) widths.push(60, 60, '*', ...(mitZg ? [34] : []), '*', '*', '*', 70);
         else { widths.push('*'); if (mitZg) widths.push(110); }
-        const unter = WBK.isoToDe(wocheStart(w)) + ' bis ' + WBK.isoToDe(WBK.addDays(wocheStart(w), 6)) + ' · eine Zeile je ' + (nurTeam ? 'Tag' : 'Team und Tag') + ' · dicke Linie bei jedem neuen Tag';
+        const unter = WBK.isoToDe(wocheStart(w)) + ' bis ' + WBK.isoToDe(WBK.addDays(wocheStart(w), 6));
         const teil = [...titel('Tagesprotokolle · ' + wocheText(w) + (nurTeam ? ' · ' + nurTeam : ''), unter), liste(widths, body, neu)];
         out.push(...(wi ? neueSeite(teil) : teil));
       });
@@ -291,7 +289,7 @@
         const widths = [...(nurTeam ? [] : [130]), 110, 40, ...tage.map(() => '*')];
         // Teilnehmerakte: Wochen untereinander (kurz), ganzer Lehrgang: jede Woche auf eigener Seite
         const teil = nurTeam ? [Object.assign(balken('Zielgerüche je Tag · ' + wocheText(w)), wi ? {} : { margin: [0, 0, 0, 6] }), liste(widths, body, neu)]
-          : [...titel('Zielgerüche · ' + wocheText(w), 'Belohnungen je Team und Geruch an jedem Trainingstag · aus dem Zähler in der App'), liste(widths, body, neu)];
+          : [...titel('Zielgerüche · ' + wocheText(w), WBK.isoToDe(wocheStart(w)) + ' bis ' + WBK.isoToDe(WBK.addDays(wocheStart(w), 6))), liste(widths, body, neu)];
         out.push(...(wi && !nurTeam ? neueSeite(teil) : teil));
       });
       return out;
@@ -299,7 +297,7 @@
     function zgDiagramme() {
       const tl = teams(), zeilen = [];
       for (let i = 0; i < tl.length; i += 2) zeilen.push({ columns: [dCard(tl[i], 170), tl[i + 1] ? dCard(tl[i + 1], 170) : { text: '' }], columnGap: 12 });
-      return [...titel('Zielgerüche · Kreisdiagramme je Team', 'Anteil jedes Zielgeruchs an allen Belohnungen · ' + zeitraumText(), true), ...zeilen];
+      return [...titel('Zielgerüche · Kreisdiagramme je Team', zeitraumText(), true), ...zeilen];
     }
     // Wochenberichte: je Woche eine Seite wie der Excel-Reiter
     const berichtWochen = () => Object.keys(course().wochenberichte || {}).map(Number).filter(w => w > 0 && (!st.woche || w === st.woche)).sort((a, b) => a - b);
@@ -311,7 +309,7 @@
         const b = course().wochenberichte[w], ab = b.abschnitte || {}, a = wocheStart(w);
         const body = [kopf(['Team', 'Tages-\nprotokolle', ...WBK.WB_TEAM.map(x => x[1] === 'Ausbilderbewertung' ? 'Ausbilder-\nbewertung' : x[1])])];
         teams().forEach(t => { const tb = (b.teams || {})[t.name] || {}, n = WBK.einheiten(course(), t.name, w); body.push([{ text: teamLabel(t) + (t.behoerde ? ', ' + t.behoerde : ''), bold: true }, { text: String(n), alignment: 'center' }, ...WBK.WB_TEAM.map(([k]) => k === 'bewertung' ? { text: tb[k] || '', alignment: 'center' } : tb[k] || '')]); });
-        const teil = [...titel('LTR | Gemeinsamer interner Wochenbericht', 'Von LTR aus den Tagesprotokollen der Woche vorgeschlagen · vom Trainer geprüft', true),
+        const teil = [...titel((m.titel ? m.titel + ' | ' : '') + 'Gemeinsamer interner Wochenbericht', '', true),
           kv([['Dienststelle', m.kopfBehoerde], ['Organisationseinheit', [m.kopfOe1, m.kopfOe2].filter(Boolean).join(' – ')], ['Trainer', m.trainer], ['Lehrgangswoche', w + '. Lehrgangswoche'], ['Kalenderwoche', kw(a) + '. KW'], ['Zeitraum', WBK.isoToDe(a) + ' bis ' + WBK.isoToDe(WBK.addDays(a, 6))]], 2),
           balken('1 | Ausbildungsinhalte / Schwerpunkte'), { text: ab.inhalte || '–' }, balken('2 | Gesamtüberblick der Ausbilder'), { text: ab.ueberblick || '–' },
           balken('3 | Individuelle Entwicklung der Mensch-Hund-Teams'), liste([110, 58, '*', '*', '*', 58, 80, 80], body),
@@ -354,8 +352,8 @@
       const erstellt = WBK.isoToDe(ctx.today());
       return {
         pageSize: 'A4', pageOrientation: 'landscape', pageMargins: [34, 40, 34, 36],
-        info: { title: dateiName().replace(/\.pdf$/, ''), creator: 'LTR', producer: 'LTR' },
-        header: () => ({ columns: [{ text: 'LTR · Lehrgangsdokumentation' }, { text: kopfRechts, alignment: 'right' }], margin: [34, 16, 34, 0], fontSize: 7, color: '#777777' }),
+        info: { title: dateiName().replace(/\.pdf$/, '') },
+        header: () => ({ columns: [{ text: c.meta.titel || '' }, { text: kopfRechts === c.meta.titel ? '' : kopfRechts, alignment: 'right' }], margin: [34, 16, 34, 0], fontSize: 7, color: '#777777' }),
         footer: (seite, von) => ({ columns: [{ text: 'Interne Dokumentation' }, { text: 'Seite ' + seite + ' von ' + von, alignment: 'center', bold: true, color: '#000000' }, { text: 'Erstellt am ' + erstellt, alignment: 'right' }], margin: [34, 10, 34, 0], fontSize: 7, color: '#777777' }),
         content: inhalt,
         styles: { h1: { fontSize: 15, bold: true, color: BLAU }, unter: { fontSize: 8, margin: [0, 2, 0, 0] }, th: { bold: true, color: '#FFFFFF', fontSize: 8.5 } },
@@ -365,8 +363,9 @@
     const sauber = s => String(s || '').replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim();
     function dateiName() {
       const c = course(), d = ctx.today();
-      const was = st.modus === 'akte' ? 'Teilnehmerakte ' + st.team : 'Lehrgang ' + (c.meta.titel || '');
-      return sauber(was + (st.woche ? ' ' + st.woche + '. Woche' : '') + ' ' + d) + '.pdf';
+      const nurWb = st.modus === 'kurs' && auswahl().join() === 'wochen' && st.woche;
+      const was = st.modus === 'akte' ? 'Teilnehmerakte ' + st.team : nurWb ? 'Wochenbericht ' + (c.meta.titel || '') + ' KW ' + kw(wocheStart(st.woche)) : 'Lehrgang ' + (c.meta.titel || '');
+      return sauber(was + (st.woche && !nurWb ? ' ' + st.woche + '. Woche' : '') + ' ' + d) + '.pdf';
     }
 
     async function erstellen() {
@@ -412,6 +411,12 @@
       document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 10000);
     }
 
-    return { bind, render, open, tab, dokument: () => dokument(), laden, _st: st };
+    // Nur den Wochenbericht einer Woche als PDF (für den Vorgesetzten), ohne die Auswahl zu verändern
+    async function wochenbericht(w) {
+      const alt = JSON.stringify(st);
+      st.modus = 'kurs'; st.woche = w; Object.keys(st.kurs).forEach(k => { st.kurs[k] = k === 'wochen'; });
+      try { await erstellen(); } finally { Object.assign(st, JSON.parse(alt)); }
+    }
+    return { bind, render, open, tab, wochenbericht, dokument: () => dokument(), laden, _st: st };
   };
 })(typeof window !== 'undefined' ? window : globalThis);
