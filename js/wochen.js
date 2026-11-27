@@ -243,7 +243,7 @@
           if (abbruch || dauer < 2) return ok();
           const blob = new Blob(r._ch, { type: r.mimeType || 'audio/webm' });
           const aid = await ctx.aufnahmeSichern(blob, 'Wochenbericht ' + woche + '. Woche · ' + x.titel);
-          teile.push({ key: x.key, team: x.team, titel: x.key === 'alle' ? 'Ganzer Bericht (Abschnitte und Teams werden angesagt)' : x.team ? 'Team ' + x.titel : x.titel, text: S.transcribe(blob, { key: ctx.openaiKey(), model: ctx.sttModel(), hint: ctx.sttHint() })
+          teile.push({ key: x.key, team: x.team, titel: x.key === 'alle' ? 'Ganzer Bericht (Abschnitte und Teams werden angesagt)' : x.team ? 'Team: ' + x.team : x.titel, text: S.transcribe(blob, { key: ctx.openaiKey(), model: ctx.sttModel(), hint: ctx.sttHint() })
             .then(t => { if (t) ctx.rohtextSichern(aid, t); return t; }) });
           ok();
         };
@@ -307,16 +307,28 @@
         for (const t of teile) { try { const x = await t.text; if (x) fertig.push({ titel: t.titel, text: x }); } catch (e) { ctx.toast('Ein Teil wurde nicht erkannt (' + t.titel + '). Die Aufnahme ist in Google Drive gesichert.', 6000); } }
         if (!fertig.length) { ctx.toast('Es wurde nichts verstanden.', 4000); return; }
         ctx.busy('Verteile auf die Felder …');
-        const r = await S.wochenDiktat(fertig, { key: ctx.openaiKey(), model: ctx.llmModel(), stil, teams: course().teams, glossar: ctx.glossar(), stoffe: ctx.stoffe() });
+        const r = await S.wochenDiktat(fertig, { key: ctx.openaiKey(), model: ctx.llmModel(), stil, teams: course().teams, teamNamen: teams().map(t => t.name), glossar: ctx.glossar(), stoffe: ctx.stoffe() });
         const b = lesen(), dazu = (alt, x) => { x = String(x || '').trim(); return !x ? alt : alt ? alt + '\n' + x : x; };
         neu = new Set();
         ['inhalte', 'ueberblick', 'gesamt', 'hinweise'].forEach(k => { if (String(r[k] || '').trim()) { b.abschnitte[k] = dazu(b.abschnitte[k], r[k]); neu.add('a.' + k); } });
+        // Teamnamen tolerant zuordnen („Team: Markus & Juna“, „markus und juna“, nur Hund oder nur Vorname)
+        const norm = v => String(v || '').toLowerCase().replace(/^team\s*:?\s*/, '').replace(/\s+und\s+/g, ' & ').replace(/\s+/g, ' ').trim();
+        const findeTeam = n => { const z = norm(n); if (!z) return null; const tl = teams();
+          return tl.find(y => norm(y.name) === z) || tl.find(y => z.includes(norm(y.name)) || norm(y.name).includes(z)) ||
+            tl.find(y => [y.hund, String(y.teilnehmer || '').split(/\s+/)[0]].some(w => w && z.split(/[\s&,]+/).includes(norm(w)))) || null; };
         (r.teams || []).forEach(x => {
-          const t = teams().find(y => y.name === x.team); if (!t) return;
+          const t = findeTeam(x.team); if (!t) { offen = dazu(offen, WBK.WB_TEAM.map(([k]) => x[k]).filter(Boolean).join(' ')); return; }
           const tb = b.teams[t.name] = b.teams[t.name] || {};
           WBK.WB_TEAM.forEach(([k]) => { if (!String(x[k] || '').trim()) return; tb[k] = k === 'bewertung' ? String(x[k]).trim() : dazu(tb[k], x[k]); neu.add('t.' + t.name + '.' + k); });
         });
         offen = dazu(offen, r.nicht_zugeordnet);
+        // Sicherheitsnetz: Konnte nichts zugeordnet werden, steht der erkannte Text im orangen Kasten (nichts geht verloren)
+        if (!neu.size) {
+          offen = dazu(offen, fertig.map(f => f.titel.replace(/ \(.*\)$/, '') + ': ' + f.text).join('\n'));
+          entwurf = b; renderEditor();
+          ctx.toast('LTR konnte das Gesagte keinem Feld zuordnen. Der erkannte Text steht oben im orangen Kasten, die Aufnahme liegt in Google Drive.', 8000);
+          return;
+        }
         entwurf = b; renderEditor();
         await speichernStill(neu.size + (neu.size === 1 ? ' Feld' : ' Felder') + ' gefüllt und gespeichert. Bitte kurz prüfen.');
       } catch (e) { ctx.toast('Verteilen fehlgeschlagen: ' + e.message + '. Die Aufnahmen sind in Google Drive gesichert.', 7000); }

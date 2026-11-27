@@ -583,7 +583,7 @@
       'Schreibe daraus die Felder des Wochenberichts.\n\n' + namensListe(opts.teams, opts.stoffe) +
       'Regeln (Schreibstil „' + stil.name + '“):\n' + stil.regeln.join('\n') + '\n' + GEMEINSAM + '\n' + GLOSSAR_REGELN.split('\n')[0] + '\n' +
       '- Abschnitte inhalte, ueberblick, gesamt, hinweise: der Text der jeweiligen Aufnahme.\n' +
-      '- Team-Aufnahmen: verteile den Inhalt auf die Felder ' + WB_TEAM_FELDER + '. team genau wie in der Überschrift. Jeder Satz kommt in genau ein Feld, nichts doppelt.\n' +
+      '- Team-Aufnahmen: verteile den Inhalt auf die Felder ' + WB_TEAM_FELDER + '. team: der Teamname genau wie in der Namensliste bzw. nach „Team:“ in der Überschrift (z. B. „Markus & Juna“). Eine Aufnahme mit Überschrift „Team: …“ gehört immer zu diesem Team, auch wenn der Name darin nicht genannt wird. Jeder Satz kommt in genau ein Feld, nichts doppelt.\n' +
       '- Aufnahme „Ganzer Bericht“: der Trainer spricht alles am Stück und sagt jeweils an, worum es geht (Abschnitt oder Team-Name, auch nur Teilnehmer- oder Hundename). Ordne jeden Satz dem angesagten Abschnitt bzw. Team zu.\n' +
       '- Ansagen für mehrere Teams umsetzen: Sagt der Trainer z. B. „übernimm das für alle anderen Teams“, „gilt für alle Teams“ oder „bei Sabine genauso wie bei Detlef“, ' +
       'dann trage die betreffenden Felder bei diesen Teams genauso ein (Namen von Teilnehmer und Hund passend ersetzen, Note mit übernehmen). Was danach für ein Team einzeln gesagt wird, ergänzt bzw. ersetzt das Übernommene bei diesem Team. Die Ansage selbst nicht in den Text schreiben.\n' +
@@ -593,7 +593,7 @@
       'Glossar (Begriff, dahinter typische Fehlerkennungen der Spracherkennung):\n' + glossarListe(opts.glossar);
     const schema = { type: 'object', additionalProperties: false, required: ['inhalte', 'ueberblick', 'gesamt', 'hinweise', 'teams', 'nicht_zugeordnet'],
       properties: { inhalte: { type: 'string' }, ueberblick: { type: 'string' }, gesamt: { type: 'string' }, hinweise: { type: 'string' }, teams: { type: 'array', items: WB_T_SCHEMA }, nicht_zugeordnet: { type: 'string' } } };
-    const user = teile.map(t => '## ' + t.titel + '\n' + t.text).join('\n\n');
+    const user = 'Teamnamen für das Feld team (genau so schreiben): ' + (opts.teamNamen || []).join('; ') + '\n\n' + teile.map(t => '## ' + t.titel + '\n' + t.text).join('\n\n');
     const res = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: { Authorization: 'Bearer ' + opts.key, 'Content-Type': 'application/json' },
