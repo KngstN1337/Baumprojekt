@@ -1107,6 +1107,17 @@
       show('#courseForm', false); kursStand = null; refreshCourses(); toast('✓ Gespeichert');
     } catch (e) { /* gemeldet */ }
   }
+  // Beispiel-Lehrgang (erfundene Daten, 4 Wochen Datenspeicherspürhunde) im eigenen Google Drive anlegen – zum Ausprobieren
+  async function beispielAnlegen() {
+    if (!S.Drive.connected()) return toast('Bitte zuerst anmelden.');
+    if (!confirm('Einen Beispiel-Lehrgang „Datenspeicherspürhunde“ mit 5 erfundenen Teams, Tagesprotokollen, Belohnungen und Wochenberichten in deinem Google Drive anlegen? Du kannst ihn später wie jeden Lehrgang löschen.')) return;
+    const c = window.BaumprojektBeispiel(today(), localStorage.getItem('baumprojekt.trainer') || '');
+    try {
+      const id = await withStore('Lege Beispiel-Lehrgang an …', async () => { kopfInKurs(c); return store().create(c.meta.titel, await WBK.toBuffer(c)); });
+      setActive(id, true); course = c; await S.KV.set('course:' + id, c);
+      selDate = today(); clampDate(); refreshCourses(); toast('✓ Beispiel-Lehrgang angelegt', 3500);
+    } catch (e) { /* gemeldet */ }
+  }
   async function download() {
     if (!activeId) return toast('Kein Lehrgang gewählt.');
     try {
@@ -1314,6 +1325,7 @@
     $('#courseSelectTop').addEventListener('change', switchCourse);
     $('#newCourseBtn').addEventListener('click', () => openCourseForm(false));
     $('#addSharedBtn').addEventListener('click', () => addShared(localStorage.getItem('baumprojekt.invite') || ''));
+    $('#beispielBtn').addEventListener('click', beispielAnlegen);
     $('#shareBox').addEventListener('click', e => { if (e.target.id === 'inviteBtn') invite(); const u = e.target.closest('[data-unshare]'); if (u) unshare(u.dataset.unshare); });
     $('#shareBox').addEventListener('change', e => { if (e.target.id === 'shareKey') toggleShareKey(e.target.checked); });
     $('#deleteCourseBtn').addEventListener('click', deleteCourse);
